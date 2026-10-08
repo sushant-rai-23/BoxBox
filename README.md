@@ -6,29 +6,20 @@ AI coding that pits for review.
 
 You end up with code you can explain, because you made the decisions and read the reasoning.
 
-## What you get
-
-- **A board** (`.boxbox/board.html`): the whole project as a tree of milestones, epics and tasks, with status and links to every page.
-- **A context page** before any decision: what exists, what the feature touches, which concepts are new to you, how it can fail.
-- **A decisions page**: one card per decision, with options, trade-offs and a recommendation. You answer one at a time.
-- **A plan page** you approve before any code is written.
-- **A design page** for large epics: data shapes and interfaces, approved before the code.
-- **A report per unit** that teaches the code that was just written, at your level, with a pull request to review.
-- **Knowledge pages** for anything in the stack that is new to you.
-- **An explanation page** for any existing feature, on request: say "explain the login feature".
-
-Every step also writes a short Markdown file, so a new session or a different model can pick up where the last one stopped.
-
 ## Install
 
 ### Claude Code (CLI and the VS Code extension)
 
+Run these once on your machine. The first line registers this repo as a plugin source; the second installs the plugin. Then restart Claude Code.
+
 ```
-claude plugin marketplace add /path/to/boxbox
+claude plugin marketplace add sushant-rai-23/BoxBox
 claude plugin install boxbox@boxbox
 ```
 
-Or, inside a session: `/plugin marketplace add /path/to/boxbox`, then `/plugin install boxbox@boxbox`. From GitHub: `claude plugin marketplace add sushant-rai-23/BoxBox` then `claude plugin install boxbox@boxbox`.
+The same two commands work typed into the chat box, with `/plugin` in place of `claude plugin`.
+
+To update later: `claude plugin update boxbox@boxbox`. To install from a local clone instead, give the folder path in place of `sushant-rai-23/BoxBox`.
 
 The plugin includes a session-start hook, so the flow starts on its own when you describe a feature.
 
@@ -44,6 +35,19 @@ The plugin includes a session-start hook, so the flow starts on its own when you
 Add `--project` to install into the current repo instead of your home folder.
 
 Without the hook, start the flow by naming it: "use boxbox to add password reset". After the first run, setup adds a line to the repo's `AGENTS.md` so later sessions start on their own.
+
+## What you get
+
+- **A board** (`.boxbox/board.html`): the whole project as a tree of milestones, epics and tasks, with status and links to every page.
+- **A context page** before any decision: what exists, what the feature touches, which concepts are new to you, how it can fail.
+- **A decisions page**: one card per decision, with options, trade-offs and a recommendation. You answer one at a time.
+- **A plan page** you approve before any code is written.
+- **A design page** for large epics: data shapes and interfaces, approved before the code.
+- **A report per unit** that teaches the code that was just written, at your level, with a pull request to review.
+- **Knowledge pages** for anything in the stack that is new to you.
+- **An explanation page** for any existing feature, on request: say "explain the login feature".
+
+Every step also writes a short Markdown file, so a new session or a different model can pick up where the last one stopped.
 
 ## Use
 
