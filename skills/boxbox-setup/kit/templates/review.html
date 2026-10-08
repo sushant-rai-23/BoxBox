@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ROOT}}assets/style.css">
+</head>
+<body>
+<!-- TEMPLATE: review notes for a person reviewing work they did not build. Copy to .boxbox/reviews/<name>.html and fill.
+     {{ROOT}} here is "../". Nothing is changed by this page: it helps the reviewer decide. Real code, real paths, real output.
+     Depth follows the reviewer's answers: at "skim", one line per piece; at "deep", the code and a definition for each new term.
+     Keep the focus they chose. Add no CSS. -->
+<div id="readbar"></div>
+<div class="wrap">
+  <div class="crumbs"><a href="{{ROOT}}board.html">Board</a><span aria-hidden="true">/</span><span>Reviews</span><span aria-hidden="true">/</span><span>{{NAME}}</span></div>
+
+  <header class="top">
+    <div class="eyebrow">{{PROJECT}} · review notes · {{DATE}}</div>
+    <h1>Reviewing {{NAME}}</h1>
+    <p class="lede">{{What this change does, in three sentences a reviewer could read cold.}}</p>
+    <div class="pills">
+      <span class="pill acc">{{skim / standard / deep}}</span>
+      <span class="pill">Focus: {{everything / correctness / security / design / tests}}</span>
+      <span class="pill">{{N commits, N files}}</span>
+      <span class="pill warn">Not approved: that is yours to decide</span>
+    </div>
+  </header>
+  <nav class="toc" data-auto aria-label="Sections"></nav>
+
+  <!-- Only when the reviewer is not the developer in config.md. -->
+  <div class="note"><strong>Written for {{reviewer}}.</strong> Knows {{what they said they know}}; new to {{what is new to them}}. Terms marked <span class="tag new">new</span> are defined where they first appear.</div>
+
+  <h2 id="does" data-short="What it does">What this change does</h2>
+  <p>{{Three sentences: the behaviour that exists now, who it is for, and how it is reached.}}</p>
+  <div class="note"><strong>Not done yet.</strong> {{What the change leaves open, by the author's own account or by what the code shows. "Nothing" only if true.}}</div>
+
+  <h2 id="start" data-short="Start here">Start here</h2>
+  <p>The places most worth your attention, riskiest first.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>#</th><th>File</th><th>Lines</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td class="id">1</td><td><code>{{path}}</code></td><td class="num">{{12–48}}</td><td>{{what could go wrong here and what to look for}}</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="pieces" data-short="Pieces">The change, piece by piece</h2>
+  <!-- One .step per piece, in build order. At "skim" depth, keep only the <h3> and one <p>. At "deep" depth, add the code and <dl> definitions. -->
+  <div class="step"><div class="n">1 · {{piece name}}</div>
+    <h3>{{what changed, in plain words}}</h3>
+    <p><strong>Why:</strong> {{the reason, from the plan, the pull request or the commit messages. Say "inferred" if it is a guess.}}</p>
+    <div class="file">{{path/to/file}}</div>
+    <pre><code>{{the real code, trimmed to what matters}}</code></pre>
+    <dl><dt>{{a term that is new to the reviewer}}</dt><dd>{{plain definition, and where it is used in this piece}}</dd></dl>
+    <p><strong>Check:</strong> {{what to verify in this piece, and how}}</p>
+    <p><strong>Ask the author:</strong> {{one or two questions this piece raises}}</p>
+    <p>Diff for this piece: <a href="https://github.com/{{owner}}/{{repo}}/compare/{{before}}...{{last}}">compare on GitHub</a>, or <code>git diff {{before}}..{{last}} -- . ':!.boxbox'</code>.</p>
+  </div>
+
+  <h2 id="evidence" data-short="Evidence">Evidence</h2>
+  <p>Run now, on this branch, by the agent. Output is real.</p>
+  <div class="cell">
+<pre class="code"><code>{{the test command}}</code></pre>
+<pre class="out">{{the output, trimmed}}</pre>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Check</th><th>Command</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>Tests</td><td><code>{{command}}</code></td><td><span class="pill ok">{{N passed}}</span></td></tr>
+      <tr><td>Lint</td><td><code>{{command}}</code></td><td><span class="pill ok">{{clean}}</span></td></tr>
+      <tr><td>Types</td><td><code>{{command}}</code></td><td><span class="pill bad">{{what failed}}</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><strong>Not verified.</strong> {{What could not be run or seen, and why. "Nothing" only if true.}}</div>
+
+  <h2 id="findings" data-short="Findings">Findings from a separate reviewer</h2>
+  <p>A reviewer agent that did not write the code read the whole diff. Worst first. Nothing was fixed.</p>
+  <ul>
+    <li><span class="tag warn">must fix</span> <strong><code>{{path:lines}}</code></strong>: {{what is wrong and why it matters}}</li>
+    <li><span class="tag new">should fix</span> <strong><code>{{path:lines}}</code></strong>: {{what and why}}</li>
+    <li><span class="tag known">note</span> <strong><code>{{path:lines}}</code></strong>: {{what}}</li>
+  </ul>
+
+  <h2 id="decisions" data-short="Decisions">Decisions the author made</h2>
+  <!-- Class "override" on a row marks a choice made against the recommendation. -->
+  <div class="tablewrap"><table>
+    <thead><tr><th>#</th><th>Decision</th><th>Choice</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>{{question}}</td><td>{{choice}}</td><td>{{why, and where it is recorded}}</td></tr>
+      <tr class="override"><td class="id">D2</td><td>{{question}}</td><td>{{choice}}</td><td>Chose against the recommendation: {{why}}</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="approve" data-short="Before you approve">Before you approve</h2>
+  <p>Specific to this change. Tick each one only once you have seen it yourself.</p>
+  <label class="donebox"><input type="checkbox" id="check-1"> {{A thing to confirm in this change, with where to confirm it}}</label>
+  <label class="donebox"><input type="checkbox" id="check-2"> {{Another}}</label>
+  <label class="donebox"><input type="checkbox" id="check-3"> {{Another}}</label>
+
+  <h2 id="links" data-short="Links">Links</h2>
+  <ul>
+    <li>Pull request: <a href="{{url}}">{{title}}</a></li>
+    <li>Branch: <code>{{head}}</code> against <code>{{base}}</code></li>
+    <li>Context: <a href="../{{feature}}/context.html">context page</a> · Plan: <a href="../{{feature}}/plan.html">plan page</a> · Report: <a href="../{{feature}}/{{unit}}/report.html">report</a> · Explained: <a href="../explained/{{name}}.html">how it works</a></li>
+  </ul>
+
+  <footer>Source for the agent: {{name}}.md · These notes change nothing in the code. Approving, merging and commenting are yours.</footer>
+</div>
+<script src="{{ROOT}}assets/page.js"></script>
+</body>
+</html>

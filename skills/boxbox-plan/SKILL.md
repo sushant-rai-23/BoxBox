@@ -72,7 +72,7 @@ Ask each decision as a single question with the options and your recommendation 
 The developer can:
 
 - **Answer.** Record it.
-- **Ask for more.** Explain with code from this repo, using **boxbox-how** if needed. Then ask again.
+- **Ask for more.** Explain with code from this repo, using **boxbox-explain** if needed. Then ask again.
 - **Park it.** Mark it parked. Tasks that depend on it become `blocked`; plan the rest.
 - **Override a default.** Record it as a decision.
 

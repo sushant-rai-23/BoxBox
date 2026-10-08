@@ -20,8 +20,11 @@ You are the driver. The developer is the pit wall: they have the data and make t
 | A feature, a spec, a milestone, several features | The full flow below |
 | A bug, or something broken | The short flow below, starting with **boxbox-debug** |
 | One small, obvious change (one task, no design choice) | The short flow below |
-| A question about how the code works | **boxbox-how**, then stop |
-| "Explain the X feature", "document how X works" | **boxbox-how** as a page (its step 4), then stop |
+| A question about how the code works | **boxbox-explain**, then stop |
+| "Explain the X feature", "document how X works" | **boxbox-explain** as a page (its step 4), then stop |
+| "Explain milestone 0", "explain this branch", "explain this PR": work already built, with or without Boxbox | **boxbox-explain** for finished work (its step 5), then stop |
+| "Review this", "help me review this PR", "I need to review X": work someone else built | **boxbox-review**, then stop |
+| "Inspect this diff", "have this checked": a reviewer agent's findings on a diff | **boxbox-inspect**, then stop |
 | A question about why the code is the way it is | **boxbox-why**, then stop |
 | "Grill me", "challenge this plan" | **boxbox-grill** |
 | "Prototype this", "try both and compare" | **boxbox-prototype** |
@@ -58,7 +61,9 @@ If the short flow turns out to need a design choice or more than one task, say s
 - "switch to task-level" or "switch to epic-level": change the unit of control in `config.md`.
 - "ask me everything", "ask what matters", "decide and show": change the decision level in `config.md`.
 - "park D3": leave that decision open; build what does not depend on it.
-- "explain ..." or "why ...": explain, using **boxbox-how** or **boxbox-why**, then return to the stop.
+- "explain ..." or "why ...": explain, using **boxbox-explain** or **boxbox-why**, then return to the stop.
+- "review ...": help them review someone else's branch or pull request with **boxbox-review**, then return to the stop.
+- "inspect this": have the current diff checked by a separate reviewer with **boxbox-inspect**, then return to the stop.
 - "grill the plan" or "grill me": challenge it with **boxbox-grill**, then return to the stop.
 - "design E2 first": set `design: yes` on that epic in `plan.md` and show it on `plan.html`; **boxbox-design** then runs before that epic is built.
 - "approved" at a design stop: finish **boxbox-design** (its last step), then build.

@@ -116,7 +116,7 @@ Then stop. Say in three lines what was built, where the report and the code are,
 
 1. Set the unit to `changes`. If they commented on the pull request, read the comments (`gh pr view --comments`).
 2. If a request is unclear or you think it is wrong, say so and discuss before changing anything. Do not agree just to be agreeable.
-3. Make the changes as new commits with **boxbox-tdd**, then **boxbox-verify**, and **boxbox-review** if the change is more than small.
+3. Make the changes as new commits with **boxbox-tdd**, then **boxbox-verify**, and **boxbox-inspect** if the change is more than small.
 4. Add a "Changes after your review" section to `report.md` and `report.html`: what they asked, what changed, the new commits.
 5. If they corrected how you work, use **boxbox-lessons**: record the rule, and if it is the second time, propose a check.
 6. Set the unit back to `review` and stop again.

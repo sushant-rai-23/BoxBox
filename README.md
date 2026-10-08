@@ -76,7 +76,8 @@ Without the session-start hook, start the flow by naming it: "use boxbox to add 
 - **A design page** for large epics: data shapes and interfaces, approved before the code.
 - **A report per unit** that teaches the code that was just written, at your level, with a pull request to review.
 - **Knowledge pages** for anything in the stack that is new to you.
-- **An explanation page** for any existing feature, on request: say "explain the login feature".
+- **An explanation page** for any existing feature, milestone or branch, on request: say "explain the login feature" or "explain milestone 0". Works on code built without Boxbox.
+- **Review notes** for a branch or pull request someone else built, at the depth you choose: say "help me review PR 42".
 
 Every step also writes a short Markdown file, so a new session or a different model can pick up where the last one stopped.
 
@@ -96,7 +97,7 @@ The first time, Boxbox sets itself up: it reads the repo and asks you four short
 4. It builds the first unit, has it reviewed by a separate agent, opens the **report** and a draft pull request, and waits. Say `approved`, or say what to change.
 5. It repeats step 4 for each unit.
 
-Things you can say at any stop: `go`, `change ...`, `switch to task-level`, `ask me everything`, `decide and show`, `park D3`, `explain ...`, `why ...`, `grill the plan`, `design E2 first`, `prototype ...`, `pause`.
+Things you can say at any stop: `go`, `change ...`, `switch to task-level`, `ask me everything`, `decide and show`, `park D3`, `explain ...`, `why ...`, `review ...`, `grill the plan`, `design E2 first`, `prototype ...`, `pause`.
 
 Open `.boxbox/board.html` in a browser at any time to see where things stand.
 
@@ -110,35 +111,42 @@ Open `.boxbox/board.html` in a browser at any time to see where things stand.
 
 All three live in `.boxbox/config.md` and can be changed whenever you like. Whatever the level, the agent never does something that cannot be undone without asking.
 
-## The skills
+## The skills and how to use them
 
-| Flow | |
-| --- | --- |
-| `boxbox` | Entry point. Picks the flow for the request |
-| `boxbox-setup` | One-time setup for a repo |
-| `boxbox-discover` | Reads the code, writes the context page |
-| `boxbox-plan` | Splits the work, collects decisions, writes the plan |
-| `boxbox-build` | Builds one unit, test-first |
-| `boxbox-report` | Writes the report, opens the code for review, handles your reply |
-| `boxbox-primer` | Writes a knowledge page |
-| `boxbox-resume` | Picks up or pauses work |
+Nineteen skills. Most run on their own as part of the flow. Each can also be called directly with `/boxbox:<name>` followed by what you want, in your own words.
 
-| Craft | |
-| --- | --- |
-| `boxbox-tdd` | Test-first loop |
-| `boxbox-debug` | Root cause before fix |
-| `boxbox-verify` | Prove it by running it |
-| `boxbox-review` | A separate reviewer, and acting on your comments |
-| `boxbox-how` | Explain how part of the codebase works |
-| `boxbox-why` | Find why code is the way it is, from git and issue history |
-| `boxbox-grill` | Challenge a plan or a decision before it is built |
-| `boxbox-design` | Data shapes and interfaces for your approval before a large epic |
-| `boxbox-prototype` | Throwaway code to settle a design question |
-| `boxbox-lessons` | Turn your corrections into rules and checks |
+### Flow
+
+| Skill | What it does | Runs on its own | Call it directly | Produces |
+| --- | --- | --- | --- | --- |
+| `boxbox` | Entry point: picks the flow for the request | On any feature, bug or planning request, via the session-start hook | `/boxbox:boxbox let users reset their password by email` | The flow: context, decisions, plan, then one unit at a time |
+| `boxbox-setup` | One-time setup: reads the stack, asks four questions | When `.boxbox/` is missing | `/boxbox:boxbox-setup change the unit to task` | `.boxbox/` with `config.md`, the board and the templates |
+| `boxbox-discover` | Reads the code a feature will touch, writes the context page | First step of the full flow | `/boxbox:boxbox-discover what would a password reset touch?` | `context.md` and `context.html`; knowledge pages for what is new to you |
+| `boxbox-plan` | Splits the work, asks decisions one at a time, writes the plan | After discover | `/boxbox:boxbox-plan re-plan E2 with magic links` | `decisions.html`, `plan.md` and `plan.html`; stops for `go` |
+| `boxbox-design` | Data shapes and interfaces for a large epic, for approval before code | When the plan marks an epic `design: yes` | `/boxbox:boxbox-design design E2 first` | `design.md` and `design.html`; stops for approval |
+| `boxbox-build` | Builds one unit test-first, verifies it, has it inspected | After `go`, and after each unit is approved | `/boxbox:boxbox-build continue with E2` | One commit per task on the unit's branch |
+| `boxbox-report` | Writes the report, opens the code for review, handles your reply | After every built unit | `/boxbox:boxbox-report write the report for E1` | `report.md`, `report.html`, a draft pull request; stops |
+| `boxbox-primer` | Teaches one concept, up to the level this project needs | When discover or explain marks a concept new to you | `/boxbox:boxbox-primer teach me job queues` | `knowledge/<topic>.html` |
+| `boxbox-resume` | Picks up or pauses work | On `continue`, `go`, `approved`, or when `state.md` shows work in progress | `/boxbox:boxbox-resume where were we?` | Work resumed at the right stop, or `state.md` written for a pause |
+| `boxbox-explain` | Explains code or finished work, in chat or as a page. Works on code built without Boxbox | On `explain ...` or `how does X work` at any stop | `/boxbox:boxbox-explain explain milestone 0` | An answer in chat, or `explained/<name>.html` with pieces, commits, decisions, checks and findings |
+| `boxbox-review` | Helps you review a branch or pull request you did not build, at the depth you choose. Never approves or merges | Only when you ask | `/boxbox:boxbox-review help me review PR 42` | `reviews/<name>.md` and `.html`: start here, each piece, evidence, findings, a checklist |
+
+### Craft
+
+| Skill | What it does | Runs on its own | Call it directly | Produces |
+| --- | --- | --- | --- | --- |
+| `boxbox-tdd` | Test-first loop: failing test, least code, refactor | Every task in a build | `/boxbox:boxbox-tdd add a regression test for the empty-cart bug` | A test that failed first, then the code that passes it |
+| `boxbox-debug` | Root cause before any fix | On a bug, or when a test fails for an unknown reason | `/boxbox:boxbox-debug why does login return 500 on an empty email?` | The cause, with evidence, before a fix |
+| `boxbox-verify` | Proves work by running it, now | Before any claim of done, before every report | `/boxbox:boxbox-verify prove E1 works end to end` | Evidence per acceptance criterion, or "not verified" with the reason |
+| `boxbox-inspect` | A separate reviewer agent checks the agent's own diff; acts on your review comments | After every unit is verified, and on requested changes | `/boxbox:boxbox-inspect check this diff` | Findings by severity, fixes as new commits, a review note for the report |
+| `boxbox-why` | Finds why code is the way it is, from git and issue history | On `why ...` at any stop; before a plan changes something whose reason is unclear | `/boxbox:boxbox-why why is the session store in Redis?` | An answer with its evidence and how sure it is |
+| `boxbox-grill` | Challenges a plan or a decision with hard questions | Offered at the plan stop when a decision is costly to reverse | `/boxbox:boxbox-grill grill the plan` | Holes found, decisions changed, recorded in `decisions.md` |
+| `boxbox-prototype` | Throwaway code to settle a design question | When a decision depends on something only running code can show | `/boxbox:boxbox-prototype try both and compare` | A comparison and a recommendation; the code is thrown away |
+| `boxbox-lessons` | Turns your corrections into rules and checks | When you correct how the agent works; at the end of a feature | `/boxbox:boxbox-lessons what have we learned?` | A row in `lessons.md`, and a check when a mistake repeats |
 
 ## Status
 
-Version 0.3.0. Built and tried with Claude Code. The Codex, Cursor and skills-CLI paths follow what other skill packs ship and have not been run end to end on those agents yet.
+Version 0.4.0. Built and tried with Claude Code. The Codex, Cursor and skills-CLI paths follow what other skill packs ship and have not been run end to end on those agents yet.
 
 ## License
 

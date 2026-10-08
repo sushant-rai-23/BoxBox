@@ -12,6 +12,44 @@
 <!-- TEMPLATE: explanation of an existing feature. Copy to .boxbox/explained/<feature>.html and fill.
      {{ROOT}} here is "../". Nothing is being changed: this page only explains. Real code, real paths.
      Depth follows config.md: teach what is new to this developer, stay brief on what they know. Add no CSS. -->
+<!-- FINISHED WORK (boxbox-explain, step 5). When the page explains a milestone, branch or pull request that is
+     already built, add these blocks. Only classes from assets/style.css. Delete this comment when done.
+
+     After the header, say the page came after the build:
+     <div class="note">Written after the build, from the code and its history. Nothing on this page was planned in advance; it was read back from the commits.</div>
+
+     In place of "How one request travels": one section per piece, in build order. Each holds the walk-through steps,
+     a commits table and a link to just that piece's diff.
+     <h2 id="piece-1" data-short="{{short name}}">Piece 1 · {{what it made possible}}</h2>
+     <div class="step">{{as the step above}}</div>
+     <div class="tablewrap"><table>
+       <thead><tr><th>Task</th><th>Change</th><th>Commit</th></tr></thead>
+       <tbody><tr><td class="id">{{E1.1}}</td><td>{{one line}}</td><td class="num">{{abc1234}}</td></tr></tbody>
+     </table></div>
+     <p>Diff for this piece: <a href="https://github.com/{{owner}}/{{repo}}/compare/{{before}}...{{last}}">compare on GitHub</a>, or <code>git diff {{before}}..{{last}} -- . ':!.boxbox'</code>.</p>
+
+     After "Why it is built this way": the decisions the developer made. Class "override" on a row marks a choice against the recommendation.
+     <h2 id="decisions" data-short="Decisions">Decisions</h2>
+     <div class="tablewrap"><table>
+       <thead><tr><th>#</th><th>Decision</th><th>Choice</th><th>Note</th></tr></thead>
+       <tbody>
+         <tr><td class="id">D1</td><td>{{question}}</td><td>{{choice}}</td><td>{{why, and where it is recorded}}</td></tr>
+         <tr class="override"><td class="id">D2</td><td>{{question}}</td><td>{{choice}}</td><td>Chose against the recommendation: {{why}}</td></tr>
+       </tbody>
+     </table></div>
+
+     Before "Can you answer these?": the checks run now, with real output, and the reviewer's findings, worst first. Fix nothing.
+     <h2 id="checks" data-short="Checks">Checks run now</h2>
+     <div class="pills"><span class="pill ok">{{tests: N passed}}</span><span class="pill ok">{{lint}}</span><span class="pill bad">{{types: what failed}}</span></div>
+     <div class="cell"><pre class="code"><code>{{command}}</code></pre><pre class="out">{{real output, trimmed}}</pre></div>
+     <div class="note"><strong>Not verified.</strong> {{what could not be run, and why}}</div>
+     <h2 id="findings" data-short="Findings">Findings</h2>
+     <ul>
+       <li><span class="tag warn">must fix</span> <strong>{{path:lines}}</strong>: {{what is wrong and why it matters}}</li>
+       <li><span class="tag new">should fix</span> <strong>{{path:lines}}</strong>: {{what and why}}</li>
+       <li><span class="tag known">note</span> <strong>{{path:lines}}</strong>: {{what}}</li>
+     </ul>
+-->
 <div id="readbar"></div>
 <div class="wrap">
   <div class="crumbs"><a href="{{ROOT}}board.html">Board</a><span aria-hidden="true">/</span><span>Explained</span><span aria-hidden="true">/</span><span>{{FEATURE TITLE}}</span></div>

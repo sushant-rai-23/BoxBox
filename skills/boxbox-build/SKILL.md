@@ -50,7 +50,7 @@ A task with no cheap test: do it, verify it the way the plan says, and record ex
 ## When all tasks in the unit are done
 
 1. **boxbox-verify**: prove the unit meets every acceptance criterion by running it, and prove each failure mode is handled.
-2. **boxbox-review**: have a separate reviewer check the whole diff. Fix what it finds, as new commits, and re-run the checks.
+2. **boxbox-inspect**: have a separate reviewer check the whole diff. Fix what it finds, as new commits, and re-run the checks.
 3. **boxbox-report**: write the report, open the code for the developer, and stop.
 
 **Never start the next unit.** The developer's approval of this one is the only thing that starts it.

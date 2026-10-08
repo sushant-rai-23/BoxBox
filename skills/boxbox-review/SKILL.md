@@ -1,47 +1,93 @@
 ---
 name: boxbox-review
-description: Have finished work reviewed by a separate reviewer before the developer sees it, and act on review feedback. Use after a Boxbox unit is built and verified, when the developer asks for a code review of a branch or diff, or when responding to the developer's review or pull request comments.
+description: Help a person review a branch, pull request or unit they did not build, at the depth they choose, with notes that say where to look first, what to check and what the checks found. Use when the developer says review this, help me review this PR, help me review this branch, I need to review X, or /review. Never approves, merges or changes code.
 ---
 
 # Boxbox review
 
-The agent that wrote the code is the worst placed to judge it. A second pair of eyes that did not write it comes first; the developer's eyes come after.
+This is **boxbox-explain** from the reviewer's side. The reviewer did not write this code and may not know this codebase. Give them a page that tells them what the change does, where to look first, what to check and what was already checked by machine. This skill never approves, never merges and never changes code. Posting comments to the pull request is the reviewer's call.
 
-## 1. Get a separate reviewer
+Read `.boxbox/GUIDE.md`, `config.md` and `lessons.md` first.
 
-**If your agent can run subagents:** start a fresh one as the reviewer. It must not see the build conversation. Give it only:
+## 1. Find the work
 
-- the diff: `git diff <base>...HEAD` (base is the feature branch for an epic, or the previous commit for a task)
-- the unit's outcome, acceptance criteria and failure modes from `plan.md`
-- the conventions from `context.md` and the decisions that apply
-- the checklist below, and this instruction: "Report findings as a list. For each: file and line, what is wrong, why it matters, severity (must fix, should fix, note). Do not fix anything. Say what you checked and found fine."
+1. If `.boxbox/` is missing, run **boxbox-setup** first.
+2. Work out what is under review. Default: the current branch against the main branch. Accept a branch name, a pull request number or a pull request URL (`gh pr view <n> --json headRefName,baseRefName,title,body,url`).
+3. Read what already describes it before the diff: the pull request body, plans or specs in `docs/`, decision records, earlier Boxbox pages (`context`, `plan`, `report`, `explained`). If you cannot tell which work is meant, ask one question.
 
-If your agent lets you pick a model for a subagent, a different model from the one that built the unit is better still.
+## 2. Ask the reviewer
 
-**If you cannot run subagents:** review it yourself, after verification is finished. Read the whole diff top to bottom, file by file, against the checklist, as if a stranger wrote it. Say in the report that the review was not independent.
+One question at a time. Put your recommended answer first. Use your agent's question tool if it has one.
 
-## 2. The checklist
+1. **Depth.** "How deep do you want to go?"
+   - `skim` (ten minutes): what changed, the risks, where to look.
+   - `standard` (recommended): a walk-through per piece.
+   - `deep`: file by file, with the code, and the concepts taught.
+2. **Who is reviewing.** "Are you the developer in `config.md`, or someone else?" If someone else, ask what they know of this stack and what is new to them. Do not overwrite `config.md`; note the reviewer's answers on the page and let them set the depth of each explanation.
+3. **Focus.** "Everything, or one of: correctness, security, design, tests?"
 
-- **Does what was asked.** Every acceptance criterion is met and a test proves it. Nothing extra was built.
-- **Tests are real.** Each would fail if the behaviour broke. None only assert that a mock was called. None were weakened.
-- **Fails safely.** Each failure mode in the plan is handled and tested. Errors, timeouts and empty inputs do not crash or hang. Nothing fails silently.
-- **Safe.** No secrets, keys or personal data in code, logs or tests. Input from outside is checked at the boundary. No new way to bypass a permission.
-- **Fits the codebase.** Names, structure and style match what is there. It uses the project's existing helpers instead of new copies. Terms match `glossary.md`.
-- **Simple.** No wrapper with one caller, no option nobody asked for, no dead code, no leftover debug output. Could it be smaller?
-- **Stays in scope.** Nothing outside the unit changed.
-- **Explainable.** A developer could follow each file. Anything surprising has a comment saying why.
+## 3. Split the change
 
-## 3. Act on the findings
+Split it into pieces the way **boxbox-explain** does for finished work: by the plan's epics or phases if there is one, otherwise into groups of commits a person would review separately, in build order.
 
-- **Must fix and should fix:** check each against the code first. If the reviewer is right, fix it as a new commit, `<E1> review: <what changed>`, and re-run all checks. A fix that changes behaviour gets a failing test first (**boxbox-tdd**); a pure refactor does not. If the reviewer is wrong, do not change the code; note why.
-- **A finding that conflicts with the plan or a recorded decision:** do not quietly pick a side. Tell the developer.
-- **Notes:** leave the code, record them.
+If an explained page or knowledge pages already cover this work, link to them. Do not write them again.
 
-Write a short review note for the report: what was checked, what was fixed because of it, what was left alone and why, and anything still uncertain.
+## 4. Run the checks
 
-## Responding to the developer's review
+Run the test, lint and type commands from `config.md` now (**boxbox-verify**) and keep the real output. Have the whole diff checked by a separate reviewer (**boxbox-inspect**, steps 1 and 2 only). Keep its findings with their severity. Fix nothing.
 
-- Read every comment before changing anything.
-- If a comment is unclear, ask. If you think it is technically wrong, say so with evidence and let them decide. Agreement you do not mean helps nobody.
-- Make each requested change as its own small commit so they can see it.
-- A correction about how you work goes into `.boxbox/lessons.md`.
+## 5. Write the review notes
+
+Write `.boxbox/reviews/<name>.md` for agents (`<name>` is the branch or pull request, lowercase-with-dashes):
+
+```
+# Review notes: <name>
+reviewer: <developer | name, with what they know and what is new>
+depth: skim | standard | deep
+focus: everything | correctness | security | design | tests
+base: <branch>   head: <branch>   pr: <url or none>
+
+## Does
+- <three lines>
+## Not done yet
+- <what the change leaves open>
+## Start here
+- <path:lines>: <why>
+## Pieces
+- <piece>: <commits> · <what to check>
+## Checks run now
+- <command> -> <result>
+## Findings
+- <must fix | should fix | note> <path:lines>: <what>
+## Decisions
+- <id> <choice> (<override if so>)
+```
+
+Then copy `.boxbox/templates/review.html` to `.boxbox/reviews/<name>.html` and fill it following the page rules in `GUIDE.md`. `{{ROOT}}` is `../`. If the template is missing, refresh the kit as **boxbox-setup** describes. Its sections:
+
+- **What this change does**, in three sentences, and what is not done yet.
+- **Start here**: the three to five places most worth the reviewer's attention, riskiest first, each with file, line range and why.
+- **Per piece**: what changed, why, what to check, questions to ask the author, and a compare link (or the diff command) for just that piece. At `skim` depth this is one line per piece. At `deep` depth it includes the code and a definition for each term that is new to the reviewer.
+- **Evidence**: the checks run now and their results, and what could not be verified.
+- **Findings** from **boxbox-inspect**, worst first, each marked must fix, should fix or note.
+- **Decisions** the author made, with overrides marked (`tr.override`).
+- **Before you approve**: a short checklist of boxes specific to this change. Not a generic list.
+- **Links**: pull request, branch, and the context, plan, report and explained pages that exist.
+
+Keep the focus the reviewer chose: one line on what is outside it, no more.
+
+## 6. Board and commit
+
+Add a "Review" link for this work on the board: on its milestone if the work has one in `board-data.js`, otherwise under `knowledge`, titled "Review: <name>". Commit `.boxbox/` as `Boxbox: review notes for <name>`.
+
+## 7. Open it and stop
+
+Open the page and print its path. Open the code on GitHub: `gh pr view --web` if a pull request exists, otherwise `gh browse --branch <branch>`. If `gh` is missing, print the URL.
+
+Then stop. Offer, in one line each:
+
+- explain any part (**boxbox-explain**)
+- dig into the history of a choice (**boxbox-why**)
+- challenge the design (**boxbox-grill**)
+
+Post review comments to the pull request only if the reviewer asks for it, and show them the text first.

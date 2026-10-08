@@ -42,6 +42,7 @@ Whatever the decision level, ask before any of these:
   templates/          page skeletons to copy. Fixed; refreshed from the kit by boxbox-setup
   knowledge/<topic>.html
   explained/<feature>.html    how an existing feature works, written on request
+  reviews/<name>.md  reviews/<name>.html    notes for a person reviewing work they did not build
   <feature>/          one folder per feature or milestone, lowercase-with-dashes
     context.md   context.html
     decisions.html
@@ -113,13 +114,13 @@ window.BOXBOX_BOARD = {
 
 ## Pages
 
-Every developer page is made by copying a file from `templates/` and filling it.
+Every developer page is made by copying a file from `templates/` and filling it. There is one template per page: `context`, `decisions`, `plan`, `design`, `report`, `knowledge`, `explain`, and `review` (`templates/review.html`, notes for a human reviewer).
 
 - Delete the template's instruction comments (`<!-- ... -->`); they are for you, not the reader.
 - Replace every `{{...}}`. `{{ROOT}}` is the relative path back to `.boxbox/`: `../` for a page in a feature folder or in `knowledge/`, `../../` for a report or a design page. `{{TITLE}}` is "<page> · <feature title>". `{{FEATURE TITLE}}` is the feature's name in plain words ("Password reset"), not its folder name.
 - Use only the classes already in the template and in `assets/style.css`. Never add a `<style>` block, inline styles, or another stylesheet. Never edit `assets/`.
 - Delete a section, pill or tag that has nothing true to say. Repeat a component as many times as the content needs, and reorder components inside a section when the content calls for it.
-- After writing a page, check it has no `{{` left, then open it for the developer if you can (`open`, `xdg-open` or `start`), and always print its path.
+- After writing a page, check that no template placeholder is left unfilled. Double braces inside real code (a template language, a format string) are part of the code: keep them as they are and do not escape them. Then open the page for the developer if you can (`open`, `xdg-open` or `start`), and always print its path.
 
 Components you can use on any page:
 
