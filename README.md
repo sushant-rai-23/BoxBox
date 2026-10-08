@@ -1,4 +1,4 @@
-# Boxbox
+# /boxbox
 
 AI coding that pits for review.
 
@@ -6,35 +6,66 @@ AI coding that pits for review.
 
 You end up with code you can explain, because you made the decisions and read the reasoning.
 
-## Install
+Just tell your agent: `/boxbox let users reset their password by email`.
 
-### Claude Code (CLI and the VS Code extension)
+## Install /boxbox
 
-Run these once on your machine. The first line registers this repo as a plugin source; the second installs the plugin. Then restart Claude Code.
-
-```
-claude plugin marketplace add sushant-rai-23/BoxBox
-claude plugin install boxbox@boxbox
-```
-
-The same two commands work typed into the chat box, with `/plugin` in place of `claude plugin`.
-
-To update later: `claude plugin update boxbox@boxbox`. To install from a local clone instead, give the folder path in place of `sushant-rai-23/BoxBox`.
-
-The plugin includes a session-start hook, so the flow starts on its own when you describe a feature.
-
-### Cursor, Codex, or any other agent that reads skill folders
+**Claude Code** (CLI and the VS Code extension):
 
 ```
+/plugin marketplace add sushant-rai-23/BoxBox
+/plugin install boxbox@boxbox
+```
+
+The same two lines work in a terminal as `claude plugin marketplace add ...` and `claude plugin install ...`. Run them once per machine, then restart Claude Code. Then run `/boxbox` inside any project, or just describe a feature: the plugin's session-start hook starts the flow on its own.
+
+To update it later:
+
+```
+claude plugin update boxbox@boxbox
+```
+
+**Codex:**
+
+```
+codex plugin marketplace add sushant-rai-23/BoxBox
+codex plugin add boxbox@boxbox
+```
+
+To update it later:
+
+```
+codex plugin marketplace upgrade boxbox
+codex plugin add boxbox@boxbox
+```
+
+**Any other agent** (Cursor, Copilot, Gemini CLI, opencode, and more), one command via the skills CLI:
+
+```
+npx skills add https://github.com/sushant-rai-23/BoxBox --skill '*'
+```
+
+Add `-g` to install globally (available in every project); drop it to scope to the current one. Install all the skills: the entry skill hands off to the others by name.
+
+<details>
+<summary>No installer? Copy the skills directly.</summary>
+
+```
+git clone https://github.com/sushant-rai-23/BoxBox
+cd BoxBox
+./install.sh claude      # ~/.claude/skills
 ./install.sh cursor      # ~/.cursor/skills
 ./install.sh codex       # ~/.agents/skills
-./install.sh claude      # ~/.claude/skills, if you prefer plain skills to the plugin
 ./install.sh --dir <your agent's skills folder>
 ```
 
-Add `--project` to install into the current repo instead of your home folder.
+Add `--project` to install into the current repo instead of your home folder. Run it again to update.
 
-Without the hook, start the flow by naming it: "use boxbox to add password reset". After the first run, setup adds a line to the repo's `AGENTS.md` so later sessions start on their own.
+Without the session-start hook, start the flow by naming it: "use boxbox to add password reset". After the first run, setup adds a line to the repo's `AGENTS.md` so later sessions start on their own.
+
+</details>
+
+**Also works with:** the repo ships `.claude/skills`, `.agents/skills`, `.cursor/skills` and `.opencode/skills` as links to `skills/`, so a plain clone is picked up by Claude Code, Codex, Cursor and opencode as project skills. Any other agent can be pointed at `skills/boxbox/SKILL.md`. On Windows, enable symlinks in Git (`git config core.symlinks true`) or use `install.sh`.
 
 ## What you get
 
@@ -107,7 +138,7 @@ All three live in `.boxbox/config.md` and can be changed whenever you like. What
 
 ## Status
 
-Version 0.3.0. Built and tried with Claude Code. The Cursor and Codex manifests and install paths follow what other skill packs ship and have not been run on those agents yet.
+Version 0.3.0. Built and tried with Claude Code. The Codex, Cursor and skills-CLI paths follow what other skill packs ship and have not been run end to end on those agents yet.
 
 ## License
 
