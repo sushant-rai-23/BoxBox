@@ -6,7 +6,7 @@ AI coding that pits for review.
 
 You end up with code you can explain, because you made the decisions and read the reasoning.
 
-Just tell your agent: `/boxbox let users reset their password by email`.
+Just tell your agent: `/boxbox:boxbox let users reset their password by email`. Or skip the command and describe the feature: Boxbox picks it up on its own.
 
 ## Install /boxbox
 
@@ -17,7 +17,7 @@ Just tell your agent: `/boxbox let users reset their password by email`.
 /plugin install boxbox@boxbox
 ```
 
-The same two lines work in a terminal as `claude plugin marketplace add ...` and `claude plugin install ...`. Run them once per machine, then restart Claude Code. Then run `/boxbox` inside any project, or just describe a feature: the plugin's session-start hook starts the flow on its own.
+The same two lines work in a terminal as `claude plugin marketplace add ...` and `claude plugin install ...`. Run them once per machine, then restart Claude Code. Then run `/boxbox:boxbox` inside any project (plugin commands carry the plugin name), or just describe a feature: the session-start hook starts the flow on its own.
 
 To update it later:
 
