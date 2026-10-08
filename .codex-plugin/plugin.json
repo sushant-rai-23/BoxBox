@@ -1,0 +1,19 @@
+{
+  "name": "boxbox",
+  "version": "0.3.0",
+  "description": "Developer-in-control agentic coding: plan, decide with context, build one tested unit at a time, review each with a teaching report.",
+  "author": { "name": "Sushant Rai" },
+  "license": "MIT",
+  "keywords": ["skills", "planning", "tdd", "code-review", "workflow"],
+  "skills": "./skills/",
+  "hooks": {},
+  "interface": {
+    "displayName": "Boxbox",
+    "shortDescription": "Plan, decide, build and review with the developer in control",
+    "longDescription": "Boxbox splits work into milestones, epics and tasks, asks the developer for decisions with full context, builds one small tested unit at a time, and stops after each with a report that teaches what was built.",
+    "developerName": "Sushant Rai",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": ["Let's add a feature to this project.", "Continue the work in progress."]
+  }
+}

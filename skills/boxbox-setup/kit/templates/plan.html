@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ROOT}}assets/style.css">
+</head>
+<body>
+<!-- TEMPLATE: plan page. Copy to .boxbox/<feature>/plan.html and fill from plan.md.
+     Keep it in step with plan.md: tick boxes (class "box done") as tasks finish. Add no CSS. -->
+<div class="wrap">
+  <div class="crumbs"><a href="{{ROOT}}board.html">Board</a><span aria-hidden="true">/</span><span>{{FEATURE TITLE}}</span><span aria-hidden="true">/</span><span>Plan</span></div>
+
+  <header class="top">
+    <div class="eyebrow">{{PROJECT}} · {{DATE}}</div>
+    <h1>Plan: {{FEATURE TITLE}}</h1>
+    <p class="lede">{{The outcome in one or two sentences: what a person can do when this ships.}}</p>
+    <div class="pills">
+      <span class="pill ok">{{N}} decisions answered</span>
+      <!-- one of these three; change it as the work moves -->
+      <span class="pill warn">Awaiting your "go"</span>
+      <span class="pill">Unit: {{epic or task}}</span>
+      <span class="pill acc">Branch: {{feature branch}}</span>
+    </div>
+  </header>
+  <nav class="toc" data-auto aria-label="Sections"></nav>
+
+  <h2 id="context" data-short="Context">What the repo told us</h2>
+  <p>{{Three or four sentences. Full detail on the <a href="context.html">context page</a>.}}</p>
+
+  <h2 id="decisions" data-short="Decisions">Decisions</h2>
+  <p>Rows in amber are where you chose differently from my recommendation. The full reasoning, and the small defaults I chose (A1 to A{{N}}), are on the <a href="decisions.html">decisions page</a>.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>#</th><th>Decision</th><th>Choice</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>{{decision}}</td><td>{{choice}}</td><td>{{one-line reason}}</td></tr>
+      <tr class="override"><td class="id">D2</td><td>{{decision}}</td><td>{{choice}}</td><td>Override. {{what it means for the plan}}</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="epics" data-short="Epics">Epics</h2>
+  <p>One feature each, in the order they ship. Each task is a thin slice that runs end to end and names the test written first. <span class="tag you">you</span> marks a step only you can do.</p>
+
+  <!-- One section per epic. -->
+  <section class="epic" id="e1">
+    <!-- The tag is the epic's status: todo, in progress, review, done. Keep it current. -->
+    <h3>E1 · {{Epic title}} <span class="tag known">todo</span></h3>
+    <div class="meta"><span>Branch: <code>{{epic branch}}</code></span><span>Depends on: {{nothing / E0}}</span><span>{{Design stop: yes, because ... (delete if none)}}</span></div>
+    <p class="outcome"><strong>Outcome.</strong> {{What a person can use, see or verify when this epic is done.}}</p>
+    <p><strong>Done when</strong></p>
+    <ul class="accept">
+      <li>{{An acceptance criterion that can be checked. This is what the unit is verified and reviewed against.}}</li>
+    </ul>
+    <ol class="tasks">
+      <li><span class="box"></span><div><span class="t">E1.1</span>{{What changes, in one sentence.}}<span class="test">First test: {{the test}}. Done when: {{check}}.</span></div></li>
+      <li><span class="box"></span><div><span class="t">E1.2</span>{{...}} <span class="tag you">you</span><span class="test">No cheap test. Verified by: {{manual check}}.</span></div></li>
+    </ol>
+    <ul class="fails">
+      <li><strong>Can fail when</strong> {{failure}}: {{how the epic handles it and which task covers it}}</li>
+    </ul>
+  </section>
+
+  <h2 id="you" data-short="From you">Only you can do</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>When</th><th>Step</th></tr></thead>
+    <tbody><tr><td>{{before E2}}</td><td><span class="tag you">you</span> {{console setting, secret, permission}}</td></tr></tbody>
+  </table></div>
+
+  <h2 id="later" data-short="Later">Later</h2>
+  <ul><li>{{Noticed, worth doing, outside this plan.}}</li></ul>
+
+  <!-- After approval, replace this note with: <div class="note"><strong>Approved {{date}}.</strong> Building {{unit}}.</div>
+       and change the header pill to <span class="pill acc">In progress</span>, later <span class="pill ok">Done</span>. -->
+  <div class="note ask"><strong>Approval needed.</strong> {{Say "go" and I start E1. Or tell me what to change: order, scope, unit of control.}}</div>
+
+  <footer>Source for the agent: plan.md</footer>
+</div>
+<script src="{{ROOT}}assets/page.js"></script>
+</body>
+</html>

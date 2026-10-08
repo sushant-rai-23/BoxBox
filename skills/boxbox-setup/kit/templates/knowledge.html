@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ROOT}}assets/style.css">
+</head>
+<body>
+<!-- TEMPLATE: knowledge page. Copy to .boxbox/knowledge/<slug>.html and fill.
+     {{ROOT}} here is "../". Teach one topic to THIS developer, up to the level this project needs.
+     Every idea is a pair: code, then exactly what it prints. Run the code; never invent output.
+     Compare with a stack the developer already knows where that helps. Add no CSS. -->
+<div id="readbar"></div>
+<div class="wrap">
+  <div class="crumbs"><a href="{{ROOT}}board.html">Board</a><span aria-hidden="true">/</span><span>Knowledge</span><span aria-hidden="true">/</span><span>{{TOPIC}}</span></div>
+
+  <header class="top">
+    <div class="eyebrow">Knowledge page · {{DATE}}</div>
+    <h1>{{TOPIC}}</h1>
+    <p class="lede">{{Who this is for, how far it goes (only what this project needs), and what they will be able to read or decide afterwards.}}</p>
+    <div class="pills"><span class="pill acc">{{N}} sections</span></div>
+  </header>
+  <nav class="toc" data-auto aria-label="Sections"></nav>
+
+  <!-- If something on this page could not be run or checked against the docs, say so here. Delete if not needed. -->
+  <div class="note"><strong>Not checked.</strong> {{what could not be run or verified, and why}}</div>
+
+  <!-- One section per idea, in learning order. Keep each short. A section may have no code cell, or several. -->
+  <section>
+    <h2 id="{{slug}}">{{Idea}}</h2>
+    <p class="note def"><strong class="label">Definition</strong>{{One or two plain sentences.}}</p>
+    <p>{{How it works, concretely.}}</p>
+    <div class="cell">
+<pre class="code"><code>{{code}}</code></pre>
+<pre class="out">{{exactly what it prints}}</pre>
+    </div>
+    <p class="note why"><strong class="label">Why it exists</strong>{{The problem it solves.}}</p>
+    <p class="note when"><strong class="label">In this project</strong>{{Where it appears in this codebase, with a path.}}</p>
+    <p class="note trap"><strong class="label">Trap</strong>{{The mistake people make, and how to notice it.}}</p>
+    <label class="donebox"><input type="checkbox" id="done-{{slug}}"> Mark as done</label>
+  </section>
+
+  <h2 id="more">Go deeper</h2>
+  <ul><li><a href="{{official docs URL}}">{{Primary source}}</a>: {{what to read there}}</li></ul>
+
+  <footer>Ask the agent about anything here that is unclear. Progress is saved in this browser only.</footer>
+</div>
+<script src="{{ROOT}}assets/page.js"></script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ROOT}}assets/style.css">
+</head>
+<body>
+<!-- TEMPLATE: explanation of an existing feature. Copy to .boxbox/explained/<feature>.html and fill.
+     {{ROOT}} here is "../". Nothing is being changed: this page only explains. Real code, real paths.
+     Depth follows config.md: teach what is new to this developer, stay brief on what they know. Add no CSS. -->
+<div id="readbar"></div>
+<div class="wrap">
+  <div class="crumbs"><a href="{{ROOT}}board.html">Board</a><span aria-hidden="true">/</span><span>Explained</span><span aria-hidden="true">/</span><span>{{FEATURE TITLE}}</span></div>
+
+  <header class="top">
+    <div class="eyebrow">{{PROJECT}} · how it works · {{DATE}}</div>
+    <h1>How {{FEATURE TITLE}} works</h1>
+    <p class="lede">{{What the feature does for a user, in two sentences, and what you will understand after this page.}}</p>
+    <div class="pills"><span class="pill acc">Existing feature</span><span class="pill">As of commit {{short hash}}</span></div>
+  </header>
+  <nav class="toc" data-auto aria-label="Sections"></nav>
+
+  <h2 id="project">Project context</h2>
+  <p>{{What this feature is in the product, who uses it, and what it depends on.}}</p>
+  <div class="grid">
+    <div class="fact"><div class="k">Where it lives</div><div class="v">{{files and modules, with <code>paths</code>}}</div></div>
+    <div class="fact"><div class="k">Entry points</div><div class="v">{{routes, commands, screens, jobs}}</div></div>
+    <div class="fact"><div class="k">Data it owns</div><div class="v">{{tables, stores, messages}}</div></div>
+    <div class="fact"><div class="k">Tests</div><div class="v">{{where they are and how to run them}}</div></div>
+  </div>
+
+  <h2 id="path" data-short="The path">How one request travels</h2>
+  <!-- One .step per hop, in the order a real request meets them. -->
+  <div class="step"><div class="n">1 · {{where it starts}}</div>
+    <h3>{{file or component}}: {{what it does in plain words}}</h3>
+    <p>{{What happens here. Define each term the first time.}}</p>
+    <div class="file">{{path/to/file}}</div>
+    <pre><code>{{the real code, trimmed to what matters}}</code></pre>
+    <dl><dt>{{a name in the code}}</dt><dd>{{what it is and why it is written this way}}</dd></dl>
+  </div>
+
+  <h2 id="technical">Technical context</h2>
+  <p>The ideas this feature is built on. <span class="tag known">known</span> means you told setup you know it. <span class="tag new">new</span> has a knowledge page.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Concept</th><th>In one line</th><th>Where it shows up here</th><th>For you</th></tr></thead>
+    <tbody>
+      <tr><td>{{concept}}</td><td>{{plain definition}}</td><td>{{which step above}}</td><td><span class="tag new">new</span> <a href="{{ROOT}}knowledge/{{slug}}.html">read</a></td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="why" data-short="Why">Why it is built this way</h2>
+  <!-- From boxbox-why. Keep the label on each row honest. -->
+  <div class="tablewrap"><table>
+    <thead><tr><th>Choice</th><th>Reason</th><th>How sure</th></tr></thead>
+    <tbody><tr><td>{{design choice}}</td><td>{{reason, with the commit or pull request it comes from}}</td><td>{{recorded / inferred / unknown}}</td></tr></tbody>
+  </table></div>
+
+  <h2 id="watch" data-short="Changing it">What to watch when changing it</h2>
+  <ul><li><strong>{{coupling, assumption or trap}}</strong>: {{what breaks, and the test that would tell you}}</li></ul>
+
+  <h2 id="fails" data-short="Failure">How it fails</h2>
+  <ul class="fails"><li><strong>{{failure}}</strong>: {{what happens today, handled or not}}</li></ul>
+
+  <h2 id="check" data-short="Check yourself">Can you answer these?</h2>
+  <details class="check"><summary>{{A why or what-if question about this feature}}</summary><div>{{The answer.}}</div></details>
+
+  <footer>Explains the code as of the commit named at the top. Ask the agent to refresh it after large changes.</footer>
+</div>
+<script src="{{ROOT}}assets/page.js"></script>
+</body>
+</html>

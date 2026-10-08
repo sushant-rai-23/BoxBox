@@ -1,0 +1,14 @@
+{
+  "name": "boxbox",
+  "owner": { "name": "Sushant Rai" },
+  "metadata": { "description": "Marketplace for the Boxbox skill pack" },
+  "plugins": [
+    {
+      "name": "boxbox",
+      "description": "Developer-in-control agentic coding skills",
+      "version": "0.3.0",
+      "source": "./",
+      "author": { "name": "Sushant Rai" }
+    }
+  ]
+}

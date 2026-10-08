@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ROOT}}assets/style.css">
+</head>
+<body>
+<!-- TEMPLATE: design page. Copy to .boxbox/<feature>/<unit>/design.html and fill.
+     {{ROOT}} here is "../../". Shapes only: no function bodies. Add no CSS. -->
+<div class="wrap">
+  <div class="crumbs"><a href="{{ROOT}}board.html">Board</a><span aria-hidden="true">/</span><a href="../plan.html">{{FEATURE TITLE}}</a><span aria-hidden="true">/</span><span>{{UNIT ID}} design</span></div>
+
+  <header class="top">
+    <div class="eyebrow">{{PROJECT}} · {{FEATURE TITLE}} · {{DATE}}</div>
+    <h1>Design for {{UNIT ID}}: {{epic title}}</h1>
+    <p class="lede">{{Two sentences: the shape in plain words, and the one choice that matters most.}}</p>
+    <div class="pills">
+      <span class="pill acc">Design</span>
+      <span class="pill warn">Awaiting your approval</span>
+      <span class="pill">No code written yet</span>
+    </div>
+  </header>
+  <nav class="toc" data-auto aria-label="Sections"></nav>
+
+  <h2 id="where" data-short="Where it lives">Where it lives</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>File or module</th><th>New or changed</th><th>Its one job</th></tr></thead>
+    <tbody><tr><td><code>{{path}}</code></td><td>{{new}}</td><td>{{responsibility}}</td></tr></tbody>
+  </table></div>
+
+  <h2 id="data" data-short="Data">The data</h2>
+  <!-- One block per record, table, message or type. Field by field. -->
+  <h3>{{Name of the shape}}</h3>
+  <p>{{What it represents and who creates it.}}</p>
+  <pre><code>{{the type, schema or table definition}}</code></pre>
+  <dl><dt>{{field}}</dt><dd>{{what it means, whether it can be absent, why it is this type}}</dd></dl>
+
+  <h2 id="interfaces" data-short="Interfaces">The interfaces</h2>
+  <!-- Signatures only: name, inputs, outputs, errors. -->
+  <div class="file">{{path}}</div>
+  <pre><code>{{signatures}}</code></pre>
+
+  <h2 id="path" data-short="The path">How one request travels</h2>
+  <div class="step"><div class="n">1 · {{where it starts}}</div>
+    <h3>{{piece}}</h3>
+    <p>{{What happens here, and what happens when it fails.}}</p>
+  </div>
+
+  <h2 id="alternatives" data-short="Alternatives">What I considered instead</h2>
+  <div class="options">
+    <div class="option rec"><span class="name">{{This design}} <span class="tag">proposed</span></span>{{Why.}}<ul><li>{{gain}}</li><li>{{cost}}</li></ul></div>
+    <div class="option"><span class="name">{{The alternative}}</span>{{What it would look like.}}<ul><li>{{gain}}</li><li>{{cost}}</li></ul></div>
+  </div>
+
+  <h2 id="locks" data-short="Locked in">What this locks in</h2>
+  <ul><li><strong>{{shape or interface}}</strong>: {{why it will be costly to change once other code depends on it}}</li></ul>
+
+  <div class="note ask"><strong>Approval needed.</strong> Approve this shape, or tell me what to change. Say "grill the design" if you want it challenged first.</div>
+
+  <footer>Source for the agent: design.md · Plan: ../plan.html</footer>
+</div>
+<script src="{{ROOT}}assets/page.js"></script>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ROOT}}assets/style.css">
+</head>
+<body>
+<!-- TEMPLATE: unit report. Copy to .boxbox/<feature>/<unit>/report.html and fill.
+     {{ROOT}} here is "../../". Write for THIS developer: teach what config.md marks as new,
+     stay brief on what it marks as known. Use real code from the diff. Add no CSS. -->
+<div class="wrap">
+  <div class="crumbs"><a href="{{ROOT}}board.html">Board</a><span aria-hidden="true">/</span><a href="../plan.html">{{FEATURE TITLE}}</a><span aria-hidden="true">/</span><span>{{UNIT ID}} report</span></div>
+
+  <header class="top">
+    <div class="eyebrow">{{PROJECT}} · {{FEATURE TITLE}} · {{DATE}}</div>
+    <h1>{{UNIT ID}} done: {{what now exists, as a plain statement}}</h1>
+    <p class="lede">{{Two or three sentences a teammate could read cold: what was built and how to tell it works.}}</p>
+    <div class="pills">
+      <span class="pill ok">{{N of N tasks}}</span>
+      <span class="pill ok">{{N tests green, plus lint and types if this repo has them}}</span>
+      <span class="pill acc">{{N commits on branch}}</span>
+      <span class="pill warn">Waiting for your review</span>
+    </div>
+  </header>
+  <nav class="toc" data-auto aria-label="Sections"></nav>
+
+  <!-- With no pull request, replace the link with the branch name and the diff command in <code>:
+       git diff <base>...<branch> -- . ':!.boxbox' -->
+  <div class="note ask"><strong>Review this unit.</strong> Code: <a href="{{PR or commit URL}}">{{pull request / commit}}</a>. Approve, or tell me what to change.</div>
+
+  <h2 id="where" data-short="Where it sits">Where this sits in the project</h2>
+  <p>{{What this unit makes possible, what it depends on, and what later units will add to it.}}</p>
+
+  <h2 id="pieces" data-short="The pieces">The pieces, in the order a request meets them</h2>
+  <!-- One .step per piece. Order is the real path through the code, not the order it was written. -->
+  <div class="step"><div class="n">1 · {{role of this piece}}</div>
+    <h3>{{file}}: {{what it does in plain words}}</h3>
+    <p>{{What the concept is, then why this codebase needs it. Define a term the first time it appears.}}</p>
+    <div class="file">{{path/to/file}}</div>
+    <pre><code>{{the real code, trimmed to what matters}}</code></pre>
+    <dl>
+      <dt>{{a name in the code}}</dt><dd>{{what it is and why it is written this way}}</dd>
+    </dl>
+    <p><strong>Verified:</strong> {{the test or run that proves it, with the observed result.}}</p>
+    <div class="gotcha"><b>Gotcha we hit.</b> {{A real problem met while building this piece, its cause, and the fix. Leave out if none.}}</div>
+  </div>
+
+  <h2 id="try" data-short="Try it">Try it yourself</h2>
+  <!-- Use a code-with-output cell per command when that reads better than one block. -->
+  <div class="cell">
+<pre class="code"><code>{{the command to run by hand}}</code></pre>
+<pre class="out result">{{the output to expect}}</pre>
+  </div>
+
+  <h2 id="changed" data-short="What changed">What was committed</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Task</th><th>Change</th><th>Commit</th></tr></thead>
+    <tbody>
+      <tr><td class="id">{{E1.1}}</td><td>{{one line}}</td><td class="num">{{abc1234}}</td></tr>
+      <tr><td class="id">review</td><td>{{a fix made because of the review, if any}}</td><td class="num">{{abc1234}}</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="choices" data-short="Choices">Choices made while building</h2>
+  <!-- Design choices not on the decisions page: what was chosen, the alternative, the trade-off. -->
+  <ul><li><strong>{{choice}}</strong> over {{alternative}}: {{trade-off}}</li></ul>
+
+  <h2 id="review" data-short="Review">Review note</h2>
+  <p>{{Written from the separate reviewer's findings: what was checked, what was fixed because of it, what was left alone and why.}}</p>
+  <div class="note"><strong>Not verified.</strong> {{Anything the agent could not confirm itself. Say "Nothing" only if true.}}</div>
+  <ul class="fails">
+    <li><strong>Failure handled:</strong> {{failure from the plan}} → {{test that proves it}}</li>
+    <li><strong>Failure not tested:</strong> {{failure}} → {{why no test is possible, and what limits the risk}}</li>
+  </ul>
+
+  <!-- Gotchas that belong to no single piece (tooling, environment) go here. Delete if none. -->
+  <div class="gotcha"><b>Gotcha we hit.</b> {{problem, cause, fix}}</div>
+
+  <h2 id="check" data-short="Check yourself">Can you answer these?</h2>
+  <p>If one is unclear, ask me before you approve.</p>
+  <details class="check"><summary>{{A question about why the code is the way it is}}</summary><div>{{The answer in two or three sentences.}}</div></details>
+  <details class="check"><summary>{{A "what happens if" question}}</summary><div>{{The answer.}}</div></details>
+
+  <h2 id="words" data-short="Vocabulary">Vocabulary from this unit</h2>
+  <dl><dt>{{term}}</dt><dd>{{plain definition}}</dd></dl>
+
+  <h2 id="next" data-short="Next">Pending</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Unit</th><th>Outcome</th><th>Needs from you</th></tr></thead>
+    <tbody><tr><td class="id">{{E2}}</td><td>{{outcome}}</td><td>{{<span class="tag you">you</span> and the step; or "nothing"}}</td></tr></tbody>
+  </table></div>
+
+  <footer>Source for the agent: report.md · Plan: ../plan.html</footer>
+</div>
+<script src="{{ROOT}}assets/page.js"></script>
+</body>
+</html>

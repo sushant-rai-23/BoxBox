@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ROOT}}assets/style.css">
+</head>
+<body>
+<!-- TEMPLATE: decisions page. Copy to .boxbox/<feature>/decisions.html and fill.
+     One .decision card per decision. Class is "open", "answered" or "parked".
+     Update this page every time a decision is answered: the lede, the pills and the card.
+     Show a count pill only when its number is above zero. Add no CSS. -->
+<div class="wrap">
+  <div class="crumbs"><a href="{{ROOT}}board.html">Board</a><span aria-hidden="true">/</span><span>{{FEATURE TITLE}}</span><span aria-hidden="true">/</span><span>Decisions</span></div>
+
+  <header class="top">
+    <div class="eyebrow">{{PROJECT}} · {{FEATURE TITLE}} · {{DATE}}</div>
+    <h1>Decisions for {{FEATURE TITLE}}</h1>
+    <p class="lede">{{While open: "N decisions need you. Read them first; take any to your team. I will ask them one at a time." Once all are answered: say so, and how many overrode the recommendation.}}</p>
+    <div class="pills">
+      <span class="pill acc">{{N}} to decide</span>
+      <span class="pill ok">{{N}} answered</span>
+      <span class="pill warn">{{N}} parked</span>
+      <span class="pill">Level: {{decision level}}</span>
+    </div>
+  </header>
+  <nav class="toc" data-auto aria-label="Sections"></nav>
+
+  <h2 id="yours">Yours to make</h2>
+
+  <!-- One card per decision. Order: hardest to change first. -->
+  <section class="decision open" id="d1">
+    <div class="head"><span class="did">D1</span><h3>{{The question, as a question}}</h3></div>
+    <p class="why">{{Why this matters: what it changes in the build and what depends on it.}}</p>
+    <div class="options">
+      <div class="option rec">
+        <span class="name">{{Option A}} <span class="tag">recommended</span></span>
+        {{What it means in this codebase, in one or two sentences.}}
+        <ul><li>{{gain}}</li><li>{{cost}}</li></ul>
+      </div>
+      <div class="option">
+        <span class="name">{{Option B}}</span>
+        {{What it means in this codebase.}}
+        <ul><li>{{gain}}</li><li>{{cost}}</li></ul>
+      </div>
+    </div>
+    <p><strong>Why I recommend {{A}}.</strong> {{The reason, tied to a fact on the context page.}}</p>
+    <div class="foot">
+      <span>Change later: {{easy / costly / cannot be undone}}, because {{reason}}</span>
+      <span>Read first: <a href="context.html#{{anchor}}">context</a> · <a href="{{ROOT}}knowledge/{{slug}}.html">{{knowledge page, if one applies}}</a></span>
+    </div>
+    <!-- When answered: change class to "answered", mark the chosen option with class "chosen",
+         and add: <p><strong>Decided {{date}}:</strong> {{choice}}. {{the developer's reason, if given}}</p>
+         If it overrode the recommendation, keep "rec" on the recommended option, put "chosen" on the
+         one picked, and say "Override" in the Decided line. -->
+  </section>
+
+  <h2 id="defaults">Defaults I chose</h2>
+  <p>Small choices that are easy to change. Tell me if you want any of them different.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>#</th><th>Choice</th><th>Why</th><th>Change later</th></tr></thead>
+    <tbody><tr><td class="id">A1</td><td>{{choice}}</td><td>{{reason}}</td><td>{{easy, how}}</td></tr></tbody>
+    <!-- If the developer changes a default: keep its row, write "Replaced by D4" in the Choice cell,
+         and add an answered card D4 above with their choice. -->
+  </table></div>
+
+  <footer>Recorded in decisions.md · Level set in config.md</footer>
+</div>
+<script src="{{ROOT}}assets/page.js"></script>
+</body>
+</html>
