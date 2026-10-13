@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-token" content="__BOXBOX_TOKEN__">
+<title>Pit wall · Boxbox</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%226%22 fill=%22none%22 stroke=%22%235aa9ff%22 stroke-width=%222%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Boxbox pit wall. Design: docs/design/pitwall-mockup.html in the Boxbox repo. */
+:root{
+  --asphalt:#0c1117;        /* page */
+  --carbon:#121922;         /* panels */
+  --carbon-2:#18212c;       /* raised */
+  --rule:#243040;           /* hairlines */
+  --ice:#e9f1fb;            /* primary ink, orb dots */
+  --mist:#93a3b8;           /* secondary ink */
+  --fog:#5e6e83;            /* muted ink */
+  /* status colours borrowed from the timing screen */
+  --purple:#b38cff;         /* verified: proven by a captured check */
+  --green:#3ddc84;          /* done */
+  --amber:#ffc53d;          /* needs you */
+  --red:#ff5a5f;            /* flag */
+  --blue:#5aa9ff;           /* in progress */
+  --display:"Titillium Web",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--asphalt);color:var(--ice);font-family:var(--display);font-size:15px;line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 70% -10%,rgba(90,169,255,.07),transparent 60%),
+                   radial-gradient(900px 500px at -10% 110%,rgba(179,140,255,.05),transparent 60%);}
+a{color:inherit}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+.rail{border-right:1px solid var(--rule);padding:20px 14px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh;background:rgba(12,17,23,.7);backdrop-filter:blur(8px)}
+.brand{display:flex;align-items:center;gap:10px;padding:0 6px}
+.brand b{font-weight:900;font-size:20px;letter-spacing:-.01em}
+.brand span{color:var(--fog);font-weight:400}
+.project{padding:10px 10px;border:1px solid var(--rule);border-radius:10px;background:var(--carbon)}
+.project .p{font-weight:700}
+.project .s{color:var(--mist);font-size:13px}
+nav.views{display:flex;flex-direction:column;gap:2px}
+nav.views a{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:center;text-decoration:none;padding:9px 10px;border-radius:8px;color:var(--mist)}
+nav.views a .race{font-weight:700;color:var(--ice);font-size:15px}
+nav.views a .plain{font-size:13px;color:var(--fog)}
+nav.views a:hover{background:var(--carbon)}
+nav.views a[aria-current="page"]{background:var(--carbon-2);box-shadow:inset 3px 0 0 var(--blue)}
+nav.views svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6}
+.rail .foot{margin-top:auto;font-size:12px;color:var(--fog);padding:0 6px}
+
+/* ---------- top radio strip ---------- */
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:16px;padding:12px 28px;border-bottom:1px solid var(--rule);background:rgba(12,17,23,.82);backdrop-filter:blur(10px)}
+.radio{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.radio canvas{flex:none}
+.radio .what{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.radio .why{color:var(--mist);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chain{font-size:13px;color:var(--fog);white-space:nowrap}
+.chain b{color:var(--mist);font-weight:600}
+.pause{display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:999px;border:1px solid #3a4658;background:var(--carbon-2);cursor:pointer;font-weight:700;letter-spacing:.01em;white-space:nowrap}
+.pause:hover{border-color:var(--amber)}
+.pause .glyph{width:14px;height:14px;display:inline-flex;gap:3px}
+.pause .glyph i{display:block;width:4px;height:14px;background:var(--amber);border-radius:1px}
+.pause[data-state="pending"]{border-color:var(--amber);color:var(--amber)}
+.pause[data-state="paused"]{background:var(--amber);color:#1a1300;border-color:var(--amber)}
+.pause[data-state="paused"] .glyph i{background:#1a1300}
+
+main{padding:26px 28px 60px;max-width:1360px}
+.view{display:none}
+.view.on{display:block}
+.vhead{display:flex;align-items:baseline;gap:14px;margin:0 0 18px}
+.vhead h1{margin:0;font-size:30px;font-weight:900;letter-spacing:-.01em;line-height:1.1}
+.vhead h1 small{font-weight:400;color:var(--fog);font-size:18px;margin-left:6px}
+.vhead p{margin:0;color:var(--mist)}
+
+.panel{background:var(--carbon);border:1px solid var(--rule);border-radius:14px}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px 0}
+.ph h2{margin:0;font-size:15px;font-weight:700}
+.ph .aside{font-size:13px;color:var(--fog)}
+.pb{padding:12px 18px 18px}
+
+/* status marks: colour always paired with a word */
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--carbon-2);color:var(--mist);white-space:nowrap}
+.st::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--fog)}
+.st.done::before{background:var(--green)} .st.done{color:#bff3d4}
+.st.prog::before{background:var(--blue)} .st.prog{color:#cfe5ff}
+.st.wait::before{background:var(--amber)} .st.wait{color:#ffe7a8}
+.st.flag::before{background:var(--red)} .st.flag{color:#ffc9cb}
+.st.ver::before{background:var(--purple)} .st.ver{color:#e2d4ff}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:4px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--carbon-2);text-decoration:none;color:var(--ice);cursor:pointer}
+.chip:hover{border-color:#3a4a60}
+
+/* ---------- pit wall ---------- */
+.pw{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px}
+.now{position:relative;overflow:hidden;padding:26px 28px;display:grid;grid-template-columns:260px 1fr;gap:26px;align-items:center;min-height:330px}
+.now .halo{position:absolute;left:-40px;top:-40px;width:420px;height:420px;border-radius:50%;filter:blur(40px);opacity:.35;transition:background .6s}
+.now .orbwrap{position:relative;width:260px;height:260px}
+.now .kind{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--mist)}
+.now h2{margin:6px 0 8px;font-size:30px;line-height:1.15;font-weight:700;letter-spacing:-.01em}
+.now .because{color:var(--mist);font-size:16px;max-width:46ch}
+.now .because b{color:var(--ice);font-weight:600}
+.trail{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.lap{margin-top:20px}
+.lap .lbl{display:flex;justify-content:space-between;font-size:13px;color:var(--fog);margin-bottom:6px}
+.lapbar{display:flex;gap:3px;height:10px}
+.lapbar i{flex:1;border-radius:3px;background:#202a37}
+.lapbar i.done{background:var(--green)} .lapbar i.ver{background:var(--purple)} .lapbar i.prog{background:var(--blue)} .lapbar i.wait{background:var(--amber)}
+
+.needs .item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;padding:12px 0;border-top:1px solid var(--rule)}
+.needs .item:first-child{border-top:0}
+.needs .item .t{font-weight:600}
+.needs .item .d{color:var(--mist);font-size:13.5px}
+.needs .empty{color:var(--mist)}
+
+.readouts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-top:18px}
+.ro{padding:16px 18px}
+.ro .k{font-size:13px;color:var(--fog)}
+.ro .v{font-size:30px;font-weight:700;line-height:1.15;margin-top:2px}
+.ro .v small{font-size:15px;color:var(--mist);font-weight:400}
+.ro .d{font-size:13px;color:var(--mist);margin-top:4px}
+.ro.flagged{box-shadow:inset 0 0 0 1px rgba(255,90,95,.35)}
+
+.feed{list-style:none;margin:0;padding:0}
+.feed li{display:grid;grid-template-columns:62px 22px 92px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--rule);font-size:14px}
+.feed li:first-child{border-top:0}
+.feed .time{color:var(--fog);font-size:12.5px}
+.feed .kindtag{font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--carbon-2);color:var(--mist);text-align:center;white-space:nowrap}
+.feed .body{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed .body code{font-family:var(--mono);font-size:12.5px;color:#cfe0f5}
+.feed .res{font-size:12.5px;white-space:nowrap}
+.res.pass{color:var(--green)} .res.fail{color:var(--red)} .res.plus{color:var(--mist)}
+.feed li.fresh{animation:fresh 1.6s ease-out}
+@keyframes fresh{from{background:rgba(90,169,255,.12)}to{background:transparent}}
+
+/* ---------- board ---------- */
+.ms{margin-bottom:18px}
+.ms .mhead{display:flex;align-items:center;gap:14px;padding:18px 20px;cursor:pointer}
+.ms .mhead h2{margin:0;font-size:20px;font-weight:700}
+.ms .mhead .goal{color:var(--mist);font-size:14px}
+.ms .mhead .right{margin-left:auto;display:flex;gap:10px;align-items:center}
+.epics{padding:0 20px 18px}
+.epic{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:16px;padding:16px 0;border-top:1px solid var(--rule)}
+.epic .eid{font-weight:900;font-size:22px;color:var(--fog);line-height:1}
+.epic h3{margin:0 0 2px;font-size:17px}
+.epic .out{color:var(--mist);font-size:14px}
+.epic .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.tasks{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.task{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:var(--carbon-2);font-size:13px}
+.task .tid{color:var(--fog)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--fog);flex:none}
+.dot.done{background:var(--green)} .dot.ver{background:var(--purple)} .dot.prog{background:var(--blue);box-shadow:0 0 0 4px rgba(90,169,255,.18)} .dot.wait{background:var(--amber)}
+.epic .side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.dep{font-size:13px;color:var(--fog)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--mist);margin-bottom:14px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+
+/* ---------- telemetry ---------- */
+.lanes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-bottom:18px}
+.lane{padding:18px;display:grid;grid-template-columns:72px 1fr;gap:14px;align-items:center}
+.lane .who{font-weight:700}
+.lane .role{font-size:13px;color:var(--fog)}
+.lane .doing{font-size:14px;color:var(--mist);margin-top:4px}
+.lane.idle{opacity:.55}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.filters button{border:1px solid var(--rule);background:var(--carbon);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;color:var(--mist);display:inline-flex;align-items:center;gap:6px}
+.filters button[aria-pressed="true"]{background:var(--carbon-2);color:var(--ice);border-color:#3a4a60}
+.kindkey{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:18px}
+.kindkey div{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--mist)}
+
+/* ---------- map ---------- */
+.mapwrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px}
+#mapsvg{width:100%;height:auto;display:block}
+.mapnode rect{fill:var(--carbon-2);stroke:var(--rule);stroke-width:1}
+.mapnode .nm{fill:var(--ice);font-weight:700;font-size:14px}
+.mapnode .sub{fill:var(--fog);font-size:12px}
+.mapnode .heat{transition:opacity .4s}
+.mapnode:hover rect{stroke:#3a4a60}
+.scope{fill:none;stroke:var(--blue);stroke-width:1.5;stroke-dasharray:6 6}
+.edge{stroke:#2c394b;stroke-width:1.4;fill:none}
+.files li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--rule);font-size:13.5px}
+.files li:first-child{border-top:0}
+.files code{font-family:var(--mono);font-size:12.5px;color:#cfe0f5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- timing ---------- */
+.timing{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px}
+.bars{display:flex;flex-direction:column;gap:12px}
+.bar{display:grid;grid-template-columns:150px 1fr 110px;gap:12px;align-items:center;font-size:14px}
+.bar .track{height:14px;border-radius:4px;background:#1b2431;position:relative}
+.bar .fill{position:absolute;inset:0 auto 0 0;border-radius:0 4px 4px 0;background:var(--blue)}
+.bar .fill.cache{background:repeating-linear-gradient(135deg,rgba(90,169,255,.55) 0 3px,rgba(90,169,255,.25) 3px 6px)}
+.bar .val{text-align:right;color:var(--mist)}
+.bar .lbl b{font-weight:600}
+.tt{position:fixed;pointer-events:none;background:#0a0f15;border:1px solid var(--rule);border-radius:8px;padding:8px 10px;font-size:13px;z-index:20;display:none;max-width:260px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:9px 10px;border-top:1px solid var(--rule)}
+th{color:var(--fog);font-weight:600;font-size:13px;border-top:0}
+td.r,th.r{text-align:right}
+
+/* ---------- garage ---------- */
+.search{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--rule);background:var(--carbon);color:var(--ice);font:inherit;margin-bottom:18px}
+.shelves{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.shelf h2{margin:0 0 10px;font-size:15px}
+.doc{display:block;text-decoration:none;padding:10px 0;border-top:1px solid var(--rule)}
+.doc:first-of-type{border-top:0}
+.doc .dt{font-weight:600}
+.doc .dd{font-size:13px;color:var(--mist)}
+.doc:hover .dt{color:var(--blue)}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--carbon-2);border:1px solid var(--rule);padding:10px 16px;border-radius:10px;font-size:14px;display:none;z-index:30}
+.note{font-size:13px;color:var(--fog);margin-top:22px}
+
+@media (max-width:1100px){
+  .pw,.timing,.mapwrap{grid-template-columns:minmax(0,1fr)}
+  .readouts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lanes,.shelves{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;height:auto;flex-direction:row;flex-wrap:wrap;gap:10px}
+  nav.views{flex-direction:row;flex-wrap:wrap}
+  .project,.rail .foot{display:none}
+  .now{grid-template-columns:1fr;justify-items:center;text-align:center}
+  .feed li{grid-template-columns:22px 80px minmax(0,1fr)}
+  .feed .time,.feed .res{display:none}
+  .top{flex-wrap:wrap;padding:10px 16px} main{padding:20px 16px 60px}
+  .bar{grid-template-columns:1fr;gap:4px} .bar .val{text-align:left}
+  .chain{display:none} .radio{min-width:0}
+  .ms .mhead{flex-wrap:wrap} .ms .mhead .right{margin-left:0;flex-wrap:wrap}
+  .epic{grid-template-columns:1fr;gap:8px} .epic .side{flex-direction:row;flex-wrap:wrap;align-items:center}
+  .vhead{flex-wrap:wrap;gap:6px 12px}
+  table{display:block;overflow-x:auto}
+}
+@media (prefers-reduced-motion:reduce){ .feed li.fresh{animation:none} }
+/* ---------- live additions ---------- */
+.pausewrap{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.pausehelp{font-size:11.5px;color:var(--fog);white-space:nowrap}
+.yourmove{display:none;align-items:center;gap:14px;padding:12px 28px;background:var(--amber);color:#1a1300;font-weight:600;position:sticky;top:61px;z-index:4}
+.yourmove.on{display:flex}
+.yourmove .ym-k{font-weight:900;text-transform:uppercase;letter-spacing:.04em;font-size:13px;white-space:nowrap}
+.yourmove .ym-w{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.yourmove .ym-w small{font-weight:400;margin-left:6px;opacity:.8}
+.yourmove .ym-a{margin-left:auto;white-space:nowrap;font-weight:900;border:2px solid #1a1300;border-radius:999px;padding:3px 12px}
+.banner{display:none;padding:10px 28px;font-size:14px;border-bottom:1px solid var(--rule);background:var(--carbon-2);color:var(--mist)}
+.banner.on{display:block}
+.banner.bad{color:#ffc9cb}
+.stages{display:flex;gap:4px;margin:0 0 18px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin;scrollbar-color:var(--rule) transparent}
+.stages::-webkit-scrollbar{height:6px}.stages::-webkit-scrollbar-thumb{background:var(--rule);border-radius:3px}
+.stg{flex:1 0 auto;min-width:86px;padding:8px 10px 9px;border-radius:10px;background:var(--carbon);border:1px solid var(--rule);font-size:12.5px;color:var(--fog);line-height:1.25}
+.stg b{display:block;font-weight:600;color:var(--mist)}
+.stg i{font-style:normal;font-size:11.5px}
+.stg.done{border-color:rgba(61,220,132,.35)} .stg.done b{color:#bff3d4}
+.stg.cur{border-color:var(--blue);background:var(--carbon-2);box-shadow:inset 0 -3px 0 var(--blue)} .stg.cur b{color:var(--ice)}
+.stg.cur.wait{border-color:var(--amber);box-shadow:inset 0 -3px 0 var(--amber)}
+.stg.skip{opacity:.45}
+.outside{display:inline-flex;align-items:center;gap:8px;margin:0 0 12px;font-size:13px;color:var(--mist)}
+.empty{color:var(--mist);font-size:14px;padding:6px 0}
+.task .claimed,.tag-claimed{font-size:11.5px;color:var(--fog);border:1px dashed #3a4658;border-radius:6px;padding:0 5px}
+.scopeline{font-size:12.5px;color:var(--fog);margin-top:8px}
+.scopeline code,.mono{font-family:var(--mono);font-size:12.5px;color:#cfe0f5}
+.mapnode .scoperect{fill:none;stroke:var(--blue);stroke-width:1.5;stroke-dasharray:6 6}
+.mapnode .count{fill:var(--mist);font-size:12px}
+@media (max-width:760px){
+  .pausehelp{white-space:normal;text-align:right;max-width:180px}
+  .yourmove{padding:10px 16px;top:0;flex-wrap:wrap}
+  .yourmove .ym-a{margin-left:0}
+  .banner{padding:10px 16px}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand"><canvas id="brandorb" width="28" height="28" aria-hidden="true"></canvas><b>/boxbox</b></div>
+    <div class="project"><div class="p" id="p-name">This repo</div><div class="s" id="p-goal">No feature yet</div></div>
+    <nav class="views" aria-label="Views">
+      <a href="#pitwall" data-v="pitwall"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg><span><span class="race">Pit wall</span> <span class="plain">(Home)</span></span></a>
+      <a href="#board" data-v="board"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h10M4 19h13"/></svg><span><span class="race">Board</span> <span class="plain">(Plan)</span></span></a>
+      <a href="#telemetry" data-v="telemetry"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg><span><span class="race">Telemetry</span> <span class="plain">(Live)</span></span></a>
+      <a href="#map" data-v="map"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="4" width="7" height="6" rx="1.5"/><rect x="8.5" y="14" width="7" height="6" rx="1.5"/><path d="M6.5 10v2h11v-2M12 12v2"/></svg><span><span class="race">Map</span> <span class="plain">(Codebase)</span></span></a>
+      <a href="#timing" data-v="timing"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 13V9M10 3h4"/></svg><span><span class="race">Timing</span> <span class="plain">(Cost)</span></span></a>
+      <a href="#garage" data-v="garage"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6v10H3z"/><path d="M7 20v-6h10v6"/></svg><span><span class="race">Garage</span> <span class="plain">(Docs)</span></span></a>
+    </nav>
+    <div class="foot" id="foot">Local only, on this machine. Nothing leaves it.</div>
+  </aside>
+
+  <div>
+    <header class="top">
+      <div class="radio" aria-live="polite">
+        <canvas id="radioorb" width="20" height="20" aria-hidden="true"></canvas>
+        <div style="min-width:0">
+          <div class="what" id="r-what">Connecting to the pit wall</div>
+          <div class="why" id="r-why"></div>
+        </div>
+      </div>
+      <div class="chain" id="r-chain"></div>
+      <div class="pausewrap">
+        <button class="pause" id="pause" data-state="running" aria-describedby="pausehelp"><span class="glyph"><i></i><i></i></span><span id="pauselbl">Pause</span></button>
+        <span class="pausehelp" id="pausehelp">Holds the next action for up to 9 minutes. Esc in chat stops it instantly.</span>
+      </div>
+    </header>
+    <div class="yourmove" id="yourmove" role="alert">
+      <span class="ym-k">Your move</span><span class="ym-w" id="ym-what"></span><span class="ym-a">Answer in chat</span>
+    </div>
+    <div class="banner" id="banner" role="status"></div>
+
+    <main>
+      <!-- ================= PIT WALL ================= -->
+      <section class="view" id="v-pitwall" aria-labelledby="h-pitwall">
+        <div class="vhead"><h1 id="h-pitwall">Pit wall <small>(Home)</small></h1><p>Everything about this work, as it happens.</p></div>
+        <div id="outside"></div>
+        <div class="stages" id="stages" aria-label="Where the work is in the Boxbox flow"></div>
+        <div class="pw">
+          <div class="panel now">
+            <div class="halo" id="halo"></div>
+            <div class="orbwrap"><canvas id="bigorb" width="260" height="260" role="img" aria-label="Agent activity"></canvas></div>
+            <div>
+              <div class="kind" id="n-kind"></div>
+              <h2 id="n-what">Waiting for the first action</h2>
+              <p class="because" id="n-why"></p>
+              <div class="trail" id="trail"></div>
+              <div class="lap" id="lap">
+                <div class="lbl"><span>Milestone progress</span><span class="num" id="lapnum"></span></div>
+                <div class="lapbar" id="lapbar"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel needs">
+            <div class="ph"><h2>Needs you</h2><span class="aside" id="needcount"></span></div>
+            <div class="pb" id="needs"></div>
+          </div>
+        </div>
+
+        <div class="readouts">
+          <div class="panel ro"><div class="k">Tests</div><div class="v num" id="ro-tests"></div><div class="d" id="ro-tests-d"></div></div>
+          <div class="panel ro"><div class="k">Spend on this work</div><div class="v num" id="ro-spend"></div><div class="d num" id="ro-cost"></div></div>
+          <div class="panel ro"><div class="k">Current unit</div><div class="v num" id="ro-unit"></div><div class="d" id="ro-unit-d"></div></div>
+          <div class="panel ro" id="ro-fresh-p"><div class="k">Plan freshness</div><div class="v" id="ro-fresh"></div><div class="d" id="ro-fresh-d"></div></div>
+        </div>
+
+        <div class="panel" style="margin-top:18px">
+          <div class="ph"><h2>Team radio</h2><a class="aside" href="#telemetry">Full telemetry</a></div>
+          <div class="pb"><ul class="feed" id="feed-mini"></ul></div>
+        </div>
+      </section>
+
+      <!-- ================= BOARD ================= -->
+      <section class="view" id="v-board" aria-labelledby="h-board">
+        <div class="vhead"><h1 id="h-board">Board <small>(Plan)</small></h1><p>How the work is broken down, and where each piece stands.</p></div>
+        <div class="legend"><span><i class="dot done"></i>done</span><span><i class="dot ver"></i>verified: a passing test run was seen after the last edit</span><span><span class="tag-claimed">claimed</span>done, but no test run was seen</span><span><i class="dot prog"></i>in progress</span><span><i class="dot wait"></i>needs you</span><span><i class="dot"></i>to do</span></div>
+        <div id="board"></div>
+      </section>
+
+      <!-- ================= TELEMETRY ================= -->
+      <section class="view" id="v-telemetry" aria-labelledby="h-telemetry">
+        <div class="vhead"><h1 id="h-telemetry">Telemetry <small>(Live)</small></h1><p>Every action the agents take, the moment they take it.</p></div>
+        <div class="lanes" id="lanes"></div>
+        <div class="panel">
+          <div class="ph"><h2>Live feed</h2><span class="aside" id="feedcount"></span></div>
+          <div class="pb">
+            <div class="filters" id="filters"></div>
+            <ul class="feed" id="feed-full"></ul>
+            <p class="note" id="codexnote" hidden>Codex web searches run on OpenAI's side and don't show here.</p>
+            <div class="kindkey" id="kindkey"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= MAP ================= -->
+      <section class="view" id="v-map" aria-labelledby="h-map">
+        <div class="vhead"><h1 id="h-map">Map <small>(Codebase)</small></h1><p>Which parts of the code are changing, and whether that matches the plan.</p></div>
+        <div class="mapwrap">
+          <div class="panel"><div class="pb"><div id="mapbox"></div>
+            <div class="legend" style="margin:10px 0 0"><span><i class="dot prog"></i>edited in the last 10 minutes</span><span><svg width="26" height="10" aria-hidden="true"><line x1="0" y1="5" x2="26" y2="5" class="scope"/></svg><span id="scopelbl">the current epic's declared files</span></span><span><i class="dot" style="background:var(--red)"></i>edited outside the current epic</span></div></div></div>
+          <div class="panel"><div class="ph"><h2 id="files-h">Files touched in this epic</h2></div><div class="pb"><ul class="files" id="files" style="list-style:none;margin:0;padding:0"></ul></div></div>
+        </div>
+      </section>
+
+      <!-- ================= TIMING ================= -->
+      <section class="view" id="v-timing" aria-labelledby="h-timing">
+        <div class="vhead"><h1 id="h-timing">Timing <small>(Cost)</small></h1><p>Tokens, cost and time for each piece of work, read from the session logs.</p></div>
+        <div class="timing">
+          <div class="panel"><div class="ph"><h2>Tokens by epic</h2><span class="aside">solid: new tokens · striped: read from cache</span></div><div class="pb"><div class="bars" id="bars"></div></div></div>
+          <div class="panel"><div class="ph"><h2>Sessions</h2></div><div class="pb">
+            <table><thead><tr><th>Session</th><th>Agent</th><th>Model</th><th>Built</th><th class="r">Tokens</th></tr></thead>
+            <tbody id="sessions"></tbody></table></div></div>
+        </div>
+        <div class="panel" style="margin-top:18px"><div class="ph"><h2>Per task</h2></div><div class="pb">
+          <table><thead><tr><th>Task</th><th>What</th><th class="r">Time</th><th class="r">Tokens</th><th class="r">Cost</th></tr></thead><tbody id="pertask"></tbody></table>
+        </div></div>
+        <p class="note" id="pricenote">Cost is approximate, from the price table in <code class="mono">.boxbox/pitwall/prices.json</code>, which you can edit. Models missing from it show tokens only.</p>
+      </section>
+
+      <!-- ================= GARAGE ================= -->
+      <section class="view" id="v-garage" aria-labelledby="h-garage">
+        <div class="vhead"><h1 id="h-garage">Garage <small>(Docs)</small></h1><p>Every page Boxbox has written for this repo.</p></div>
+        <input class="search" id="search" type="search" placeholder="Search plans, reports, decisions, knowledge pages" aria-label="Search documents">
+        <div class="shelves" id="shelves"></div>
+      </section>
+    </main>
+  </div>
+</div>
+<div class="tt" id="tt"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="orbs.js"></script>
+<script>
+"use strict";
+const { KINDS, makeOrb, dropGroup, redraw } = window.BoxboxOrbs;
+const TOKEN = document.querySelector('meta[name="boxbox-token"]').content;
+const DEMO = new URLSearchParams(location.search).has("demo");
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ================= the Boxbox flow ================= */
+const STAGE_LABEL = {
+  setup: "Setup", "learn-repo": "Learning the repo", "install-skills": "Installing skills", discover: "Discover", knowledge: "Knowledge pages",
+  decisions: "Decisions", plan: "Plan", "plan-review": "Stop 1: plan review", design: "Design", "design-review": "Design stop",
+  build: "Build", verify: "Verify", inspect: "Inspect", report: "Report", "unit-review": "Stop 2: your review", approved: "Approved", merged: "Merged",
+  explain: "Explain: reading the work", "explain-check": "Checking it", "explain-board": "On the board",
+  review: "Reading the change", "review-notes": "Writing review notes", debug: "Finding the cause", outside: "Outside the Boxbox flow"
+};
+const FLOWS = {
+  full: ["setup", "learn-repo", "install-skills", "discover", "knowledge", "decisions", "plan", "plan-review", "design", "design-review", "build", "verify", "inspect", "report", "unit-review", "approved", "merged"],
+  short: ["debug", "build", "verify", "report", "unit-review", "approved"],
+  explain: ["setup", "explain", "explain-check", "explain-board", "unit-review"],
+  review: ["review", "review-notes"]
+};
+const WAIT_STAGES = new Set(["plan-review", "design-review", "unit-review"]);
+const label = s => STAGE_LABEL[s] || s;
+
+/* ================= state ================= */
+let S = null;
+let filter = "all";
+const big = makeOrb($("#bigorb"), 260, "now"), radio = makeOrb($("#radioorb"), 20, "now"), brand = makeOrb($("#brandorb"), 28, "brand");
+
+function toast(msg) { const el = $("#toast"); el.textContent = msg; el.style.display = "block"; clearTimeout(toast.h); toast.h = setTimeout(() => (el.style.display = "none"), 2600); }
+function hhmm(ts) { const d = new Date(ts); return isNaN(d) ? "" : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+function ago(ts) { const s = Math.round((Date.now() - Date.parse(ts)) / 1000); if (isNaN(s)) return ""; if (s < 60) return "just now"; if (s < 3600) return Math.round(s / 60) + " min ago"; return Math.round(s / 3600) + " h ago"; }
+function fmtTok(n) { n = n || 0; return n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : n >= 1e3 ? Math.round(n / 1e3) + "k" : String(n); }
+function fmtCost(c) { return c == null ? "no price" : "$" + c.toFixed(2); }
+function fmtMs(ms) { const m = Math.round((ms || 0) / 60000); return m < 1 ? "<1 min" : m < 60 ? m + " min" : Math.floor(m / 60) + " h " + (m % 60) + " min"; }
+function href(h) {
+  h = String(h || "");
+  if (/^https?:\/\//.test(h)) return h;
+  if (/^[a-z]+:/i.test(h) || h.startsWith("//")) return "#";
+  return "/b/" + h.replace(/^\.?\/?(\.boxbox\/)?/, "");
+}
+function chip(l) { return `<a class="chip" href="${esc(href(l.href))}" target="_blank" rel="noopener">${esc(l.label)}</a>`; }
+
+function activeMilestone(b) {
+  const ms = (b && b.milestones) || [];
+  return ms.find(m => /^(in_progress|review|changes)$/.test(m.status)) || ms[ms.length - 1] || null;
+}
+function findEpic(b, id) { const m = activeMilestone(b); return m && (m.epics || []).find(e => e.id === id); }
+function findTask(b, id) { const m = activeMilestone(b); for (const e of (m && m.epics) || []) for (const t of e.tasks || []) if (t.id === id) return t; return null; }
+const epicOf = u => (u ? String(u).split(".")[0] : "");
+
+/* ================= feed rows ================= */
+function rows() {
+  const evs = S.events || [];
+  const ended = new Set(evs.filter(e => e.type === "action" && e.id).map(e => e.id));
+  const outside = new Set((S.drift.outside || []).map(o => o.ts + " " + o.path));
+  const out = [];
+  for (const e of evs) {
+    if (e.type === "start" && (ended.has(e.id) || !e.id)) continue;
+    if (e.type === "session-end") continue;
+    const kind = e.type === "stage" ? "stage" : e.type === "prompt" ? "prompt" : e.type === "session" ? "session" : KINDS[e.kind] ? e.kind : "run";
+    const r = { ...e, kind };
+    if (e.type === "stage") { r.what = label(e.target) + (e.unit ? " · " + e.unit : "") + (e.inferred ? " (inferred)" : ""); r.code = false; }
+    else if (e.type === "start") { r.what = e.target; r.code = true; r.result = "…"; }
+    else { r.what = e.target; r.code = /^(read|search|edit|run|test|page|commit)$/.test(kind); }
+    r.flag = (e.edits || []).some(p => outside.has(e.ts + " " + p)) ? "outside " + (e.unit ? epicOf(e.unit) : "scope") : "";
+    r.res = e.test ? (e.test.status === "pass" ? "pass" : e.test.status === "fail" ? "fail" : "plus") : e.failed ? "fail" : "plus";
+    out.push(r);
+  }
+  return out;
+}
+
+function rowHTML(r, fresh) {
+  const kd = KINDS[r.kind];
+  const who = r.lane === "crew" ? "Crew: " : r.lane === "steward" ? "Steward: " : "";
+  const what = r.code ? `<code>${esc(r.what)}</code>` : esc(r.what);
+  return `<li class="${fresh ? "fresh" : ""}" data-k="${r.kind}"><span class="time num">${hhmm(r.ts)}</span><canvas width="20" height="20" data-kind="${r.kind}" aria-hidden="true"></canvas>
+    <span class="kindtag" style="color:${kd.hue}">${kd.label}</span>
+    <span class="body">${esc(who)}${what}${r.why ? ` <span style="color:var(--fog)">· ${esc(r.why)}</span>` : ""}${r.flag ? ` <span class="st flag" style="margin-left:6px">${esc(r.flag)}</span>` : ""}${r.test && !r.test.observed ? ` <span class="tag-claimed" style="margin-left:6px">not observed</span>` : ""}</span>
+    <span class="res ${r.res}">${esc(r.result || "")}</span></li>`;
+}
+
+let seenKeys = new Set();
+function renderFeeds() {
+  const list = rows().reverse();
+  const key = r => r.ts + r.type + (r.id || "") + r.what;
+  const fresh = r => !seenKeys.has(key(r));
+  const mini = list.slice(0, 6), full = list.filter(r => filter === "all" || r.kind === filter).slice(0, 120);
+  $("#feed-mini").innerHTML = mini.length ? mini.map(r => rowHTML(r, fresh(r))).join("") : `<li class="empty" style="display:block">No actions yet. They appear here the moment the agent uses a tool.</li>`;
+  $("#feed-full").innerHTML = full.length ? full.map(r => rowHTML(r, fresh(r))).join("") : `<li class="empty" style="display:block">${filter === "all" ? "No actions yet. They appear here the moment the agent uses a tool." : "Nothing of this kind yet."}</li>`;
+  seenKeys = new Set(list.map(key));
+  const actions = (S.events || []).filter(e => e.type === "action").length;
+  $("#feedcount").textContent = `${actions} action${actions === 1 ? "" : "s"} recorded`;
+  dropGroup("feed");
+  document.querySelectorAll("#feed-mini canvas[data-kind], #feed-full canvas[data-kind]").forEach(c => { const o = makeOrb(c, 20, "feed"); o.mode = KINDS[c.dataset.kind].mode; o.ink = KINDS[c.dataset.kind].hue; redraw(o); });
+}
+
+function renderFilters() {
+  const ks = ["all", "think", "read", "search", "edit", "run", "test", "web", "page", "commit", "skill", "crew", "wait", "stage"];
+  $("#filters").innerHTML = ks.map(k => `<button aria-pressed="${k === filter}" data-f="${k}">${k === "all" ? "All" : KINDS[k].label}</button>`).join("");
+  $("#kindkey").innerHTML = Object.entries(KINDS).filter(([k]) => k !== "session").map(([k, v]) => `<div><canvas width="20" height="20" data-key="${k}" aria-hidden="true"></canvas><span><b style="color:${v.hue};font-weight:600">${v.label}</b> ${v.desc}</span></div>`).join("");
+  dropGroup("key");
+  document.querySelectorAll("canvas[data-key]").forEach(c => { const o = makeOrb(c, 20, "key"); o.mode = KINDS[c.dataset.key].mode; o.ink = KINDS[c.dataset.key].hue; redraw(o); });
+}
+$("#filters").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; filter = b.dataset.f; renderFilters(); renderFeeds(); });
+
+/* ================= now, radio, pause, your move ================= */
+function current() {
+  const evs = S.events || [];
+  const ended = new Set(evs.filter(e => e.type === "action" && e.id).map(e => e.id));
+  for (let i = evs.length - 1; i >= 0; i--) {
+    const e = evs[i];
+    if (e.type === "start" && e.id && !ended.has(e.id)) return { ...e, live: true };
+    if (e.type === "action" || e.type === "stage" || e.type === "ask" || (e.type === "crew" && e.result === "started")) return e;
+  }
+  return null;
+}
+
+function renderNow() {
+  const p = S.paused || {};
+  const btn = $("#pause");
+  const st = p.held ? "paused" : p.requested ? "pending" : "running";
+  btn.dataset.state = st;
+  $("#pauselbl").textContent = st === "paused" ? "Paused · resume" : st === "pending" ? "Pausing after this action" : "Pause";
+  const e = current();
+  big.paused = radio.paused = st === "paused";
+  if (st === "paused") {
+    $("#n-kind").innerHTML = `<span style="color:var(--amber)">Paused</span>&nbsp;· by you`;
+    $("#n-what").textContent = "Holding before the next action";
+    $("#n-why").innerHTML = "<b>Resume</b> lets the held action run. After 9 minutes the agent stops and says it is paused.";
+    $("#r-what").textContent = "Paused by you"; $("#r-why").textContent = "Holding before the next action";
+    $("#halo").style.background = "radial-gradient(circle, #ffc53d, transparent 65%)";
+  } else if (S.waiting) {
+    big.mode = radio.mode = "ring";
+    $("#n-kind").innerHTML = `<span style="color:var(--amber)">Waiting</span>&nbsp;· for you`;
+    $("#n-what").textContent = S.waiting.what;
+    $("#n-why").innerHTML = S.waiting.detail ? `<b>Detail:</b> ${esc(S.waiting.detail)}` : "Answer in chat.";
+    $("#r-what").textContent = "Your move: " + S.waiting.what; $("#r-why").textContent = "Answer in chat";
+    $("#halo").style.background = "radial-gradient(circle, #ffc53d, transparent 65%)";
+  } else if (e) {
+    const kind = e.type === "stage" ? "stage" : e.type === "ask" ? "wait" : KINDS[e.kind] ? e.kind : "run";
+    const kd = KINDS[kind];
+    big.mode = radio.mode = kd.mode;
+    const verb = { edit: "Editing ", read: "Reading ", test: "Running ", run: "Running ", search: "Searching ", page: "Writing ", web: "Looking up ", skill: "Skill: ", crew: "Subagent: " }[kind] || "";
+    const what = e.type === "stage" ? label(e.target) + (e.unit ? " · " + e.unit : "") : verb + e.target;
+    $("#n-kind").innerHTML = `<span style="color:${kd.hue}">${kd.label}</span>&nbsp;· ${esc(kd.desc)}${e.live ? "" : " · " + esc(ago(e.ts))}`;
+    $("#n-what").textContent = what;
+    $("#n-why").innerHTML = e.why ? `<b>Why:</b> ${esc(e.why)}` : "";
+    $("#r-what").textContent = what; $("#r-why").textContent = e.why || "";
+    $("#halo").style.background = `radial-gradient(circle, ${kd.hue}, transparent 65%)`;
+  } else {
+    big.mode = radio.mode = "orbits";
+    $("#n-kind").textContent = ""; $("#n-what").textContent = "Waiting for the first action"; $("#n-why").textContent = "Start Boxbox work in your agent and it shows here.";
+    $("#r-what").textContent = "No actions yet"; $("#r-why").textContent = "";
+  }
+  redraw(big); redraw(radio);
+
+  // Your move: on every view, with the tab title.
+  const ym = $("#yourmove");
+  if (S.waiting) {
+    ym.classList.add("on");
+    $("#ym-what").innerHTML = esc(S.waiting.what) + (S.waiting.detail ? `<small>${esc(S.waiting.detail)}</small>` : "");
+    document.title = "Your move · Boxbox";
+  } else { ym.classList.remove("on"); document.title = "Pit wall · Boxbox"; }
+
+  // Chain: milestone › epic › task
+  const ms = activeMilestone(S.board);
+  const unit = S.stage.unit || (S.stage.last && S.stage.last.unit) || "";
+  const ep = findEpic(S.board, epicOf(unit));
+  $("#r-chain").innerHTML = ms ? `<b>${esc(ms.id)}</b> ${esc(ms.title)}${ep ? ` › <b>${esc(ep.id)}</b> ${esc(ep.title)}` : ""}${unit.includes(".") ? ` › <b>${esc(unit)}</b>` : ""}` : "";
+}
+
+async function post(path) {
+  if (DEMO) return demoPause(path);
+  try {
+    const r = await fetch(path, { method: "POST", headers: { "X-Boxbox-Token": TOKEN } });
+    if (!r.ok) throw new Error(r.status);
+  } catch (err) { toast("The pit wall server did not answer. Is it still running?"); }
+}
+$("#pause").addEventListener("click", () => {
+  const p = S && S.paused || {};
+  if (p.requested) { post("/api/resume"); toast("Resumed. The held action runs now."); }
+  else { post("/api/pause"); toast("Pause requested. The agent is held before its next action."); }
+});
+
+/* ================= pit wall view ================= */
+function flowFor(stage, timeline) {
+  if (FLOWS.explain.includes(stage) && stage !== "setup" && stage !== "unit-review") return "explain";
+  if (FLOWS.review.includes(stage)) return "review";
+  const recent = timeline.map(t => t.stage);
+  const lastExplain = recent.lastIndexOf("explain"), lastPlan = Math.max(recent.lastIndexOf("plan"), recent.lastIndexOf("discover")), lastDebug = recent.lastIndexOf("debug");
+  if (lastExplain > lastPlan && lastExplain > lastDebug) return "explain";
+  if (lastDebug > lastPlan) return "short";
+  return "full";
+}
+
+function renderStages() {
+  const tl = S.timeline || [];
+  const outside = S.stage.stage === "outside";
+  const cur = outside ? (S.stage.last && S.stage.last.stage) || "" : S.stage.stage;
+  const flow = FLOWS[flowFor(cur, tl)];
+  const seen = new Set(tl.map(t => t.stage));
+  const ci = flow.indexOf(cur);
+  $("#outside").innerHTML = outside ? `<div class="outside"><span class="st">outside the flow</span>${S.stage.last ? "Last Boxbox step: " + esc(label(S.stage.last.stage)) + ". Actions still log below." : "Actions are logged. Ask for Boxbox work to see its stages."}</div>` : "";
+  $("#stages").innerHTML = flow.map((s, i) => {
+    let cls = "", sub = "";
+    if (i === ci && !outside) { cls = "cur" + (WAIT_STAGES.has(s) ? " wait" : ""); sub = S.stage.unit ? S.stage.unit : WAIT_STAGES.has(s) ? "waiting for you" : "now"; }
+    else if (ci >= 0 && i < ci) { cls = seen.has(s) ? "done" : "skip"; sub = seen.has(s) ? "done" : "skipped"; }
+    else sub = i === ci ? "last" : "";
+    return `<div class="stg ${cls}"${i === ci && !outside ? ' aria-current="step"' : ""}><b>${esc(label(s))}</b><i>${esc(sub)}</i></div>`;
+  }).join("");
+  const curEl = $("#stages .cur"), strip = $("#stages");
+  if (curEl) strip.scrollLeft = Math.max(0, curEl.offsetLeft - strip.offsetLeft - strip.clientWidth / 2 + curEl.offsetWidth / 2);
+}
+
+function renderNeeds() {
+  const items = [];
+  if (S.waiting) items.push({ st: "wait", tag: S.waiting.kind || "you", t: S.waiting.what, d: (S.waiting.detail ? S.waiting.detail + " · " : "") + "Answer in chat." });
+  const bw = S.board && S.board.waiting;
+  if (bw && (!S.waiting || bw.what !== S.waiting.what)) items.push({ st: "wait", tag: "review", t: bw.what, d: bw.detail || "", link: bw.href ? { label: bw.label || "Open", href: bw.href } : null });
+  if (S.codexUntrusted) items.push({ st: "flag", tag: "codex", t: "Codex hooks aren't trusted yet. Run /hooks in Codex and trust Boxbox.", d: "Until then, Codex actions don't show here and pause can't hold them." });
+  for (const o of (S.drift.outside || []).slice(-4)) items.push({ st: "flag", tag: "scope", t: `${o.path} changed outside ${o.epic}'s files`, d: (o.owner ? `It belongs to ${o.owner}. ` : "No epic in the plan covers it. ") + "The report will list it.", map: true });
+  for (const id of S.drift.changedAfterApproval || []) items.push({ st: "flag", tag: "changed", t: `${id} changed after approval`, d: "A file from an approved epic was edited later.", map: true });
+  $("#needcount").textContent = items.length ? `${items.length} item${items.length === 1 ? "" : "s"}` : "";
+  $("#needs").innerHTML = items.length ? items.map(i => `<div class="item"><span class="st ${i.st}">${esc(i.tag)}</span><div><div class="t">${esc(i.t)}</div><div class="d">${esc(i.d)}</div></div>${i.link ? chip(i.link) : i.map ? '<a class="chip" href="#map">Map</a>' : "<span></span>"}</div>`).join("")
+    : `<div class="empty">Nothing needs you right now.</div>`;
+}
+
+function renderReadouts() {
+  const tests = (S.events || []).filter(e => e.test);
+  const last = tests[tests.length - 1];
+  if (!last) { $("#ro-tests").innerHTML = `– <small>no run yet</small>`; $("#ro-tests-d").textContent = "Appears when the agent runs the test command from config.md."; }
+  else if (!last.test.observed) { $("#ro-tests").innerHTML = `? <small>no summary</small>`; $("#ro-tests-d").innerHTML = `<span class="tag-claimed">not observed</span> the output had no test summary, ${esc(ago(last.ts))}`; }
+  else {
+    const t = last.test;
+    $("#ro-tests").innerHTML = t.passed !== undefined ? `${t.passed} <small>of ${t.passed + t.failed} pass</small>` : (t.status === "pass" ? `pass <small>exit 0</small>` : `fail <small>exit ${t.exit ?? "?"}</small>`);
+    $("#ro-tests-d").innerHTML = `<span class="st ${t.status === "pass" ? "ver" : "flag"}">${t.status === "pass" ? "observed pass" : "observed fail"}</span> seen by the hook, ${esc(ago(last.ts))}`;
+  }
+  const tot = S.tokens.total;
+  if (!tot.tokens) { $("#ro-spend").innerHTML = `0 <small>tokens</small>`; $("#ro-cost").textContent = "No tokens yet. They appear after the first reply."; }
+  else {
+    $("#ro-spend").innerHTML = `${fmtTok(tot.tokens)} <small>tokens</small>`;
+    const pct = Math.round(tot.cache / tot.tokens * 100);
+    $("#ro-cost").textContent = (tot.cost == null ? "no price for " + tot.unpriced.join(", ") : `about $${tot.cost.toFixed(2)}${tot.partial ? " (some models unpriced)" : ""}`) + `, ${pct}% from cache`;
+  }
+  const unit = S.stage.unit || "";
+  const ep = findEpic(S.board, epicOf(unit));
+  if (ep) {
+    const done = (ep.tasks || []).filter(t => t.status === "done").length;
+    $("#ro-unit").innerHTML = `${esc(ep.id)} <small>${done} of ${(ep.tasks || []).length} tasks</small>`;
+    $("#ro-unit-d").innerHTML = ep.branch ? `on <code class="mono">${esc(ep.branch)}</code>` : esc(ep.title);
+  } else { $("#ro-unit").innerHTML = unit ? esc(unit) : `– <small>none</small>`; $("#ro-unit-d").textContent = unit ? label(S.stage.stage) : "No unit in progress."; }
+  const d = S.drift;
+  const declared = ((activeMilestone(S.board) || {}).epics || []).some(e => e.files && e.files.length);
+  $("#ro-fresh-p").classList.toggle("flagged", d.behind.length > 0);
+  if (!declared) { $("#ro-fresh").innerHTML = `– <small>no scopes</small>`; $("#ro-fresh-d").textContent = "The plan's epics list no files yet."; }
+  else if (d.behind.length) { $("#ro-fresh").innerHTML = `Behind <small>by ${d.behind.length} file${d.behind.length === 1 ? "" : "s"}</small>`; $("#ro-fresh-d").textContent = d.behind.slice(0, 2).join(", ") + (d.behind.length > 2 ? "…" : "") + " changed; no epic covers it"; }
+  else { $("#ro-fresh").innerHTML = `Up to date`; $("#ro-fresh-d").textContent = "Every edited file is in some epic's files."; }
+}
+
+function taskClass(t) {
+  const v = S.verification.tasks[t.id];
+  if (t.status === "done") return v === "verified" ? "ver" : "done";
+  return { in_progress: "prog", review: "wait", changes: "wait", blocked: "wait" }[t.status] || "";
+}
+function renderTrail() {
+  const ms = activeMilestone(S.board);
+  if (!ms) { $("#trail").innerHTML = ""; $("#lap").style.display = "none"; return; }
+  const ep = findEpic(S.board, epicOf(S.stage.unit));
+  $("#trail").innerHTML = [...(ms.links || []), ...((ep && ep.links) || [])].slice(0, 5).map(chip).join("");
+  const tasks = (ms.epics || []).flatMap(e => e.tasks || []);
+  $("#lap").style.display = tasks.length ? "" : "none";
+  $("#lapbar").innerHTML = tasks.map(t => `<i class="${taskClass(t)}" title="${esc(t.id + " " + t.title + ": " + t.status)}"></i>`).join("");
+  $("#lapnum").textContent = `${tasks.filter(t => t.status === "done").length} of ${tasks.length} tasks`;
+}
+
+/* ================= board ================= */
+const STATUS = { done: ["done", "done"], in_progress: ["prog", "in progress"], review: ["wait", "needs your review"], changes: ["wait", "changes asked"], blocked: ["flag", "blocked"], todo: ["", "to do"], skipped: ["", "skipped"] };
+function renderBoard() {
+  const b = S.board;
+  const ms = (b && b.milestones) || [];
+  if (!ms.length) { $("#board").innerHTML = `<div class="panel"><div class="pb empty">No plan yet. The board fills in after stop 1.</div></div>`; return; }
+  const changed = new Set(S.drift.changedAfterApproval || []);
+  const active = activeMilestone(b);
+  $("#board").innerHTML = ms.slice().reverse().map(m => {
+    const tasks = (m.epics || []).flatMap(e => e.tasks || []), done = tasks.filter(t => t.status === "done").length;
+    const [mc, mw] = STATUS[m.status] || ["", m.status];
+    return `<div class="panel ms"><div class="mhead"><span class="st ${mc}">${esc(mw)}</span>
+      <div><h2>${esc(m.id)} · ${esc(m.title)}</h2><div class="goal">${esc(m.goal || "")}</div></div>
+      <div class="right"><span class="num" style="color:var(--mist);font-size:14px">${done} of ${tasks.length} tasks</span>${(m.links || []).map(chip).join("")}</div></div>
+      <div class="epics">${(m.epics || []).map(e => {
+        const [ec, ew] = STATUS[e.status] || ["", e.status];
+        const ver = m === active && S.verification.epics[e.id] === "verified";
+        const claimed = (e.tasks || []).some(t => t.status === "done" && S.verification.tasks[t.id] !== "verified");
+        return `<div class="epic"><div class="eid">${esc(e.id)}</div>
+          <div><h3>${esc(e.title)}</h3><div class="out">${esc(e.outcome || "")}</div>
+            <div class="tasks">${(e.tasks || []).map(t => `<span class="task"><i class="dot ${taskClass(t)}"></i><span class="tid">${esc(t.id)}</span>${esc(t.title)}${t.status === "done" && S.verification.tasks[t.id] !== "verified" ? ' <span class="claimed">claimed</span>' : ""}</span>`).join("")}</div>
+            <div class="meta">${(e.links || []).map(chip).join("")}${e.pr ? chip({ label: "Pull request", href: e.pr }) : ""}${e.branch ? `<span class="dep">branch ${esc(e.branch)}</span>` : ""}</div>
+            ${e.files && e.files.length ? `<div class="scopeline">files: ${e.files.map(f => `<code>${esc(f)}</code>`).join(", ")}</div>` : ""}
+          </div>
+          <div class="side"><span class="st ${ec}">${esc(ew)}</span>${ver ? `<span class="st ver">verified</span>` : claimed ? `<span class="tag-claimed">claimed: no test run seen</span>` : ""}${changed.has(e.id) && m === active ? `<span class="st flag">changed after approval</span>` : ""}${e.depends ? `<span class="dep">needs ${esc(e.depends)}</span>` : ""}</div>
+        </div>`;
+      }).join("")}</div></div>`;
+  }).join("");
+}
+
+/* ================= telemetry lanes ================= */
+function renderLanes() {
+  const agentName = (S.agents || []).includes("codex") && !(S.agents || []).includes("claude-code") ? "Codex" : (S.agents || []).includes("codex") ? "Claude Code or Codex" : "Claude Code";
+  const LANES = [
+    { key: "driver", who: "Driver", role: "Main agent · " + agentName },
+    { key: "crew", who: "Pit crew", role: "Subagents", idle: "Idle: no subagent running" },
+    { key: "steward", who: "Steward", role: "Reviewer · separate context", idle: "Idle until a unit is inspected" }
+  ];
+  const evs = (S.events || []).filter(e => /^(action|start|crew)$/.test(e.type));
+  const crewOpen = l => { let open = 0; for (const e of S.events || []) if (e.type === "crew" && e.lane === l) open += e.result === "started" ? 1 : -1; return open > 0; };
+  $("#lanes").innerHTML = LANES.map((l, i) => {
+    const last = evs.slice().reverse().find(e => (e.lane || "driver") === l.key);
+    const idle = !last || (l.key !== "driver" && !crewOpen(l.key));
+    const kd = last ? KINDS[last.kind] || KINDS.run : null;
+    const text = last ? (idle ? "Last: " : "") + kd.label + " " + last.target : l.idle || "Idle";
+    return `<div class="panel lane ${idle ? "idle" : ""}"><canvas width="72" height="72" data-lane="${i}" data-mode="${idle ? "ring" : kd.mode}" data-ink="${idle ? "#5e6e83" : kd.hue}" aria-hidden="true"></canvas><div><div class="who">${l.who}</div><div class="role">${esc(l.role)}</div><div class="doing">${esc(text)}</div></div></div>`;
+  }).join("");
+  dropGroup("lane");
+  document.querySelectorAll("canvas[data-lane]").forEach(c => { const o = makeOrb(c, 72, "lane"); o.mode = c.dataset.mode; o.ink = c.dataset.ink; redraw(o); });
+  $("#codexnote").hidden = !(S.agents || []).includes("codex");
+}
+
+/* ================= map ================= */
+function renderMap() {
+  const d = S.drift, mods = d.modules || [];
+  const cur = d.currentEpic;
+  $("#scopelbl").textContent = cur ? `${cur}'s declared files` : "the current epic's declared files";
+  $("#files-h").textContent = cur ? `Files touched in ${cur}` : "Files touched in this epic";
+  if (!mods.length) $("#mapbox").innerHTML = `<div class="empty">No modules yet. Discover fills them in from the codebase.</div>`;
+  else {
+    const cols = Math.min(3, mods.length), w = 200, h = 64, gx = 40, gy = 34;
+    const W = cols * w + (cols - 1) * gx + 40, rowsN = Math.ceil(mods.length / cols), H = rowsN * h + (rowsN - 1) * gy + 40;
+    const maxRecent = Math.max(1, ...mods.map(m => m.recent));
+    const svg = mods.map((m, i) => {
+      const x = 20 + (i % cols) * (w + gx), y = 20 + Math.floor(i / cols) * (h + gy);
+      const heat = m.recent / maxRecent;
+      const sub = (m.files || []).join(", ");
+      return `<g class="mapnode" tabindex="0"><title>${esc(m.name)}: ${esc(m.role || sub)} · ${m.total} edits, ${m.recent} in the last 10 min${m.outside ? " · edited outside the current epic" : ""}</title>
+        <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" ${m.outside ? 'style="stroke:#ff5a5f"' : ""}/>
+        ${m.inScope ? `<rect class="scoperect" x="${x - 6}" y="${y - 6}" width="${w + 12}" height="${h + 12}" rx="16"/>` : ""}
+        <circle class="heat" cx="${x + w - 18}" cy="${y + 18}" r="${4 + heat * 7}" fill="${m.outside ? "#ff5a5f" : "#5aa9ff"}" opacity="${m.recent ? 0.25 + heat * 0.6 : 0}"/>
+        <text class="nm" x="${x + 16}" y="${y + 28}">${esc(m.name.length > 22 ? m.name.slice(0, 21) + "…" : m.name)}</text>
+        <text class="sub" x="${x + 16}" y="${y + 47}">${esc(sub.length > 26 ? sub.slice(0, 25) + "…" : sub)}</text>
+        ${m.total ? `<text class="count" x="${x + w - 16}" y="${y + 52}" text-anchor="end">${m.total}</text>` : ""}</g>`;
+    }).join("");
+    $("#mapbox").innerHTML = `<svg id="mapsvg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Codebase map with recent edits">${svg}</svg>`;
+  }
+  const files = d.files || [];
+  $("#files").innerHTML = files.length ? files.map(f => `<li><code>${esc(f.path)}</code><span>${f.in ? "" : '<span class="st flag">outside scope</span> '}<span class="num" style="color:var(--mist)">${f.edits} edit${f.edits === 1 ? "" : "s"}</span></span></li>`).join("")
+    : `<li class="empty" style="border:0">${cur ? "No edits in " + esc(cur) + " yet." : "No epic in progress."}</li>`;
+}
+
+/* ================= timing ================= */
+function renderTiming() {
+  const t = S.tokens;
+  const order = r => (/^E\d+$/.test(r.id) ? Number(r.id.slice(1)) : r.id === "Plan" ? -1 : r.id === "Setup" ? -2 : 1000);
+  const rowsE = t.byEpic.slice().sort((a, b) => order(a) - order(b));
+  const max = Math.max(1, ...rowsE.map(r => r.tokens));
+  $("#bars").innerHTML = rowsE.length ? rowsE.map(r => `<div class="bar" data-tip="${esc(`${r.id} ${r.name}: ${fmtTok(r.fresh)} new tokens, ${fmtTok(r.cache)} from cache, ${r.cost == null ? "no price" : "about $" + r.cost.toFixed(2)}, ${fmtMs(r.ms)}`)}">
+      <span class="lbl"><b>${esc(r.id)}</b> <span style="color:var(--fog)">${esc(r.id === r.name ? "" : r.name)}</span></span>
+      <span class="track"><span class="fill" style="width:${r.fresh / max * 100}%"></span><span class="fill cache" style="left:calc(${r.fresh / max * 100}% + 2px);width:calc(${r.cache / max * 100}% - 2px);border-radius:0 4px 4px 0"></span></span>
+      <span class="val num">${fmtTok(r.tokens)} · ${r.cost == null ? "–" : "$" + r.cost.toFixed(2)}</span></div>`).join("")
+    : `<div class="empty">No tokens yet. They appear after the first reply.</div>`;
+  $("#sessions").innerHTML = t.sessions.length ? t.sessions.map(s => `<tr><td class="num mono" title="${esc(s.session)}">${esc(s.session.slice(0, 4))}…${esc(s.session.slice(-2))}</td><td>${s.agent === "codex" ? "Codex" : "Claude Code"}</td><td>${esc(s.models.join(", ").replace(/claude-/g, ""))}</td><td>${esc(s.units.slice(0, 4).join(", ") || "–")}</td><td class="r num">${fmtTok(s.tokens)}</td></tr>`).join("")
+    : `<tr><td colspan="5" class="empty">No sessions recorded yet.</td></tr>`;
+  $("#pertask").innerHTML = t.byTask.length ? t.byTask.map(r => `<tr><td style="color:var(--fog)">${esc(r.id)}</td><td>${esc(r.name || (findTask(S.board, r.id) || {}).title || "")}</td><td class="r num">${fmtMs(r.ms)}</td><td class="r num">${fmtTok(r.tokens)}</td><td class="r num">${fmtCost(r.cost)}</td></tr>`).join("")
+    : `<tr><td colspan="5" class="empty">No task has started yet.</td></tr>`;
+  $("#pricenote").innerHTML = "Cost is approximate, from the price table in <code class=\"mono\">.boxbox/pitwall/prices.json</code>, which you can edit." + (t.total.unpriced.length ? ` No price for ${esc(t.total.unpriced.join(", "))}, so those show tokens only.` : " Models missing from it show tokens only.");
+}
+const tt = $("#tt");
+$("#bars").addEventListener("mousemove", e => { const b = e.target.closest(".bar"); if (!b) { tt.style.display = "none"; return; } tt.textContent = b.dataset.tip; tt.style.display = "block"; tt.style.left = (e.clientX + 14) + "px"; tt.style.top = (e.clientY + 14) + "px"; });
+$("#bars").addEventListener("mouseleave", () => (tt.style.display = "none"));
+
+/* ================= garage ================= */
+function renderGarage() {
+  const q = $("#search").value.trim().toLowerCase();
+  const docs = S.garage || [];
+  if (!docs.length) { $("#shelves").innerHTML = `<div class="panel"><div class="pb empty">No pages yet. Boxbox writes them as it works: context, decisions, plan and reports. <a href="/b/board.html" target="_blank" rel="noopener">The classic board</a> is still here.</div></div>`; return; }
+  const shelves = ["Plans and decisions", "Reports and reviews", "Knowledge"];
+  $("#shelves").innerHTML = shelves.map(shelf => {
+    const f = docs.filter(d => d.shelf === shelf && (!q || (d.title + " " + d.href).toLowerCase().includes(q)));
+    return `<div class="panel"><div class="pb shelf"><h2>${shelf}</h2>${f.length ? f.map(d => `<a class="doc" href="${esc(href(d.href))}" target="_blank" rel="noopener"><div class="dt">${esc(d.title)}</div><div class="dd">${esc(d.href)} · ${esc(ago(new Date(d.mtime).toISOString()))}</div></a>`).join("") : `<div class="dd" style="color:var(--fog)">${q ? "Nothing matches." : "Nothing here yet."}</div>`}</div></div>`;
+  }).join("");
+}
+$("#search").addEventListener("input", () => S && renderGarage());
+
+/* ================= render, connect, route ================= */
+function render() {
+  if (!S) return;
+  const b = S.board || {};
+  $("#p-name").textContent = b.project || S.root || "This repo";
+  $("#p-goal").textContent = b.goal || "No feature yet";
+  renderNow(); renderStages(); renderNeeds(); renderReadouts(); renderTrail();
+  renderBoard(); renderLanes(); renderFeeds(); renderMap(); renderTiming(); renderGarage();
+}
+
+function connect() {
+  const es = new EventSource("/api/stream");
+  es.onmessage = m => { $("#banner").classList.remove("on"); S = JSON.parse(m.data); render(); };
+  es.onerror = () => {
+    const bn = $("#banner");
+    bn.className = "banner on bad";
+    bn.textContent = "Lost the connection to the pit wall server. Retrying… If it stopped, the next agent session starts it again, or run: node .boxbox/pitwall/server.js --ensure";
+  };
+}
+
+function route() {
+  const v = (location.hash || "#pitwall").slice(1);
+  document.querySelectorAll(".view").forEach(s => s.classList.toggle("on", s.id === "v-" + v));
+  document.querySelectorAll("nav.views a").forEach(a => { if (a.dataset.v === v) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  if (!document.querySelector(".view.on")) $("#v-pitwall").classList.add("on");
+}
+addEventListener("hashchange", route);
+function stickBar() { $("#yourmove").style.top = matchMedia("(max-width:760px)").matches ? "0px" : $(".top").offsetHeight + "px"; }
+addEventListener("resize", stickBar);
+
+brand.mode = "orbits"; redraw(brand); stickBar();
+renderFilters(); route();
+if (DEMO) startDemo(); else connect();
+
+/* ================= ?demo: the mockup's sample data, for the README GIF ================= */
+function startDemo() {
+  $("#foot").textContent = "Demo mode: sample data, nothing is live.";
+  const T = m => new Date(Date.now() - m * 60000).toISOString();
+  const task = (id, title, status) => ({ id, title, status });
+  const board = {
+    project: "Scene ON backend", goal: "Password reset by email",
+    modules: [
+      { name: "HTTP routes", files: ["src/server.js"], role: "routes" }, { name: "Reset tokens", files: ["src/resets.js"], role: "tokens" },
+      { name: "Users and passwords", files: ["src/users.js"], role: "users" }, { name: "Mailer", files: ["src/mailer.js"], role: "email" },
+      { name: "Tests", files: ["test/**"], role: "tests" }, { name: "Rate limiter", files: ["src/limit.js"], role: "planned in E3" }],
+    waiting: null,
+    milestones: [
+      { id: "M0", title: "Accounts foundation", goal: "Sign-up, log-in and the mailer exist and are tested.", status: "done", links: [{ label: "Explained", href: "explained/accounts-foundation.html" }],
+        epics: [{ id: "E1", title: "Sign up and log in", outcome: "Built before Boxbox; explained after the fact.", status: "done", tasks: [task("E1.1", "Sign up", "done"), task("E1.2", "Log in", "done"), task("E1.3", "Mailer outbox", "done")] }] },
+      { id: "M1", title: "Password reset", goal: "Users can reset a forgotten password by email.", status: "in_progress",
+        links: [{ label: "Context", href: "password-reset/context.html" }, { label: "Decisions", href: "password-reset/decisions.html" }, { label: "Plan", href: "password-reset/plan.html" }],
+        epics: [
+          { id: "E1", title: "Ask for a reset email", outcome: "A known email gets a one-time link; an unknown one gets the same answer.", status: "done", branch: "password-reset-e1-request", files: ["src/mailer.js", "src/server.js", "test/**"],
+            links: [{ label: "Report", href: "password-reset/e1-request/report.html" }],
+            tasks: [task("E1.1", "Hashed token with 30-minute expiry", "done"), task("E1.2", "No token for unknown emails", "done"), task("E1.3", "A new request replaces the old token", "done"), task("E1.4", "POST /password-reset/request sends the email", "done")] },
+          { id: "E2", title: "Set a new password", outcome: "The link sets a new password once, then stops working.", status: "in_progress", branch: "password-reset-e2-set-password", depends: "E1", files: ["src/resets.js", "src/users.js", "test/**"],
+            links: [{ label: "Design", href: "password-reset/e2-set-password/design.html" }],
+            tasks: [task("E2.1", "Accept a valid token once", "done"), task("E2.2", "Reject expired and used tokens", "done"), task("E2.3", "Store the new password hashed", "in_progress"), task("E2.4", "POST /password-reset/confirm", "todo")] },
+          { id: "E3", title: "Rate-limit reset requests", outcome: "Repeated requests for one email or IP are slowed down.", status: "todo", depends: "E1 · blocked by D4", files: ["src/limit.js", "test/**"],
+            tasks: [task("E3.1", "Count requests per email", "todo"), task("E3.2", "Count requests per IP", "todo"), task("E3.3", "Answer 429 with retry time", "todo")] }] }] };
+  const ev = (m, type, kind, target, why, result, extra) => ({ ts: T(m), type, kind, target, why, result, lane: "driver", unit: "E2.3", ...(extra || {}) });
+  const events = [
+    ev(30, "stage", "stage", "build", "the new password must be stored hashed", "", { unit: "E2.3" }),
+    ev(26, "action", "page", ".boxbox/password-reset/e3-rate-limit/design.html", "design stop for E3", "+120"),
+    ev(24, "action", "edit", "src/mailer.js", "reuse the reset email template", "+4 −0", { edits: ["src/mailer.js"] }),
+    ev(22, "action", "test", "npm test", "all checks before the commit", "14 passed", { test: { status: "pass", observed: true, passed: 14, failed: 0 } }),
+    ev(21, "action", "commit", "git commit -m 'E2.2: reject expired and used tokens'", "one commit per task", "ok"),
+    ev(20, "crew", "crew", "code-reviewer", "separate review of E2 so far", "started", { lane: "steward" }),
+    ev(19, "action", "read", "git diff password-reset...HEAD", "separate review of E2 so far", "212 lines", { lane: "steward" }),
+    ev(18, "crew", "crew", "code-reviewer", "separate review of E2 so far", "finished", { lane: "steward" })
+  ];
+  const SCRIPT = [
+    ["think", "Reading the plan line for E2.3", "start the next task in the plan", ""],
+    ["read", "src/users.js", "see how passwords are hashed today", "84 lines"],
+    ["search", "rg scryptSync src", "find every place a password hash is made", "2 matches"],
+    ["edit", "test/resets.test.js", "test first: the new password must be stored hashed", "+18 −0", ["test/resets.test.js"]],
+    ["test", "npm test", "watch the new test fail for the right reason", "1 failing", null, { status: "fail", observed: true, passed: 14, failed: 1, exit: 1 }],
+    ["edit", "src/resets.js", "least code to make the hashing test pass", "+9 −2", ["src/resets.js"]],
+    ["test", "npm test", "all checks before the commit", "15 passed", null, { status: "pass", observed: true, passed: 15, failed: 0 }],
+    ["commit", "git commit -m 'E2.3: store the new password hashed'", "one commit per task", "ok"],
+    ["web", "crypto.timingSafeEqual", "check the comparison is constant time for E2.4", "done"],
+    ["skill", "boxbox-tdd", "test-first for E2.4", ""],
+    ["edit", "test/server.test.js", "test first for POST /password-reset/confirm", "+31 −0", ["test/server.test.js"]],
+    ["run", "git diff --stat", "check nothing outside E2's files changed", "ok"]
+  ];
+  const tokens = {
+    total: { fresh: 790000, cache: 1310000, tokens: 2100000, cost: 4.1, partial: false, unpriced: [] },
+    byEpic: [{ id: "Plan", name: "Discover and plan", fresh: 150000, cache: 110000, tokens: 260000, cost: 0.76, ms: 23 * 60000 },
+      { id: "E1", name: "Ask for a reset email", fresh: 310000, cache: 640000, tokens: 950000, cost: 1.62, ms: 52 * 60000 },
+      { id: "E2", name: "Set a new password", fresh: 260000, cache: 520000, tokens: 780000, cost: 1.34, ms: 41 * 60000 },
+      { id: "E3", name: "Rate-limit (design)", fresh: 70000, cache: 40000, tokens: 110000, cost: 0.38, ms: 9 * 60000 }],
+    byTask: [["E1.1", "Hashed token, 30-minute expiry", 14, 212000, 0.36], ["E1.2", "No token for unknown emails", 8, 118000, 0.2], ["E1.3", "New request replaces old token", 9, 131000, 0.22],
+      ["E1.4", "Request endpoint sends email", 21, 489000, 0.84], ["E2.1", "Accept a valid token once", 12, 201000, 0.35], ["E2.2", "Reject expired and used tokens", 15, 244000, 0.41], ["E2.3", "Store the new password hashed", 6, 96000, 0.17]]
+      .map(([id, name, m, tok, cost]) => ({ id, name, ms: m * 60000, tokens: tok, cost, fresh: tok / 3, cache: tok * 2 / 3 })),
+    sessions: [{ session: "7f3a90c1", agent: "claude-code", models: ["claude-opus-5-5"], units: ["Plan", "E1"], tokens: 1210000 },
+      { session: "b02e119d", agent: "claude-code", models: ["claude-opus-5-5"], units: ["E2.1", "E2.2", "E2.3"], tokens: 620000 },
+      { session: "c55a0004", agent: "codex", models: ["gpt-5-codex"], units: ["E2"], tokens: 110000 }]
+  };
+  const garage = [["Context: password reset", "password-reset/context.html", "Plans and decisions"], ["Decisions", "password-reset/decisions.html", "Plans and decisions"], ["Plan", "password-reset/plan.html", "Plans and decisions"],
+    ["Design: E3 rate limiting", "password-reset/e3-rate-limit/design.html", "Plans and decisions"], ["E1 report: ask for a reset email", "password-reset/e1-request/report.html", "Reports and reviews"],
+    ["Explained: accounts foundation", "explained/accounts-foundation.html", "Reports and reviews"], ["Reset tokens: random values, hashing, expiry", "knowledge/reset-tokens.html", "Knowledge"],
+    ["Rate limiting: token buckets", "knowledge/rate-limiting.html", "Knowledge"], ["Lessons", "lessons.md", "Knowledge"]].map(([title, h, shelf], i) => ({ title, href: h, shelf, mtime: Date.now() - i * 3600000 }));
+  let paused = { requested: false, held: false };
+  let step = 0;
+  function build() {
+    S = {
+      root: "scene-on-backend", board, state: {}, stage: { stage: "build", unit: "E2.3", why: "the new password must be stored hashed", ts: T(30) },
+      timeline: ["setup", "learn-repo", "discover", "knowledge", "decisions", "plan", "plan-review", "design", "design-review", "build"].map((s, i) => ({ ts: T(200 - i * 10), stage: s, unit: "", why: "" })),
+      waiting: step % 12 === 11 ? { kind: "decision", what: "D4: how strict should rate limiting be?", detail: "E3 can't start until it's decided." } : null,
+      paused, events: events.slice(-200), tokens, garage, agents: ["claude-code", "codex"], codexUntrusted: false,
+      drift: { currentEpic: "E2", scope: board.milestones[1].epics[1].files, outside: [{ path: "src/mailer.js", epic: "E2", ts: events[2].ts, owner: "E1" }], changedAfterApproval: ["E1"], behind: [],
+        files: [{ path: "src/resets.js", edits: 3, in: true }, { path: "test/resets.test.js", edits: 2, in: true }, { path: "src/users.js", edits: 1, in: true }, { path: "src/mailer.js", edits: 1, in: false }],
+        modules: board.modules.map((m, i) => ({ ...m, total: [2, 5, 1, 1, 6, 0][i], recent: [0, 3, 1, 1, 2, 0][i], inScope: [false, true, true, false, true, false][i], outside: i === 3 })) },
+      verification: { tasks: { "E1.1": "verified", "E1.2": "verified", "E1.3": "verified", "E1.4": "verified", "E2.1": "verified", "E2.2": "verified" }, epics: { E1: "verified" } }
+    };
+  }
+  function tick() {
+    if (paused.requested && !paused.held) { paused = { requested: true, held: true }; build(); render(); return; }
+    if (paused.held) return;
+    const [k, target, why, result, edits, test] = SCRIPT[step % SCRIPT.length];
+    step++;
+    events.push(ev(0, "action", k, target, why, result, { ...(edits ? { edits } : {}), ...(test ? { test } : {}) }));
+    tokens.total.tokens += 13000; tokens.total.fresh += 4000; tokens.total.cache += 9000; tokens.total.cost += 0.03;
+    build(); render();
+  }
+  window.demoPause = path => { paused = path === "/api/pause" ? { requested: true, held: false } : { requested: false, held: false }; build(); render(); };
+  build(); render();
+  if (!BoxboxOrbs.reduce) setInterval(tick, 3200);
+}
+function demoPause(path) { window.demoPause(path); }
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Tell the pit wall where the Boxbox flow is. Never fails, never prints.
+#   sh .boxbox/pitwall/say stage <stage> [--unit E2.3] [--why "<one line>"]
+#   sh .boxbox/pitwall/say ask "<D3: question>" [--kind decision|plan|design|unit|setup] [--stage <stage>]
+# Stages are listed in .boxbox/GUIDE.md under "Stage events".
+here="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || exit 0
+live="$here/../live"
+mkdir -p "$live" 2>/dev/null || exit 0
+
+verb="${1:-}"; text="${2:-}"
+[ $# -ge 2 ] && shift 2 || exit 0
+unit=""; why=""; kind="decision"; stage=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --unit) unit="${2:-}"; shift 2 ;;
+    --why) why="${2:-}"; shift 2 ;;
+    --kind) kind="${2:-}"; shift 2 ;;
+    --stage) stage="${2:-}"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+esc() {
+  local s="$1"
+  s="${s//\\/\\\\}"; s="${s//\"/\\\"}"; s="${s//$'\n'/ }"; s="${s//$'\r'/}"; s="${s//$'\t'/ }"
+  printf '%s' "${s:0:300}"
+}
+ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+write_stage() {
+  printf '{"stage":"%s","unit":"%s","why":"%s","ts":"%s"}\n' "$(esc "$1")" "$(esc "$unit")" "$(esc "$why")" "$ts" > "$live/stage.json.$$" &&
+    mv "$live/stage.json.$$" "$live/stage.json"
+  printf '{"ts":"%s","session":"","agent":"","lane":"driver","type":"stage","kind":"stage","target":"%s","why":"%s","result":"","unit":"%s"}\n' \
+    "$ts" "$(esc "$1")" "$(esc "$why")" "$(esc "$unit")" >> "$live/events.jsonl"
+}
+
+case "$verb" in
+  stage) write_stage "$text" ;;
+  ask)
+    [ -n "$stage" ] && write_stage "$stage"
+    printf '{"kind":"%s","what":"%s","detail":"%s","ts":"%s"}\n' "$(esc "$kind")" "$(esc "$text")" "$(esc "$why")" "$ts" > "$live/waiting.json.$$" &&
+      mv "$live/waiting.json.$$" "$live/waiting.json"
+    printf '{"ts":"%s","session":"","agent":"","lane":"driver","type":"ask","kind":"wait","target":"%s","why":"%s","result":"","unit":"%s"}\n' \
+      "$ts" "$(esc "$text")" "$(esc "$why")" "$(esc "$unit")" >> "$live/events.jsonl"
+    ;;
+esac
+exit 0
