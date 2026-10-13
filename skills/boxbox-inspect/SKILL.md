@@ -1,6 +1,6 @@
 ---
 name: boxbox-inspect
-description: Have finished work reviewed by a separate reviewer before the developer sees it, and act on review feedback. Use after a Boxbox unit is built and verified, when the developer asks for a code review of a branch or diff, or when responding to the developer's review or pull request comments.
+description: Have finished work reviewed by a separate reviewer before the developer sees it, and act on review feedback. Use after a Boxbox unit is built and verified, when the developer asks for a code review of a branch or diff, when responding to the developer's review or pull request comments, and in page mode after writing a report, context, review or explain page, to fact-check its claims against the repo before the developer sees it.
 ---
 
 # Boxbox inspect
@@ -40,6 +40,20 @@ If your agent lets you pick a model for a subagent, a different model from the o
 - **Notes:** leave the code, record them.
 
 Write a short review note for the report: what was checked, what was fixed because of it, what was left alone and why, and anything still uncertain.
+
+## Page mode: fact-check a page before the developer sees it
+
+Run this after writing a report, context, review or explain page, once `check-page.js` prints `OK`. The checker proves the page's references and facts exist; it cannot tell whether a sentence about behaviour is true. A fresh pair of eyes does that.
+
+1. **A separate fact-checker.** If your agent can run subagents, start a fresh one that did not write the page. Give it only the page's path, the repo, and this instruction:
+
+   "Read `<page>`. For every claim labelled `inferred`, and every claim about how the code behaves (labelled `code` or `observed`), check it against the repo at the commit in the article's `data-commit`: open the files and lines it cites, read the code, run a test if that is the only way to know. List every claim that is false or unsupported, with the page line, what it says, what is actually true, and the evidence (path:line, command output). Say which claims you checked and found true. Do not edit the page."
+
+   Without subagents, do it yourself, claim by claim, as if a stranger wrote the page, and say on the page that the fact-check was not independent.
+2. **Fix what it found.** Correct each false claim, or relabel it `unknown` if the truth cannot be established. Never keep a claim you could not support by relabelling it `inferred`. Run `check-page.js` again.
+3. **Then show the page.** In your message, say in one line how many claims were checked and how many were corrected.
+
+On a knowledge page, the fact-checker also opens each `source` link and confirms it supports the claim next to it.
 
 ## Responding to the developer's review
 

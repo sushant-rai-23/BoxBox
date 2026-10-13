@@ -1,3 +1,5 @@
+/* LEGACY: Boxbox 0.5 page styles, kept so pages written by 0.5 still render after a kit refresh.
+   New pages use boxbox.css. This file will be removed in a later release; do not use it. */
 /* Boxbox page kit. One stylesheet for every page the pack writes.
    Pages never add their own CSS: they use the components below.
    Light and dark follow the reader's system setting. */

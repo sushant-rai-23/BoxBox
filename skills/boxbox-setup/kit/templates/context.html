@@ -3,79 +3,150 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="context">
 <title>{{TITLE}}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="{{ROOT}}assets/style.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ROOT}}assets/boxbox.css">
+<script src="{{ROOT}}assets/boxbox.js"></script>
 </head>
 <body>
-<!-- TEMPLATE: context page. Copy to .boxbox/<feature>/context.html and fill.
-     {{ROOT}} is the relative path back to .boxbox/ (here "../").
-     Replace every {{...}}. Delete any section that has nothing true to say. Add no CSS. -->
-<div class="wrap">
-  <div class="crumbs"><a href="{{ROOT}}board.html">Board</a><span aria-hidden="true">/</span><span>{{FEATURE TITLE}}</span><span aria-hidden="true">/</span><span>Context</span></div>
+<!-- TEMPLATE: context page. Copy to .boxbox/<feature>/context.html. {{ROOT}} is "../".
+     HOW TO FILL THIS PAGE (the full rules are under "Pages" in .boxbox/GUIDE.md)
+     1. Copy it with cp. Never write the page from scratch or from memory.
+     2. Replace the {{...}} placeholders and the sample markup inside each <section>. Keep the head, the
+        bar, the contents column, the footer shell and the script exactly as they are.
+     3. Each section says what goes in it and how deep. data-required="yes" sections must stay;
+        data-min-words is the least prose they need (code blocks and diagrams do not count).
+        Delete a data-required="no" section that has nothing true to say. Copy a data-repeat section
+        once per item. To add a section, build it only from templates/_components.html.
+     4. Never write <style>, style= or a class that is not in templates/_components.html.
+     5. Label where every claim comes from: replace each data-evidence="{{...}}" with observed (the pit
+        wall or you saw it run), code (read in the repo), inferred (your reasoning), unknown (nobody
+        knows yet) or source (a link to the source in the same block). "unknown" is allowed; guessing
+        is not. Facts with data-source (tests, diff counts, commits, tokens) are what git and the pit
+        wall say, never your estimate; with no pit wall data, write "not recorded". Quote repo code
+        exactly with data-quote, and cite lines as path:line.
+     6. Run: node .boxbox/pitwall/check-page.js <this page>. Fix every problem it lists, run it again.
+        Then run the fact-check (boxbox-inspect, page mode), fix what it finds, and only then show the
+        page. Delete these instruction comments once the page is filled. -->
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="{{ROOT}}board.html">Board</a><span aria-current="page">{{FEATURE TITLE}}: context</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article" data-commit="{{the commit this page describes, usually HEAD of the main branch}}">
+    <header class="doc-head">
+      <h1>{{One line: what was asked for, as a plain statement}}</h1>
+      <p class="lede">{{Two or three sentences: what this feature is, in the developer's words, and what done looks like.}}</p>
+      <div class="marks"><span class="status" data-st="move">read before the decisions</span></div>
+    </header>
 
-  <header class="top">
-    <div class="eyebrow">{{PROJECT}} · {{FEATURE TITLE}} · {{DATE}}</div>
-    <h1>{{ONE LINE: what was asked for}}</h1>
-    <p class="lede">{{Two or three sentences: what this feature is, in the developer's words, and what "done" looks like.}}</p>
-    <div class="pills">
-      <span class="pill acc">Context</span>
-      <span class="pill warn">Read before the decisions</span>
-    </div>
-  </header>
-  <nav class="toc" data-auto aria-label="Sections"></nav>
+    <section data-section="overview" data-required="yes" data-min-words="120" id="overview">
+      <!-- The product and its users, what this repo is inside it, and how it runs. Facts name real files and commands. -->
+      <h2 data-short="The project">What this project is, and who it serves</h2>
+      <p data-evidence="{{observed | code | inferred | unknown}}">{{What the product does, for whom, and where this repo fits.}}</p>
+      <dl class="facts" data-evidence="{{observed | code | inferred | unknown}}">
+        <dt>Stack</dt><dd>{{languages, frameworks, versions, with <code>paths</code>}}</dd>
+        <dt>How it runs</dt><dd>{{build, test, lint and run commands}}</dd>
+        <dt>Entry points</dt><dd>{{routes, commands, screens, jobs}}</dd>
+      </dl>
+    </section>
+    <section data-section="architecture" data-required="yes" data-min-words="80" data-needs="svg" id="architecture">
+      <!-- A box-and-arrow diagram of the REAL modules (not layers in general), then a paragraph per box this feature meets. Mark what is outside the repo with d-box out. -->
+      <h2 data-short="Architecture">How it is built</h2>
+      <p data-evidence="{{observed | code | inferred | unknown}}">{{The modules this feature meets and how they depend on each other.}}</p>
+<figure class="diagram wide">
+<svg viewBox="0 0 760 210" role="img" aria-label="{{One sentence: what the diagram shows, naming the boxes and arrows}}">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0 0L10 5L0 10z"/></marker></defs>
+  <rect class="d-box" x="20" y="74" width="170" height="62"/><text class="d-label" x="36" y="100">{{Module}}</text><text class="d-sub" x="36" y="120">{{src/file.js}}</text>
+  <rect class="d-box hot" x="300" y="74" width="170" height="62"/><text class="d-label" x="316" y="100">{{Module}}</text><text class="d-sub" x="316" y="120">{{src/file.js}}</text>
+  <path class="d-edge hot" d="M190 105 H296" marker-end="url(#arrow)"/>
+</svg>
+<figcaption>{{What to notice in the diagram.}}</figcaption>
+</figure>
+    </section>
+    <section data-section="flow" data-required="yes" data-min-words="120" id="flow">
+      <!-- The path a real request or data item takes through the code this feature changes, in order, with file:line. For a brand-new feature, trace the nearest existing path it will reuse, and say so. -->
+      <h2 data-short="Request path">How a request travels today</h2>
+      <p data-evidence="{{observed | code | inferred | unknown}}">{{What starts the path, and where it ends.}}</p>
+      <!-- One li per step. span.at is file:line; for code not written yet, the file and "(new)". -->
+      <ol class="path" data-evidence="{{observed | code | inferred | unknown}}">
+        <li><b>{{What happens at this step, in plain words}}</b><span class="at">{{path/to/file.js:42}}</span><p>{{What this step does, what it hands on, and what happens when it fails.}}</p></li>
+        <li><b>{{Next step}}</b><span class="at">{{path:line}}</span><p>{{...}}</p></li>
+      </ol>
+    </section>
+    <section data-section="conventions" data-required="yes" data-min-words="80" id="conventions">
+      <!-- How this codebase already does things the feature must match: naming, errors, tests, data access. Each with a file reference. -->
+      <h2 data-short="Conventions">Patterns and conventions to follow</h2>
+      <ul data-evidence="{{observed | code | inferred | unknown}}">
+        <li><strong>{{pattern}}</strong>: {{how it is done here, with <code>path:line</code>, and why the new code follows it}}</li>
+      </ul>
+    </section>
+    <section data-section="constraints" data-required="yes" data-min-words="60" id="constraints">
+      <!-- Performance, security, platform and team limits that shape the design. Only real ones. -->
+      <h2>Constraints</h2>
+      <ul data-evidence="{{observed | code | inferred | unknown}}">
+        <li><strong>{{constraint}}</strong>: {{where it comes from and what it rules out}}</li>
+      </ul>
+    </section>
+    <section data-section="scope" data-required="yes" data-min-words="60" id="scope">
+      <!-- Two lists: the files and modules that will change, and the ones that must stay untouched (with why). -->
+      <h2 data-short="Scope">What this touches, and what it must not</h2>
+      <h3>Will change</h3>
+      <ul class="tree" data-evidence="{{observed | code | inferred | unknown}}">
+        <li><code>{{src/}}</code><ul><li data-st="changed"><code>{{file}}</code><span>{{why}}</span></li><li data-st="new"><code>{{file}}</code><span>{{why}}</span></li></ul></li>
+      </ul>
+      <h3>Must not change</h3>
+      <ul data-evidence="{{observed | code | inferred | unknown}}"><li><code>{{path}}</code>: {{why it stays as it is}}</li></ul>
+    </section>
+    <section data-section="concepts" data-required="yes" data-min-words="40" id="concepts">
+      <!-- Each concept the feature depends on. 'known' if config.md says the developer knows it; 'new' links a knowledge page. For each NEW concept, add an h3 below the table that teaches it here in a paragraph or two, with a term definition, so the reader can decide without leaving the page. -->
+      <h2 data-short="Concepts">Ideas this feature needs</h2>
+      <div class="table" data-evidence="{{observed | code | inferred | unknown}}"><table>
+        <thead><tr><th>Concept</th><th>In one line</th><th>Where it shows up</th><th>For you</th></tr></thead>
+        <tbody>
+          <tr><td>{{concept}}</td><td>{{plain definition}}</td><td>{{which part of the feature}}</td><td><span class="level" data-level="new">new</span> <a href="{{ROOT}}knowledge/{{slug}}.html">read</a></td></tr>
+          <tr><td>{{concept}}</td><td>{{plain definition}}</td><td>{{which part}}</td><td><span class="level" data-level="known">known</span></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+    <section data-section="failure" data-required="yes" data-min-words="60" id="failure">
+      <!-- Failure thinking before design: bad input, timeouts, retries, load, partial failure, abuse. Only real ones for this feature. -->
+      <h2 data-short="Failure">How this can fail</h2>
+      <ul class="findings" data-evidence="{{observed | code | inferred | unknown}}">
+        <li data-st="flag"><span class="status" data-st="flag">high</span><b>{{The risk or edge case, in one line}}</b><p>{{What would happen, how likely, and what limits it today.}}</p></li>
+        <li data-st="move"><span class="status" data-st="move">medium</span><b>{{...}}</b><p>{{...}}</p></li>
+        <li><span class="status">low</span><b>{{...}}</b><p>{{...}}</p></li>
+      </ul>
+    </section>
+    <section data-section="answers" data-required="no" data-min-words="0" id="answers">
+      <!-- Context the code cannot hold: history, team rules, deadlines. From the developer's answers. -->
+      <h2 data-short="From you">What you told me</h2>
+      <div class="table"><table>
+        <thead><tr><th>Asked</th><th>Answer</th></tr></thead>
+        <tbody><tr><td>{{question}}</td><td>{{the developer's answer, or "not answered yet"}}</td></tr></tbody>
+      </table></div>
+    </section>
+    <section data-section="open" data-required="yes" data-min-words="20" data-min-items="1" id="open">
+      <!-- Questions the code cannot answer. Each becomes a decision or a default on the decisions page. -->
+      <h2>Open questions</h2>
+      <ul data-evidence="{{observed | code | inferred | unknown}}"><li>{{question}}</li></ul>
+    </section>
+    <section data-section="glossary" data-required="yes" data-min-words="30" id="glossary">
+      <!-- Every term a newcomer to this codebase would stumble on, defined plainly. -->
+      <h2 data-short="Glossary">Words used on this page</h2>
+      <dl class="terms" data-evidence="{{observed | code | inferred | unknown}}"><dt>{{term}}</dt><dd>{{plain definition, and where it lives in this repo}}</dd></dl>
+    </section>
 
-  <h2 id="project">Project context</h2>
-  <p>{{One sentence on what this section answers: what exists today that this feature will meet.}}</p>
-  <div class="grid">
-    <!-- 3 to 6 facts. Each one names real files, classes or commands. -->
-    <div class="fact"><div class="k">Stack</div><div class="v">{{Languages, frameworks, versions, with <code>paths</code>}}</div></div>
-    <div class="fact"><div class="k">How it runs</div><div class="v">{{Build, test, lint and run commands}}</div></div>
-    <div class="fact"><div class="k">What this touches</div><div class="v">{{The files and modules the feature will change}}</div></div>
-    <div class="fact"><div class="k">Conventions</div><div class="v">{{Naming, structure, error handling, test style to follow}}</div></div>
-  </div>
-
-  <h3>How the affected part works today</h3>
-  <!-- Walk the real request or data path, in order. One .step per hop. Use real code, trimmed. -->
-  <div class="step"><div class="n">1 · {{where it starts}}</div>
-    <h3>{{file or component}}</h3>
-    <p>{{What happens here and why it matters for this feature.}}</p>
-    <div class="file">{{path/to/file}}</div>
-    <pre><code>{{a few real lines}}</code></pre>
-  </div>
-
-  <div class="note"><strong>Surprises.</strong> {{Things a reasonable developer would not expect: dead code, missing safety, facts kept in two places. Leave out if none.}}</div>
-
-  <h3>From you</h3>
-  <!-- Context the code cannot hold: history, team rules, deadlines, who else is affected. Fill in from the developer's answers. -->
-  <div class="tablewrap"><table>
-    <thead><tr><th>Asked</th><th>Answer</th></tr></thead>
-    <tbody><tr><td>{{question}}</td><td>{{the developer's answer, or "not answered yet"}}</td></tr></tbody>
-  </table></div>
-
-  <h2 id="technical">Technical context</h2>
-  <p>The ideas this feature needs. <span class="tag known">known</span> means you told setup you know it. <span class="tag new">new</span> has a knowledge page.</p>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Concept</th><th>In one line</th><th>Where it shows up here</th><th>For you</th></tr></thead>
-    <tbody>
-      <tr><td>{{concept}}</td><td>{{plain definition}}</td><td>{{which part of the feature}}</td><td><span class="tag new">new</span> <a href="{{ROOT}}knowledge/{{slug}}.html">read</a></td></tr>
-      <tr><td>{{concept}}</td><td>{{plain definition}}</td><td>{{which part of the feature}}</td><td><span class="tag known">known</span></td></tr>
-    </tbody>
-  </table></div>
-
-  <h2 id="risks">How this can fail</h2>
-  <!-- Failure thinking, before design: bad input, timeouts, retries, load, partial failure, abuse. Only real ones for this feature. -->
-  <ul>
-    <li><strong>{{failure}}</strong>: {{what would happen, and what the plan must do about it}}</li>
-  </ul>
-
-  <h2 id="open">Open questions</h2>
-  <p>Each becomes a decision card, or a default I choose, on the <a href="decisions.html">decisions page</a>.</p>
-  <ul><li>{{question the code cannot answer}}</li></ul>
-
-  <footer>Source for the agent: context.md</footer>
+    <footer class="pagefoot">
+      <!-- Related pages. Keep only links to pages that exist; the checker fails on a missing one. -->
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="decisions.html">Decisions</a><a class="pagelink" href="plan.html">Plan</a><a class="pagelink" href="{{ROOT}}knowledge/{{slug}}.html">{{Knowledge page}}</a></nav>
+      <p>Source for the agent: context.md</p>
+    </footer>
+  </article>
 </div>
-<script src="{{ROOT}}assets/page.js"></script>
 </body>
 </html>

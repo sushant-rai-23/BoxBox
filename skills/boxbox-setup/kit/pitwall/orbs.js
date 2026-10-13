@@ -4,21 +4,21 @@
 "use strict";
 (function () {
   const KINDS = {
-    think:   { label: "Planning",  mode: "orbits", hue: "#5aa9ff", desc: "working out the next step" },
-    read:    { label: "Reading",   mode: "globe",  hue: "#7fd4ff", desc: "opening a file" },
-    search:  { label: "Searching", mode: "globe",  hue: "#7fd4ff", desc: "searching the codebase" },
-    edit:    { label: "Editing",   mode: "ribbon", hue: "#b38cff", desc: "changing code" },
-    run:     { label: "Terminal",  mode: "bands",  hue: "#ffc53d", desc: "running a command" },
-    test:    { label: "Testing",   mode: "bands",  hue: "#3ddc84", desc: "running the tests" },
-    web:     { label: "Web",       mode: "web",    hue: "#ff8fb1", desc: "searching the web" },
-    page:    { label: "Page",      mode: "ribbon", hue: "#e9f1fb", desc: "writing a Boxbox page" },
-    commit:  { label: "Commit",    mode: "ring",   hue: "#3ddc84", desc: "committing a task" },
-    skill:   { label: "Skill",     mode: "web",    hue: "#7ee0c3", desc: "loading or installing a skill" },
-    crew:    { label: "Crew",      mode: "orbits", hue: "#9fb4ff", desc: "a subagent started or finished" },
-    wait:    { label: "Waiting",   mode: "ring",   hue: "#ffc53d", desc: "waiting for you" },
-    stage:   { label: "Stage",     mode: "orbits", hue: "#e9f1fb", desc: "a step in the Boxbox flow" },
-    prompt:  { label: "You",       mode: "ring",   hue: "#ffc53d", desc: "you replied in chat" },
-    session: { label: "Session",   mode: "ring",   hue: "#93a3b8", desc: "a session started or ended" }
+    think:   { label: "Planning",  mode: "orbits", hue: "#5aa9ff", light: "#1F6FC4", desc: "working out the next step" },
+    read:    { label: "Reading",   mode: "globe",  hue: "#7fd4ff", light: "#0A7AA8", desc: "opening a file" },
+    search:  { label: "Searching", mode: "globe",  hue: "#7fd4ff", light: "#0A7AA8", desc: "searching the codebase" },
+    edit:    { label: "Editing",   mode: "ribbon", hue: "#b38cff", light: "#6A3FCB", desc: "changing code" },
+    run:     { label: "Terminal",  mode: "bands",  hue: "#ffc53d", light: "#8F6300", desc: "running a command" },
+    test:    { label: "Testing",   mode: "bands",  hue: "#3ddc84", light: "#11764A", desc: "running the tests" },
+    web:     { label: "Web",       mode: "web",    hue: "#ff8fb1", light: "#B8336A", desc: "searching the web" },
+    page:    { label: "Page",      mode: "ribbon", hue: "#e9f1fb", light: "#3C535A", desc: "writing a Boxbox page" },
+    commit:  { label: "Commit",    mode: "ring",   hue: "#3ddc84", light: "#11764A", desc: "committing a task" },
+    skill:   { label: "Skill",     mode: "web",    hue: "#7ee0c3", light: "#0F7A66", desc: "loading or installing a skill" },
+    crew:    { label: "Crew",      mode: "orbits", hue: "#9fb4ff", light: "#4B5FC0", desc: "a subagent started or finished" },
+    wait:    { label: "Waiting",   mode: "ring",   hue: "#ffc53d", light: "#8F6300", desc: "waiting for you" },
+    stage:   { label: "Stage",     mode: "orbits", hue: "#e9f1fb", light: "#3C535A", desc: "a step in the Boxbox flow" },
+    prompt:  { label: "You",       mode: "ring",   hue: "#ffc53d", light: "#8F6300", desc: "you replied in chat" },
+    session: { label: "Session",   mode: "ring",   hue: "#93a3b8", light: "#566B72", desc: "a session started or ended" }
   };
 
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -132,5 +132,13 @@
   function redraw(o) { if (reduce) drawOrb(o, 1.3); }
   if (!reduce) requestAnimationFrame(frame);
 
-  window.BoxboxOrbs = { KINDS, makeOrb, dropGroup, redraw, reduce };
+  // A kind's colour for the current theme: hue on dark, light on light.
+  function inkFor(kind) {
+    const k = KINDS[kind] || KINDS.run;
+    const t = document.documentElement.getAttribute("data-theme");
+    const dark = t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+    return dark ? k.hue : k.light;
+  }
+
+  window.BoxboxOrbs = { KINDS, makeOrb, dropGroup, redraw, reduce, inkFor };
 })();

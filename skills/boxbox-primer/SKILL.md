@@ -17,17 +17,17 @@ Read `.boxbox/GUIDE.md` and `config.md` first.
 
 ## 2. Get the facts right
 
-Do not teach from memory alone. Check the official documentation for the version this repo uses, if you have web access. Note the pages you used; they go under "Go deeper". If you could not reach the docs, say so in the "Not checked" note at the top of the page and mark the links as not opened.
+Do not teach from memory alone. Check the official documentation for the version this repo uses, if you have web access. Note the pages you used; they go under "Further reading". If you could not reach the docs, say so in the "Not checked" note at the top of the page and mark the links as not opened.
 
 ## 3. Write the page
 
-Copy `.boxbox/templates/knowledge.html` to `.boxbox/knowledge/<slug>.html` and fill it. `{{ROOT}}` is `../`.
+Copy it with `cp .boxbox/templates/knowledge.html .boxbox/knowledge/<slug>.html` and fill its sections following "Pages" in `GUIDE.md`. `{{ROOT}}` is `../`. Then run `node .boxbox/pitwall/check-page.js .boxbox/knowledge/<slug>.html` and fix everything it reports, until it prints `OK`. Only then show the page.
 
-- One short section per idea: a plain definition, how it works, code with exactly what it prints, why it exists, where it shows up in this project (with a path), and the common trap.
+- Fill every required section: the idea in plain words with one analogy, why it exists, how it works step by step with a diagram, how this repo uses it (file and line), a worked example traced through real code, common mistakes, when not to use it, three to five check-yourself questions, and two to four trusted links.
 - **Run every code example** and paste the real output. If you cannot run it, say so on the page instead of guessing.
+- **Every claim not about this repo needs its source.** Label it `data-evidence="source"` with a link to the documentation or specification in the same block. Claims about this repo are `code` (with `path:line`) or `observed` (you ran it). The checker refuses `inferred` and `unknown` on knowledge pages: find the source, or leave the claim out.
 - Write examples whose output is the same every run. For anything random or timed, print a stable fact about it (a length, a comparison, true or false), not the raw value.
 - Small examples. One idea each.
-- Each section ends with the "Mark as done" control from the template, with a unique id.
 - Plain words. Define each term the first time.
 
 Keep it readable in one sitting. If the topic is large, write two pages, basics first, and link them.

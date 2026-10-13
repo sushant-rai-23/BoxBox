@@ -1,3 +1,4 @@
+/* LEGACY: Boxbox 0.5 page script, kept for pages written by 0.5. New pages use boxbox.js. */
 /* Boxbox page script. Optional helpers; every page reads fine without it.
    - builds the section nav from <h2 id> when the page has <nav class="toc" data-auto>
    - remembers "mark as done" boxes in this browser

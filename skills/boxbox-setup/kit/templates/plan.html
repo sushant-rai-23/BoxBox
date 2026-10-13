@@ -3,81 +3,120 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="plan">
 <title>{{TITLE}}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="{{ROOT}}assets/style.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ROOT}}assets/boxbox.css">
+<script src="{{ROOT}}assets/boxbox.js"></script>
 </head>
 <body>
-<!-- TEMPLATE: plan page. Copy to .boxbox/<feature>/plan.html and fill from plan.md.
-     Keep it in step with plan.md: tick boxes (class "box done") as tasks finish. Add no CSS. -->
-<div class="wrap">
-  <div class="crumbs"><a href="{{ROOT}}board.html">Board</a><span aria-hidden="true">/</span><span>{{FEATURE TITLE}}</span><span aria-hidden="true">/</span><span>Plan</span></div>
+<!-- TEMPLATE: plan page. Copy to .boxbox/<feature>/plan.html. {{ROOT}} is "../".
+     HOW TO FILL THIS PAGE (the full rules are under "Pages" in .boxbox/GUIDE.md)
+     1. Copy it with cp. Never write the page from scratch or from memory.
+     2. Replace the {{...}} placeholders and the sample markup inside each <section>. Keep the head, the
+        bar, the contents column, the footer shell and the script exactly as they are.
+     3. Each section says what goes in it and how deep. data-required="yes" sections must stay;
+        data-min-words is the least prose they need (code blocks and diagrams do not count).
+        Delete a data-required="no" section that has nothing true to say. Copy a data-repeat section
+        once per item. To add a section, build it only from templates/_components.html.
+     4. Never write <style>, style= or a class that is not in templates/_components.html.
+     5. Label where every claim comes from: replace each data-evidence="{{...}}" with observed (the pit
+        wall or you saw it run), code (read in the repo), inferred (your reasoning), unknown (nobody
+        knows yet) or source (a link to the source in the same block). "unknown" is allowed; guessing
+        is not. Facts with data-source (tests, diff counts, commits, tokens) are what git and the pit
+        wall say, never your estimate; with no pit wall data, write "not recorded". Quote repo code
+        exactly with data-quote, and cite lines as path:line.
+     6. Run: node .boxbox/pitwall/check-page.js <this page>. Fix every problem it lists, run it again.
+        Then run the fact-check (boxbox-inspect, page mode), fix what it finds, and only then show the
+        page. Delete these instruction comments once the page is filled. -->
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="{{ROOT}}board.html">Board</a><span aria-current="page">{{FEATURE TITLE}}: plan</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article">
+    <header class="doc-head">
+      <h1>Plan: {{FEATURE TITLE}}</h1>
+      <p class="lede">{{The outcome in one or two sentences: what a person can do when this ships.}}</p>
+      <div class="marks"><span class="status" data-st="move">waiting for your go</span><span class="status">{{N}} epics, {{N}} tasks</span></div>
+    </header>
+    <!-- After approval, change this to data-kind="note" with "Approved {{date}}. Building E1." -->
+    <aside class="callout" data-kind="move"><p><b>Your move.</b> Say "go" and I start E1. Or tell me what to change: order, scope, unit of control.</p></aside>
 
-  <header class="top">
-    <div class="eyebrow">{{PROJECT}} · {{DATE}}</div>
-    <h1>Plan: {{FEATURE TITLE}}</h1>
-    <p class="lede">{{The outcome in one or two sentences: what a person can do when this ships.}}</p>
-    <div class="pills">
-      <span class="pill ok">{{N}} decisions answered</span>
-      <!-- one of these three; change it as the work moves -->
-      <span class="pill warn">Awaiting your "go"</span>
-      <span class="pill">Unit: {{epic or task}}</span>
-      <span class="pill acc">Branch: {{feature branch}}</span>
-    </div>
-  </header>
-  <nav class="toc" data-auto aria-label="Sections"></nav>
+    <section data-section="goal" data-required="yes" data-min-words="60" id="goal">
+      <!-- What this plan delivers, and what it deliberately leaves out (so nobody expects it). -->
+      <h2 data-short="Goal">Goal and non-goals</h2>
+      <p>{{The goal.}}</p>
+      <h3>Not in this plan</h3>
+      <ul><li>{{non-goal, and why it is out}}</li></ul>
+    </section>
+    <section data-section="decisions" data-required="no" data-min-words="0" id="decisions">
+      <!-- One row per decision; tr.override where the developer chose against the recommendation. -->
+      <h2 data-short="Decisions">Decisions behind the plan</h2>
+      <div class="table"><table>
+        <thead><tr><th>Decision</th><th>Choice</th><th>What it means for the plan</th></tr></thead>
+        <tbody><tr><td>{{D1: question}}</td><td>{{choice}}</td><td>{{effect}}</td></tr></tbody>
+      </table></div>
+    </section>
+    <section data-section="milestones" data-required="yes" data-min-words="150" id="milestones">
+      <!-- One article.epic per epic, in shipping order. Each epic: outcome, branch, dependencies, design stop, Done when. Each task: one thin slice, its FIRST test, how it can fail, and its file globs. Mark a step only the developer can do with a 'you' status. Keep task data-st current as work moves: todo, live (in progress), move (waiting on the developer), done, verified (the pit wall saw a passing run). A milestone is an h3 before its epics. -->
+      <h2 data-short="Epics and tasks">Milestones, epics and tasks</h2>
+      <h3>{{M1: milestone name}}</h3>
+      <p>{{What this milestone makes possible.}}</p>
+      <article class="epic" id="e1">
+        <span class="status">to do</span>
+        <h3><data>E1</data>{{Epic title}}</h3>
+        <p>{{What a person can use, see or verify when this epic is done.}}</p>
+        <dl class="facts"><dt>Branch</dt><dd><code>{{epic branch}}</code></dd><dt>Depends on</dt><dd>{{nothing / E0}}</dd><dt>Design stop</dt><dd>{{no / yes, because...}}</dd></dl>
+        <h4>Done when</h4>
+        <ul class="accept"><li>{{an acceptance criterion that can be checked}}</li></ul>
+        <ol class="tasks">
+          <li data-st="todo"><b>E1.1</b>{{What changes, in one sentence}}
+            <dl><dt>First test</dt><dd><code>{{test name}}</code>: {{what it asserts}}</dd><dt>Fails when</dt><dd>{{failure mode this task must handle}}</dd><dt>Files</dt><dd><code>{{src/file.js}}</code>, <code>{{test/**}}</code></dd></dl></li>
+        </ol>
+      </article>
+    </section>
+    <section data-section="order" data-required="yes" data-min-words="40" id="order">
+      <!-- Which epic depends on which, as a flow diagram or a short list, and why this order lowers risk. -->
+      <h2 data-short="Order">The order, and why</h2>
+      <ol><li>{{E1 first, because...}}</li></ol>
+    </section>
+    <section data-section="risks" data-required="yes" data-min-words="50" id="risks">
+      <!-- What could derail the plan: unknowns, migrations, external services. Worst first. -->
+      <h2>Risks</h2>
+      <ul class="findings">
+        <li data-st="flag"><span class="status" data-st="flag">high</span><b>{{The risk or edge case, in one line}}</b><p>{{What would happen, how likely, and what limits it today.}}</p></li>
+        <li data-st="move"><span class="status" data-st="move">medium</span><b>{{...}}</b><p>{{...}}</p></li>
+        <li><span class="status">low</span><b>{{...}}</b><p>{{...}}</p></li>
+      </ul>
+    </section>
+    <section data-section="stops" data-required="yes" data-min-words="30" id="stops">
+      <!-- Every point where work waits for the developer: plan approval, design stops, unit reviews, steps only they can do. Stops already passed get a done status. -->
+      <h2 data-short="Stops">Where I stop for you</h2>
+      <ul><li><span class="status" data-st="move">you</span> {{the stop, and what you decide there}}</li></ul>
+    </section>
+    <section data-section="done" data-required="yes" data-min-words="40" id="done">
+      <!-- The checks that prove the whole milestone works: tests, a manual walkthrough, a number to hit. -->
+      <h2 data-short="Done means">How we will know the milestone is done</h2>
+      <ul class="checklist">
+        <li><label><input type="checkbox"><div>{{a check anyone can run}}<span>{{what they should see}}</span></div></label></li>
+      </ul>
+    </section>
+    <section data-section="later" data-required="no" data-min-words="0" id="later">
+      <!-- Noticed, worth doing, outside this plan. -->
+      <h2>Later</h2>
+      <ul><li>{{idea}}</li></ul>
+    </section>
 
-  <h2 id="context" data-short="Context">What the repo told us</h2>
-  <p>{{Three or four sentences. Full detail on the <a href="context.html">context page</a>.}}</p>
-
-  <h2 id="decisions" data-short="Decisions">Decisions</h2>
-  <p>Rows in amber are where you chose differently from my recommendation. The full reasoning, and the small defaults I chose (A1 to A{{N}}), are on the <a href="decisions.html">decisions page</a>.</p>
-  <div class="tablewrap"><table>
-    <thead><tr><th>#</th><th>Decision</th><th>Choice</th><th>Note</th></tr></thead>
-    <tbody>
-      <tr><td class="id">D1</td><td>{{decision}}</td><td>{{choice}}</td><td>{{one-line reason}}</td></tr>
-      <tr class="override"><td class="id">D2</td><td>{{decision}}</td><td>{{choice}}</td><td>Override. {{what it means for the plan}}</td></tr>
-    </tbody>
-  </table></div>
-
-  <h2 id="epics" data-short="Epics">Epics</h2>
-  <p>One feature each, in the order they ship. Each task is a thin slice that runs end to end and names the test written first. <span class="tag you">you</span> marks a step only you can do.</p>
-
-  <!-- One section per epic. -->
-  <section class="epic" id="e1">
-    <!-- The tag is the epic's status: todo, in progress, review, done. Keep it current. -->
-    <h3>E1 · {{Epic title}} <span class="tag known">todo</span></h3>
-    <div class="meta"><span>Branch: <code>{{epic branch}}</code></span><span>Depends on: {{nothing / E0}}</span><span>{{Design stop: yes, because ... (delete if none)}}</span></div>
-    <p class="outcome"><strong>Outcome.</strong> {{What a person can use, see or verify when this epic is done.}}</p>
-    <p><strong>Done when</strong></p>
-    <ul class="accept">
-      <li>{{An acceptance criterion that can be checked. This is what the unit is verified and reviewed against.}}</li>
-    </ul>
-    <ol class="tasks">
-      <li><span class="box"></span><div><span class="t">E1.1</span>{{What changes, in one sentence.}}<span class="test">First test: {{the test}}. Done when: {{check}}.</span></div></li>
-      <li><span class="box"></span><div><span class="t">E1.2</span>{{...}} <span class="tag you">you</span><span class="test">No cheap test. Verified by: {{manual check}}.</span></div></li>
-    </ol>
-    <ul class="fails">
-      <li><strong>Can fail when</strong> {{failure}}: {{how the epic handles it and which task covers it}}</li>
-    </ul>
-  </section>
-
-  <h2 id="you" data-short="From you">Only you can do</h2>
-  <div class="tablewrap"><table>
-    <thead><tr><th>When</th><th>Step</th></tr></thead>
-    <tbody><tr><td>{{before E2}}</td><td><span class="tag you">you</span> {{console setting, secret, permission}}</td></tr></tbody>
-  </table></div>
-
-  <h2 id="later" data-short="Later">Later</h2>
-  <ul><li>{{Noticed, worth doing, outside this plan.}}</li></ul>
-
-  <!-- After approval, replace this note with: <div class="note"><strong>Approved {{date}}.</strong> Building {{unit}}.</div>
-       and change the header pill to <span class="pill acc">In progress</span>, later <span class="pill ok">Done</span>. -->
-  <div class="note ask"><strong>Approval needed.</strong> {{Say "go" and I start E1. Or tell me what to change: order, scope, unit of control.}}</div>
-
-  <footer>Source for the agent: plan.md</footer>
+    <footer class="pagefoot">
+      <!-- Related pages. Keep only links to pages that exist; the checker fails on a missing one. -->
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="context.html">Context</a><a class="pagelink" href="decisions.html">Decisions</a></nav>
+      <p>Source for the agent: plan.md</p>
+    </footer>
+  </article>
 </div>
-<script src="{{ROOT}}assets/page.js"></script>
 </body>
 </html>

@@ -83,7 +83,7 @@ test: ... | lint: ... | run: ...
 - <question that needs a decision>
 ```
 
-**`.boxbox/<feature>/context.html`**: copy `.boxbox/templates/context.html` and fill it following the page rules in `GUIDE.md`. `{{ROOT}}` is `../`. Use real code and real paths.
+**`.boxbox/<feature>/context.html`**: copy it with `cp .boxbox/templates/context.html .boxbox/<feature>/context.html` and fill its sections following "Pages" in `GUIDE.md`. `{{ROOT}}` is `../`. Use real code and real paths: the architecture diagram shows this repo's real modules, and the request path names real files and lines. Then run `node .boxbox/pitwall/check-page.js .boxbox/<feature>/context.html` and fix everything it reports, until it prints `OK`. Then fact-check it with **boxbox-inspect** in page mode, fix what it finds, and only then show the page.
 
 Add new project terms to `glossary.md`.
 

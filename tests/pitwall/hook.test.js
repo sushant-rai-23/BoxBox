@@ -169,6 +169,33 @@ test("pit wall commands are pre-approved only when the repo's script is the plug
   assert.equal(ok("sh .boxbox/pitwall/say stage build"), false, "a modified script is never pre-approved");
 });
 
+test("the page checker is pre-approved under the same rules, for Boxbox pages only", () => {
+  const fs = require("fs"), os = require("os"), path = require("path");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbcheck-"));
+  const kit = fs.mkdtempSync(path.join(os.tmpdir(), "bbkit-"));
+  fs.mkdirSync(path.join(root, ".boxbox", "pitwall"), { recursive: true });
+  fs.writeFileSync(path.join(kit, "check-page.js"), "trusted checker");
+  fs.writeFileSync(path.join(root, ".boxbox", "pitwall", "check-page.js"), "trusted checker");
+  const ok = c => h.approvalFor(c, root, kit);
+
+  assert.equal(ok("node .boxbox/pitwall/check-page.js .boxbox/password-reset/context.html"), true);
+  assert.equal(ok("node .boxbox/pitwall/check-page.js .boxbox/password-reset/e1-request/report.html .boxbox/knowledge/reset-tokens.html"), true, "several pages");
+  assert.equal(ok(`node ${root}/.boxbox/pitwall/check-page.js ${root}/.boxbox/plan.html`), true, "absolute paths in this repo");
+
+  assert.equal(ok("node .boxbox/pitwall/check-page.js"), false, "needs a page");
+  assert.equal(ok("node .boxbox/pitwall/check-page.js src/index.html"), false, "only pages under .boxbox/");
+  assert.equal(ok("node .boxbox/pitwall/check-page.js .boxbox/../src/x.html"), false, "no climbing out");
+  assert.equal(ok("node .boxbox/pitwall/check-page.js .boxbox/x.md"), false, "html pages only");
+  assert.equal(ok("node .boxbox/pitwall/check-page.js --templates /tmp .boxbox/x.html"), false, "no flags");
+  assert.equal(ok("node .boxbox/pitwall/check-page.js /elsewhere/.boxbox/x.html"), false, "another repo's page");
+  assert.equal(ok("node .boxbox/pitwall/check-page.js .boxbox/x.html; rm -rf ~"), false);
+  assert.equal(ok("node .boxbox/pitwall/check-page.js .boxbox/x.html > /tmp/out"), false);
+  assert.equal(ok("node .boxbox/pitwall/check-page.js .boxbox/$(whoami).html"), false);
+
+  fs.writeFileSync(path.join(root, ".boxbox", "pitwall", "check-page.js"), "changed by the repo");
+  assert.equal(ok("node .boxbox/pitwall/check-page.js .boxbox/plan.html"), false, "a modified checker is never pre-approved");
+});
+
 test("stage is inferred from the Boxbox page being written when say was never called", () => {
   const fs = require("fs"), os = require("os"), path = require("path");
   const server = require("../../skills/boxbox-setup/kit/pitwall/server.js");
@@ -196,6 +223,15 @@ test("stage is inferred from the Boxbox page being written when say was never ca
   assert.deepEqual([stage().stage, stage().unit], ["report", "E2"]);
   write(".boxbox/password-reset/e1-2-expiry/design.md");
   assert.deepEqual([stage().stage, stage().unit], ["design", "E1.2"], "task-level unit folder");
+});
+
+test("a second page written in the same millisecond still moves the stage", () => {
+  const t = 1760000000000;
+  const cur = { stage: "report", unit: "E2", ts: new Date(t).toISOString() };
+  assert.deepEqual(h.inferStage(".boxbox/password-reset/e1-2-expiry/design.md", cur, t, 0), { stage: "design", unit: "E1.2" }, "another unit, same ms");
+  assert.deepEqual(h.inferStage(".boxbox/password-reset/e2-set-password/report.html", { stage: "build", unit: "E2", ts: cur.ts }, t, 0), { stage: "report", unit: "E2" }, "forward in the same unit, same ms");
+  assert.equal(h.inferStage(".boxbox/password-reset/plan.md", { stage: "build", unit: "E2", ts: cur.ts }, t, 0), null, "still never backwards");
+  assert.equal(h.inferStage(".boxbox/password-reset/e3-x/design.md", { stage: "build", unit: "E2", ts: new Date(t + 5).toISOString() }, t, 0), null, "a stage written after this write still wins");
 });
 
 test("an inferred stage never moves the flow backwards within the same unit", () => {

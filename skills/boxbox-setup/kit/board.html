@@ -5,33 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Boxbox board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="assets/boxbox.css">
+<script src="assets/boxbox.js"></script>
 </head>
 <body>
 <!-- This page is fixed. Never edit it by hand or by agent.
      It draws itself from board-data.js, which the agent rewrites after every step. -->
-<div class="wrap wide">
-  <header class="top">
-    <div class="eyebrow" id="eyebrow">Boxbox board</div>
-    <h1 id="project">Board</h1>
-    <p class="lede" id="lede">The whole project in one place. Open a row to see its tasks and pages.</p>
-    <div id="waiting"></div>
+<div class="main">
+  <header class="pagebar">
+    <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><span aria-current="page">Board</span></nav>
+    <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
   </header>
-
-  <div class="tiles" id="tiles"></div>
-
-  <div class="boardbar">
-    <button type="button" id="openall">Expand all</button>
-    <button type="button" id="closeall">Collapse all</button>
-    <div class="legend" id="legend"></div>
-  </div>
-
-  <main class="tree" id="tree"></main>
-
-  <section id="knowledge"></section>
-
-  <footer id="foot">Read-only. To change the plan, tell the agent.</footer>
+  <div class="yourmove" id="waiting" hidden></div>
+  <main class="wall">
+    <div class="wall-head"><h1 id="project">Board</h1><p id="lede">The whole project in one place.</p></div>
+    <dl class="metrics" id="tiles"></dl>
+    <div class="boardbar">
+      <button type="button" id="openall">Expand all</button>
+      <button type="button" id="closeall">Collapse all</button>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div id="tree"></div>
+    <section id="knowledge"></section>
+    <p class="note" id="foot">Read-only. To change the plan, tell the agent.</p>
+  </main>
 </div>
 
 <script src="board-data.js"></script>
@@ -39,9 +37,10 @@
 (function () {
   "use strict";
   var B = window.BOXBOX_BOARD;
-  var LABEL = {
-    todo: "to do", in_progress: "in progress", review: "your review", changes: "changes asked",
-    done: "done", skipped: "skipped", blocked: "blocked"
+  // status -> [colour, word]
+  var ST = {
+    todo: ["", "to do"], in_progress: ["live", "in progress"], review: ["move", "your review"], changes: ["move", "changes asked"],
+    done: ["done", "done"], skipped: ["", "skipped"], blocked: ["flag", "blocked"]
   };
   var CLOSED = { done: 1, skipped: 1 };
 
@@ -52,7 +51,6 @@
     return n;
   }
   function safeHref(h) {
-    // relative links and http(s) only
     if (typeof h !== "string" || !h) return null;
     if (/^https?:\/\//i.test(h)) return h;
     if (/^[a-z][a-z0-9+.-]*:/i.test(h)) return null;
@@ -61,169 +59,134 @@
   function link(label, href) {
     var h = safeHref(href);
     if (!h) return null;
-    var a = el("a", null, label);
+    var a = el("a", "pagelink", label);
     a.href = h;
     if (/^https?:/i.test(h)) { a.target = "_blank"; a.rel = "noopener"; }
     return a;
   }
   function status(s) {
-    var k = LABEL[s] ? s : "todo";
-    return el("span", "st " + k, LABEL[k]);
+    var k = ST[s] ? s : "todo";
+    var n = el("span", "status", ST[k][1]);
+    if (ST[k][0]) n.setAttribute("data-st", ST[k][0]);
+    return n;
   }
   function linksRow(items) {
-    var row = el("div", "links");
-    (items || []).forEach(function (l) {
-      var a = link(l.label, l.href);
-      if (a) row.appendChild(a);
-    });
+    var row = el("nav", "pagelinks");
+    row.setAttribute("aria-label", "Pages");
+    (items || []).forEach(function (l) { var a = link(l.label, l.href); if (a) row.appendChild(a); });
     return row.childNodes.length ? row : null;
-  }
-  function progress(done, total) {
-    var wrap = el("span", "right");
-    wrap.appendChild(el("span", "count", done + " of " + total));
-    var bar = el("span", "bar");
-    var fill = el("i");
-    fill.style.width = (total ? Math.round((done / total) * 100) : 0) + "%";
-    bar.appendChild(fill);
-    wrap.appendChild(bar);
-    return wrap;
   }
   function countTasks(epic) {
     var t = epic.tasks || [];
     return { total: t.length, done: t.filter(function (x) { return CLOSED[x.status]; }).length };
   }
+  var tree = document.getElementById("tree");
 
-  if (!B || !Array.isArray(B.milestones)) {
-    document.getElementById("tree").appendChild(
-      el("p", "empty", "No board data yet. It appears after the first plan is written."));
-    return;
-  }
-  if (!B.milestones.length) {
-    document.getElementById("tree").appendChild(
-      el("p", "empty", "Nothing planned yet. Tell the agent what you want to build."));
-  }
+  if (!B || !Array.isArray(B.milestones)) { tree.appendChild(el("p", "empty", "No board data yet. It appears after the first plan is written.")); return; }
+  if (!B.milestones.length) tree.appendChild(el("p", "empty", "Nothing planned yet. Tell the agent what you want to build."));
 
   document.title = (B.project || "Project") + " · Boxbox board";
-  document.getElementById("project").textContent = B.project || "Project";
-  var eyebrow = ["Boxbox board"];
-  if (B.updated) eyebrow.push("updated " + B.updated);
-  if (B.unit) eyebrow.push("unit: " + B.unit);
-  if (B.decisionLevel) eyebrow.push("decisions: " + B.decisionLevel);
-  document.getElementById("eyebrow").textContent = eyebrow.join(" · ");
-  if (B.goal) document.getElementById("lede").textContent = B.goal;
+  document.getElementById("project").textContent = B.project || "Board";
+  var lede = [];
+  if (B.goal) lede.push(B.goal);
+  if (B.unit) lede.push("Unit of control: " + B.unit + ".");
+  if (B.decisionLevel) lede.push("Decisions: " + B.decisionLevel + ".");
+  if (B.updated) lede.push("Updated " + B.updated + ".");
+  if (lede.length) document.getElementById("lede").textContent = lede.join(" ");
 
   // what is waiting for the developer
   if (B.waiting && B.waiting.what) {
-    var w = el("div", "waiting");
-    var left = el("div");
-    left.appendChild(el("div", "what", "Waiting for you: " + B.waiting.what));
-    if (B.waiting.detail) left.appendChild(el("div", "sub", B.waiting.detail));
-    w.appendChild(left);
-    var go = link(B.waiting.label || "Open", B.waiting.href);
-    if (go) { go.className = "go"; w.appendChild(go); }
-    document.getElementById("waiting").appendChild(w);
+    var w = document.getElementById("waiting");
+    w.appendChild(el("b", null, "Your move"));
+    var span = el("span", null, B.waiting.what);
+    if (B.waiting.detail) span.appendChild(el("small", null, B.waiting.detail));
+    w.appendChild(span);
+    var h = safeHref(B.waiting.href);
+    if (h) { var go = el("a", null, B.waiting.label || "Open"); go.href = h; var em = el("em"); em.appendChild(go); w.appendChild(em); }
+    w.hidden = false;
   }
 
   // totals
   var eTotal = 0, eDone = 0, tTotal = 0, tDone = 0, mDone = 0;
   B.milestones.forEach(function (m) {
     if (CLOSED[m.status]) mDone++;
-    (m.epics || []).forEach(function (e) {
-      eTotal++; if (CLOSED[e.status]) eDone++;
-      var c = countTasks(e); tTotal += c.total; tDone += c.done;
-    });
+    (m.epics || []).forEach(function (e) { eTotal++; if (CLOSED[e.status]) eDone++; var c = countTasks(e); tTotal += c.total; tDone += c.done; });
   });
   var tiles = document.getElementById("tiles");
-  [["Milestones", mDone, B.milestones.length], ["Epics", eDone, eTotal], ["Tasks", tDone, tTotal]]
-    .forEach(function (t) {
-      var tile = el("div", "tile");
-      tile.appendChild(el("div", "k", t[0]));
-      var v = el("div", "v", String(t[1]));
-      v.appendChild(el("small", null, " of " + t[2] + " done"));
-      tile.appendChild(v);
-      tiles.appendChild(tile);
-    });
+  [["milestones done", mDone, B.milestones.length], ["epics done", eDone, eTotal], ["tasks done", tDone, tTotal]].forEach(function (t) {
+    var d = el("div"), dt = el("dt", null, t[0]), dd = el("dd", "metric", String(t[1]));
+    dd.appendChild(el("small", null, "/" + t[2]));
+    d.appendChild(dt); d.appendChild(dd); tiles.appendChild(d);
+  });
 
   var legend = document.getElementById("legend");
-  ["todo", "in_progress", "review", "done"].forEach(function (s) { legend.appendChild(status(s)); });
+  ["todo", "in_progress", "review", "done", "blocked"].forEach(function (s) { legend.appendChild(status(s)); });
 
-  // the tree
-  var tree = document.getElementById("tree");
-  var single = B.milestones.length === 1;
-  B.milestones.forEach(function (m) {
-    var md = el("details");
-    md.open = single || !CLOSED[m.status];
-    var ms = el("summary");
-    var mt = el("span", "title");
-    if (m.id) mt.appendChild(el("span", "rid", m.id));
-    mt.appendChild(el("b", null, m.title || "Milestone"));
-    if (m.goal) mt.appendChild(el("span", "line", m.goal));
-    ms.appendChild(mt);
-    var mr = el("span", "right");
+  // milestones, newest first
+  B.milestones.slice().reverse().forEach(function (m) {
+    var md = el("details", "milestone");
+    md.open = B.milestones.length === 1 || !CLOSED[m.status];
+    var head = el("summary", "mhead");
+    var h2 = el("h2");
+    if (m.id) h2.appendChild(el("data", null, m.id));
+    h2.appendChild(document.createTextNode(m.title || "Milestone"));
+    head.appendChild(h2);
+    head.appendChild(status(m.status));
     var epics = m.epics || [];
-    mr.appendChild(el("span", "count",
-      epics.filter(function (e) { return CLOSED[e.status]; }).length + " of " + epics.length + " epics"));
-    mr.appendChild(status(m.status));
-    ms.appendChild(mr);
-    md.appendChild(ms);
+    head.appendChild(el("span", "count", epics.filter(function (e) { return CLOSED[e.status]; }).length + " of " + epics.length + " epics done"));
+    var ml = linksRow(m.links); if (ml) head.appendChild(ml);
+    if (m.goal) head.appendChild(el("p", null, m.goal));
+    md.appendChild(head);
 
-    var mi = el("div", "inner");
-    var ml = linksRow(m.links);
-    if (ml) mi.appendChild(ml);
-
+    var grid = el("div", "epics");
     epics.forEach(function (e) {
-      var ed = el("details");
-      ed.open = e.status === "in_progress" || e.status === "review" || e.status === "changes";
-      var es = el("summary");
-      var et = el("span", "title");
-      if (e.id) et.appendChild(el("span", "rid", e.id));
-      et.appendChild(el("b", null, e.title || "Epic"));
-      if (e.outcome) et.appendChild(el("span", "line", e.outcome));
-      es.appendChild(et);
+      var card = el("div", "ep");
+      var h3 = el("h3");
+      if (e.id) h3.appendChild(el("data", null, e.id));
+      h3.appendChild(document.createTextNode(e.title || "Epic"));
+      card.appendChild(h3);
+      var marks = el("div", "marks");
+      marks.appendChild(status(e.status));
       var c = countTasks(e);
-      var er = progress(c.done, c.total);
-      er.appendChild(status(e.status));
-      es.appendChild(er);
-      ed.appendChild(es);
-
-      var ei = el("div", "inner");
+      marks.appendChild(el("span", "count", c.done + " of " + c.total + " tasks"));
+      card.appendChild(marks);
+      if (e.outcome) card.appendChild(el("p", null, e.outcome));
+      var meta = el("div", "meta");
+      if (e.branch) { meta.appendChild(document.createTextNode("branch ")); meta.appendChild(el("code", null, e.branch)); }
+      if (e.depends) meta.appendChild(el("span", null, "needs " + e.depends));
+      if (meta.childNodes.length) card.appendChild(meta);
       var items = (e.links || []).slice();
       if (e.pr) items.push({ label: "Pull request", href: e.pr });
-      var elk = linksRow(items);
-      if (elk) ei.appendChild(elk);
-      if (e.branch) ei.appendChild(el("div", "file", "branch " + e.branch));
-
-      var rows = el("ul", "rows");
+      var elk = linksRow(items); if (elk) card.appendChild(elk);
+      var rows = el("ul", "tasklist");
       (e.tasks || []).forEach(function (t) {
         var li = el("li");
-        li.appendChild(el("span", "rid", t.id || ""));
-        var mid = el("span");
-        mid.appendChild(document.createTextNode(t.title || ""));
-        if (t.test) mid.appendChild(el("span", "sub", "First test: " + t.test));
-        if (t.commit) mid.appendChild(el("span", "commit", "commit " + t.commit));
+        var k = ST[t.status] ? t.status : "todo";
+        if (ST[k][0]) li.setAttribute("data-st", ST[k][0]);
+        if (k === "skipped") li.setAttribute("data-st", "skipped");
+        li.appendChild(el("data", null, t.id || ""));
+        var mid = el("span", null, t.title || "");
+        if (t.test) mid.appendChild(el("small", null, "First test: " + t.test));
         li.appendChild(mid);
-        li.appendChild(status(t.status));
+        li.appendChild(t.commit ? el("span", "commit", t.commit) : el("span"));
         rows.appendChild(li);
       });
-      if (rows.childNodes.length) ei.appendChild(rows);
-      ed.appendChild(ei);
-      mi.appendChild(ed);
+      if (rows.childNodes.length) card.appendChild(rows);
+      grid.appendChild(card);
     });
-    md.appendChild(mi);
+    md.appendChild(grid);
     tree.appendChild(md);
   });
 
   // knowledge pages
   if (Array.isArray(B.knowledge) && B.knowledge.length) {
     var k = document.getElementById("knowledge");
-    k.appendChild(el("h2", null, "Knowledge pages"));
+    k.appendChild(el("h2", "colhead", "Knowledge pages"));
     var kl = linksRow(B.knowledge.map(function (x) { return { label: x.title, href: x.href }; }));
     if (kl) k.appendChild(kl);
   }
 
-  function setAll(open) {
-    tree.querySelectorAll("details").forEach(function (d) { d.open = open; });
-  }
+  function setAll(open) { tree.querySelectorAll("details").forEach(function (d) { d.open = open; }); }
   document.getElementById("openall").addEventListener("click", function () { setAll(true); });
   document.getElementById("closeall").addEventListener("click", function () { setAll(false); });
 })();

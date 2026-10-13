@@ -33,7 +33,7 @@ In the unit's folder, `.boxbox/<feature>/e1-<slug>/`:
 
 **`design.md`** (for agents): first line `approved: no`, then the files, the data shapes and the signatures as code blocks, the path as a numbered list, the alternatives in one line each, and what is locked in.
 
-**`design.html`** (for the developer): copy `.boxbox/templates/design.html` and fill it. `{{ROOT}}` is `../../`. If the template is missing (an older setup), refresh the kit as **boxbox-setup** describes. Explain each shape at the level `config.md` says this developer needs.
+**`design.html`** (for the developer): copy it with `cp .boxbox/templates/design.html .boxbox/<feature>/<unit>/design.html` and fill its sections following "Pages" in `GUIDE.md`. `{{ROOT}}` is `../../`. Then run `node .boxbox/pitwall/check-page.js .boxbox/<feature>/<unit>/design.html` and fix everything it reports, until it prints `OK`. Only then show the page. If the template is missing (an older setup), refresh the kit as **boxbox-setup** describes. Explain each shape at the level `config.md` says this developer needs.
 
 ## 4. Stop
 
@@ -46,7 +46,7 @@ Run `sh .boxbox/pitwall/say ask "Approve the design for <E2>" --kind design --st
 When approved:
 
 1. Record any choice they made, as `GUIDE.md` says under "Recording a decision".
-2. Set `approved: yes, <date>` in `design.md`, and on `design.html` change the pill to `<span class="pill ok">Approved <date></span>` and the ask to a plain note.
+2. Set `approved: yes, <date>` in `design.md`, and on `design.html` change the waiting status to `<span class="status" data-st="done">approved <date></span>` and the "Your move" callout to `data-kind="note"` saying it was approved. Run the checker again.
 3. Clear `waiting`; set `state.md` to `phase: build`, `waiting_for_developer: no`.
 4. Commit the `.boxbox/` changes on the feature branch: `Boxbox: design for <unit id> approved`.
 5. Continue with **boxbox-build**, unless a prototype was agreed first. The build must follow the approved shapes. If building shows a shape is wrong, stop and bring it back here; do not quietly drift from it.

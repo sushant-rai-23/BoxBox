@@ -63,16 +63,18 @@ base: <branch>   head: <branch>   pr: <url or none>
 - <id> <choice> (<override if so>)
 ```
 
-Then copy `.boxbox/templates/review.html` to `.boxbox/reviews/<name>.html` and fill it following the page rules in `GUIDE.md`. `{{ROOT}}` is `../`. If the template is missing, refresh the kit as **boxbox-setup** describes. Its sections:
+Then copy it with `cp .boxbox/templates/review.html .boxbox/reviews/<name>.html` and fill its sections following "Pages" in `GUIDE.md`. `{{ROOT}}` is `../`. Then run `node .boxbox/pitwall/check-page.js .boxbox/reviews/<name>.html` and fix everything it reports, until it prints `OK`. Then fact-check it with **boxbox-inspect** in page mode, fix what it finds, and only then show the page. If the template is missing, refresh the kit as **boxbox-setup** describes. Its sections:
 
-- **What this change does**, in three sentences, and what is not done yet.
-- **Start here**: the three to five places most worth the reviewer's attention, riskiest first, each with file, line range and why.
-- **Per piece**: what changed, why, what to check, questions to ask the author, and a compare link (or the diff command) for just that piece. At `skim` depth this is one line per piece. At `deep` depth it includes the code and a definition for each term that is new to the reviewer.
+- **What the change claims to do**, in three sentences, and what is not done yet.
+- **The request path** through the changed code.
+- **File by file**, riskiest first: what changed, why, what to check, questions to ask the author, and a compare link (or the diff command) for just that piece. At `skim` depth this is one line per piece. At `deep` depth it includes the code and a definition for each term that is new to the reviewer.
 - **Evidence**: the checks run now and their results, and what could not be verified.
 - **Findings** from **boxbox-inspect**, worst first, each marked must fix, should fix or note.
 - **Decisions** the author made, with overrides marked (`tr.override`).
-- **Before you approve**: a short checklist of boxes specific to this change. Not a generic list.
-- **Links**: pull request, branch, and the context, plan, report and explained pages that exist.
+- **Questions to ask the author**, each tied to a file and line.
+- **Risks** after merging, worst first.
+- **Review checklist**: boxes specific to this change, at the depth the reviewer chose. Not a generic list.
+- **Related pages** in the footer: only the context, plan, report and explained pages that exist.
 
 Keep the focus the reviewer chose: one line on what is outside it, no more.
 

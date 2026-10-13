@@ -82,6 +82,17 @@ Without the session-start hook, start the flow by naming it: "use boxbox to add 
 
 Every step also writes a short Markdown file, so a new session or a different model can pick up where the last one stopped.
 
+## The pages
+
+Every page is a finished template in `.boxbox/templates/`. The agent copies it with `cp`, fills its named sections with content, and never writes layout or CSS. That keeps pages consistent, and cheaper to produce: the agent spends its tokens on what the page says, not on how it looks.
+
+- **Built to learn from.** Each template asks for the sections a developer needs to understand the work cold: the request path through the code, annotated real code, diagrams of the real modules, tests marked observed or claimed, trade-offs, risks, a manual checklist, how to roll back, and questions to check yourself. Depth follows what you told setup you know: new ideas get explained, known ones get a line.
+- **Checked before you see it.** `node .boxbox/pitwall/check-page.js <page>` fails a page with a leftover placeholder, any CSS, a class outside the component gallery, a missing or too-thin section, a link to a page that does not exist, a diagram without a text alternative, or lines that read as machine-made. Every skill runs it and fixes what it finds before opening the page.
+- **True, or marked as unknown.** Every claim on a report, context, review or explain page says where it comes from: observed, from the code, inferred, unknown, or from a linked source. Test results, changed lines, commits, branches, tokens and cost are read from git and the pit wall, and the checker fails the page if they disagree. Quoted code must match the repo byte for byte, and every file:line, test name and commit hash must exist. A separate agent then fact-checks the claims before you see the page, and each report ends with the three claims to verify yourself.
+- **One look everywhere.** The pit wall, the board and every page share one stylesheet (`assets/boxbox.css`) and a dark/light switch in the top bar. It follows your system setting until you choose, and remembers your choice when the browser allows it.
+
+Pages written by 0.5 keep working after an update: their old stylesheet stays in the kit.
+
 ## Use
 
 In your repo, tell the agent what you want:
@@ -104,7 +115,7 @@ The pit wall opens in your browser while setup runs and shows every step from th
 
 ## The pit wall
 
-![The pit wall, in demo mode](docs/pitwall.png)
+![The pit wall in demo mode, dark theme, 1920 px wide: the stage ruler, live readouts, the orb with its task ring, what needs you, and team radio](docs/screenshots/pitwall-1920-dark.jpg)
 
 A local page, served by a small Node script inside `.boxbox/pitwall/` (Node 18+, no dependencies) on `127.0.0.1`. Each new session starts it and prints its address, `http://127.0.0.1:4747/` unless that port is busy. Six views, each named the racing way with the plain name in brackets:
 
@@ -121,7 +132,7 @@ A local page, served by a small Node script inside `.boxbox/pitwall/` (Node 18+,
 
 **Pause.** Press Pause and the agent's next tool call is held. Resume and it runs, as if nothing happened. Leave it paused for about nine minutes and the agent stops, writes down where it was, and waits for you to say `continue`. Pause holds the next action; it cannot stop text the agent is already writing. Esc in the chat does that.
 
-**Nothing leaves your machine.** The page binds to `127.0.0.1` only, and the pause buttons need a token that only the served page has. Live data sits in `.boxbox/live/`, which setup adds to `.gitignore`: tool names, file paths and one-line results, never file contents, your prompts or command output, and anything that looks like a secret in a command is masked. Repos without a `.boxbox/` folder are not logged at all. Pages that Boxbox wrote open from the pit wall in a sandbox, so a page in the repo cannot press Pause for you; the cost is that the "mark as done" boxes on knowledge pages and on review checklists do not stay ticked when opened from the pit wall. Open the file directly (`.boxbox/knowledge/<topic>.html`) to keep them.
+**Nothing leaves your machine.** The page binds to `127.0.0.1` only, and the pause buttons need a token that only the served page has. Live data sits in `.boxbox/live/`, which setup adds to `.gitignore`: tool names, file paths and one-line results, never file contents, your prompts or command output, and anything that looks like a secret in a command is masked. Repos without a `.boxbox/` folder are not logged at all. Pages that Boxbox wrote open from the pit wall in a sandbox, so a page in the repo cannot press Pause for you; the cost is that checklist ticks on a page opened from the pit wall do not stay ticked, and the theme comes from the link rather than from memory. Open the file directly (`.boxbox/knowledge/<topic>.html`) to keep ticks.
 
 **Per agent.** Claude Code: everything above. Codex: the same, built from Codex's source and documentation but **unverified**, not yet run end to end; run `/hooks` in Codex once to trust Boxbox's hooks, and again after each Boxbox update. Codex web searches run on OpenAI's side and do not show. Cursor: the pages and the board, no live feed yet.
 
@@ -172,7 +183,7 @@ Nineteen skills. Most run on their own as part of the flow. Each can also be cal
 
 ## Status
 
-Version 0.5.0. Built and tried with Claude Code, including the pit wall's hooks, pause and token counts. The Codex pit wall (hooks, pause, token counts) is built from Codex's source and is unverified until it has been run end to end. The Cursor and skills-CLI paths follow what other skill packs ship and have not been run end to end on those agents yet.
+Version 0.6.0. Built and tried with Claude Code, including the pit wall's hooks, pause and token counts. The Codex pit wall (hooks, pause, token counts) is built from Codex's source and is unverified until it has been run end to end. The Cursor and skills-CLI paths follow what other skill packs ship and have not been run end to end on those agents yet.
 
 ## License
 

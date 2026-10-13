@@ -3,66 +3,125 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="design">
 <title>{{TITLE}}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
-<link rel="stylesheet" href="{{ROOT}}assets/style.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ROOT}}assets/boxbox.css">
+<script src="{{ROOT}}assets/boxbox.js"></script>
 </head>
 <body>
-<!-- TEMPLATE: design page. Copy to .boxbox/<feature>/<unit>/design.html and fill.
-     {{ROOT}} here is "../../". Shapes only: no function bodies. Add no CSS. -->
-<div class="wrap">
-  <div class="crumbs"><a href="{{ROOT}}board.html">Board</a><span aria-hidden="true">/</span><a href="../plan.html">{{FEATURE TITLE}}</a><span aria-hidden="true">/</span><span>{{UNIT ID}} design</span></div>
+<!-- TEMPLATE: design page. Copy to .boxbox/<feature>/<unit>/design.html. {{ROOT}} is "../../".
+     HOW TO FILL THIS PAGE (the full rules are under "Pages" in .boxbox/GUIDE.md)
+     1. Copy it with cp. Never write the page from scratch or from memory.
+     2. Replace the {{...}} placeholders and the sample markup inside each <section>. Keep the head, the
+        bar, the contents column, the footer shell and the script exactly as they are.
+     3. Each section says what goes in it and how deep. data-required="yes" sections must stay;
+        data-min-words is the least prose they need (code blocks and diagrams do not count).
+        Delete a data-required="no" section that has nothing true to say. Copy a data-repeat section
+        once per item. To add a section, build it only from templates/_components.html.
+     4. Never write <style>, style= or a class that is not in templates/_components.html.
+     5. Label where every claim comes from: replace each data-evidence="{{...}}" with observed (the pit
+        wall or you saw it run), code (read in the repo), inferred (your reasoning), unknown (nobody
+        knows yet) or source (a link to the source in the same block). "unknown" is allowed; guessing
+        is not. Facts with data-source (tests, diff counts, commits, tokens) are what git and the pit
+        wall say, never your estimate; with no pit wall data, write "not recorded". Quote repo code
+        exactly with data-quote, and cite lines as path:line.
+     6. Run: node .boxbox/pitwall/check-page.js <this page>. Fix every problem it lists, run it again.
+        Then run the fact-check (boxbox-inspect, page mode), fix what it finds, and only then show the
+        page. Delete these instruction comments once the page is filled. -->
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="{{ROOT}}board.html">Board</a><a href="../plan.html">{{FEATURE TITLE}}</a><span aria-current="page">{{UNIT ID}} design</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article">
+    <header class="doc-head">
+      <h1>Design for {{UNIT ID}}: {{epic title}}</h1>
+      <p class="lede">{{Two sentences: the shape in plain words, and the one choice that matters most.}}</p>
+      <div class="marks"><span class="status" data-st="move">waiting for your approval</span><span class="status">no code written yet</span></div>
+    </header>
 
-  <header class="top">
-    <div class="eyebrow">{{PROJECT}} · {{FEATURE TITLE}} · {{DATE}}</div>
-    <h1>Design for {{UNIT ID}}: {{epic title}}</h1>
-    <p class="lede">{{Two sentences: the shape in plain words, and the one choice that matters most.}}</p>
-    <div class="pills">
-      <span class="pill acc">Design</span>
-      <span class="pill warn">Awaiting your approval</span>
-      <span class="pill">No code written yet</span>
-    </div>
-  </header>
-  <nav class="toc" data-auto aria-label="Sections"></nav>
+    <section data-section="problem" data-required="yes" data-min-words="80" id="problem">
+      <!-- What this epic must do, what makes it hard, and what the current code offers. -->
+      <h2>The problem</h2>
+      <p>{{The problem and its constraints.}}</p>
+    </section>
+    <section data-section="ideas" data-required="no" data-min-words="60" id="ideas">
+      <!-- Only for ideas config.md marks new: teach each one before the design uses it, with a term definition and a small example. -->
+      <h2>New ideas in this design</h2>
+      <p>{{The idea, plainly, with a term definition and a small example.}}</p>
+    </section>
+    <section data-section="shape" data-required="yes" data-min-words="80" data-needs="svg" id="shape">
+      <!-- A diagram of the modules and data involved, new parts marked hot, then the responsibility of each. -->
+      <h2 data-short="Shape">The shape of the solution</h2>
+<figure class="diagram wide">
+<svg viewBox="0 0 760 210" role="img" aria-label="{{One sentence: what the diagram shows, naming the boxes and arrows}}">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0 0L10 5L0 10z"/></marker></defs>
+  <rect class="d-box" x="20" y="74" width="170" height="62"/><text class="d-label" x="36" y="100">{{Module}}</text><text class="d-sub" x="36" y="120">{{src/file.js}}</text>
+  <rect class="d-box hot" x="300" y="74" width="170" height="62"/><text class="d-label" x="316" y="100">{{Module}}</text><text class="d-sub" x="316" y="120">{{src/file.js}}</text>
+  <path class="d-edge hot" d="M190 105 H296" marker-end="url(#arrow)"/>
+</svg>
+<figcaption>{{What to notice in the diagram.}}</figcaption>
+</figure>
+      <ul class="changes">
+        <li class="change"><code>{{path}}</code><span class="delta"><ins>new</ins></span><p><b>Its one job:</b> {{responsibility}}</p></li>
+        <li class="change"><code>{{path}}</code><span class="delta">changed</span><p><b>What changes:</b> {{the change}}</p></li>
+      </ul>
+    </section>
+    <section data-section="interfaces" data-required="yes" data-min-words="60" id="interfaces">
+      <!-- Signatures only: function names, inputs, outputs, errors; routes with request and response; schemas field by field. No bodies. -->
+      <h2>Interfaces</h2>
+<figure class="code">
+<figcaption><code>{{path}}</code><span>signatures</span></figcaption>
+<pre><code>{{signatures, routes or schema}}</code></pre>
+</figure>
+      <dl class="terms"><dt>{{name}}</dt><dd>{{what it means, whether it can be absent, why it is this type}}</dd></dl>
+    </section>
+    <section data-section="path" data-required="no" data-min-words="60" id="path">
+      <!-- The path through the new design, with what happens when each step fails. -->
+      <h2 data-short="Request path">How one request travels</h2>
+      <!-- One li per step. span.at is file:line; for code not written yet, the file and "(new)". -->
+      <ol class="path">
+        <li><b>{{What happens at this step, in plain words}}</b><span class="at">{{path/to/file.js:42}}</span><p>{{What this step does, what it hands on, and what happens when it fails.}}</p></li>
+        <li><b>{{Next step}}</b><span class="at">{{path:line}}</span><p>{{...}}</p></li>
+      </ol>
+    </section>
+    <section data-section="alternatives" data-required="yes" data-min-words="60" id="alternatives">
+      <!-- The options, with trade-offs. The proposed one marked chosen. -->
+      <h2 data-short="Alternatives">Alternatives considered</h2>
+      <div class="table"><table>
+        <thead><tr><th>Option</th><th>Gains</th><th>Costs</th></tr></thead>
+        <tbody>
+          <tr class="chosen"><td>{{This design}}</td><td>{{gain}}</td><td>{{cost}}</td></tr>
+          <tr><td>{{The alternative}}</td><td>{{gain}}</td><td>{{cost}}</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+    <section data-section="risks" data-required="yes" data-min-words="40" id="risks">
+      <!-- What could go wrong with this shape, and which parts get costly to change once other code depends on them. -->
+      <h2 data-short="Risks">Risks, and what this locks in</h2>
+      <ul class="findings">
+        <li data-st="flag"><span class="status" data-st="flag">high</span><b>{{The risk or edge case, in one line}}</b><p>{{What would happen, how likely, and what limits it today.}}</p></li>
+        <li data-st="move"><span class="status" data-st="move">medium</span><b>{{...}}</b><p>{{...}}</p></li>
+        <li><span class="status">low</span><b>{{...}}</b><p>{{...}}</p></li>
+      </ul>
+    </section>
+    <section data-section="approve" data-required="yes" data-min-words="20" id="approve">
+      <!-- Exactly what the developer is agreeing to, so approval means something. -->
+      <h2 data-short="Approve">What to approve</h2>
+      <aside class="callout" data-kind="move"><p><b>Your move.</b> Approve this shape, or tell me what to change. Say "grill the design" if you want it challenged first.</p></aside>
+      <ul><li>{{the interface or data shape being agreed}}</li></ul>
+    </section>
 
-  <h2 id="where" data-short="Where it lives">Where it lives</h2>
-  <div class="tablewrap"><table>
-    <thead><tr><th>File or module</th><th>New or changed</th><th>Its one job</th></tr></thead>
-    <tbody><tr><td><code>{{path}}</code></td><td>{{new}}</td><td>{{responsibility}}</td></tr></tbody>
-  </table></div>
-
-  <h2 id="data" data-short="Data">The data</h2>
-  <!-- One block per record, table, message or type. Field by field. -->
-  <h3>{{Name of the shape}}</h3>
-  <p>{{What it represents and who creates it.}}</p>
-  <pre><code>{{the type, schema or table definition}}</code></pre>
-  <dl><dt>{{field}}</dt><dd>{{what it means, whether it can be absent, why it is this type}}</dd></dl>
-
-  <h2 id="interfaces" data-short="Interfaces">The interfaces</h2>
-  <!-- Signatures only: name, inputs, outputs, errors. -->
-  <div class="file">{{path}}</div>
-  <pre><code>{{signatures}}</code></pre>
-
-  <h2 id="path" data-short="The path">How one request travels</h2>
-  <div class="step"><div class="n">1 · {{where it starts}}</div>
-    <h3>{{piece}}</h3>
-    <p>{{What happens here, and what happens when it fails.}}</p>
-  </div>
-
-  <h2 id="alternatives" data-short="Alternatives">What I considered instead</h2>
-  <div class="options">
-    <div class="option rec"><span class="name">{{This design}} <span class="tag">proposed</span></span>{{Why.}}<ul><li>{{gain}}</li><li>{{cost}}</li></ul></div>
-    <div class="option"><span class="name">{{The alternative}}</span>{{What it would look like.}}<ul><li>{{gain}}</li><li>{{cost}}</li></ul></div>
-  </div>
-
-  <h2 id="locks" data-short="Locked in">What this locks in</h2>
-  <ul><li><strong>{{shape or interface}}</strong>: {{why it will be costly to change once other code depends on it}}</li></ul>
-
-  <div class="note ask"><strong>Approval needed.</strong> Approve this shape, or tell me what to change. Say "grill the design" if you want it challenged first.</div>
-
-  <footer>Source for the agent: design.md · Plan: ../plan.html</footer>
+    <footer class="pagefoot">
+      <!-- Related pages. Keep only links to pages that exist; the checker fails on a missing one. -->
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="../plan.html">Plan</a><a class="pagelink" href="../decisions.html">Decisions</a></nav>
+      <p>Source for the agent: design.md</p>
+    </footer>
+  </article>
 </div>
-<script src="{{ROOT}}assets/page.js"></script>
 </body>
 </html>

@@ -35,7 +35,7 @@ From here until the review stop, `.boxbox/` changes stay uncommitted. Task commi
 2. **Test first.** Follow **boxbox-tdd**: write the test, watch it fail for the right reason, write the least code that passes.
 3. **Run every check.** The full test suite, the linter and the type checker from `config.md`. All green before you go on.
 4. **Commit.** One commit per task, holding that task's code and tests and nothing from `.boxbox/`: `E1.2: tokens expire after 15 minutes`. Never commit with a failing check.
-5. **Tick it off.** Mark the task done in `plan.md` and `plan.html` (`class="box done"`), and set its status and commit hash in `board-data.js`. Keep the epic's status tag on `plan.html` current. Leave these uncommitted. Set it to `done`, never "verified": the pit wall marks it verified only if it saw the passing test run itself after the task's last edit.
+5. **Tick it off.** Mark the task done in `plan.md` and `plan.html` (`data-st="done"` on the task's `li`), and set its status and commit hash in `board-data.js`. Keep the epic's status mark on `plan.html` current. Leave these uncommitted. Set it to `done`, never "verified": the pit wall marks it verified only if it saw the passing test run itself after the task's last edit.
 
 A task with no cheap test: do it, verify it the way the plan says, and record exactly what you observed.
 

@@ -53,27 +53,30 @@ pr: <url or none>
 
 ## 2. Write report.html (for the developer)
 
-Copy `.boxbox/templates/report.html` and fill it following the page rules in `GUIDE.md`. `{{ROOT}}` is `../../`.
+Copy it with `cp .boxbox/templates/report.html .boxbox/<feature>/<unit>/report.html` and fill its sections following "Pages" in `GUIDE.md`. `{{ROOT}}` is `../../`. Then run `node .boxbox/pitwall/check-page.js .boxbox/<feature>/<unit>/report.html` and fix everything it reports, until it prints `OK`. Then fact-check it with **boxbox-inspect** in page mode, fix what it finds, and only then show the page.
 
 - **Order the pieces the way a request meets them**, not the order you wrote them.
 - **Use the real code** from the diff, trimmed to what matters, with its path.
 - **Depth follows the developer.** For anything `config.md` marks as new, explain the concept before the code and define each term. For what they know, one line is enough. Where it helps, compare with a stack they know.
 - **Say why.** For each real design choice, name the alternative and the trade-off.
-- **Gotchas are real ones** you hit, with cause and fix. No invented ones.
-- **Review note** comes from the separate reviewer's findings: what was checked, what was fixed, what was left alone and why. If the review was not independent, say so.
+- **Facts come from data.** Test results, line counts, commits, tokens, cost and time are what the pit wall and git say: `node .boxbox/pitwall/server.js --summary <unit>`, `git diff --numstat <before>..<last>`, `git rev-list --count <before>..<last>`. Set the article's `data-range` and `data-commit` to the unit's commits. Each task's state is the pit wall's: `verified` only for a passing run it saw after the task's last edit, `claimed` otherwise.
+- **Every claim is labelled** (`observed`, `code`, `inferred`, `unknown`, `source`). "unknown" is allowed; guessing is not. Quote code with `data-quote`, cite lines as `path:line`, name tests with `data-test`.
+- **Verify these yourself** closes the report: the three claims that matter most if they are wrong, each with a one-minute way to check it.
+- **Gotchas are real ones** you hit, with cause and fix, as callouts. No invented ones.
+- **Risks** include the separate reviewer's findings that were left alone, and why. If the review was not independent, say so.
 - **Not verified** is honest. "Nothing" only if true.
-- **Cost**: the "Cost:" line, in the fact grid near the top. Say it is approximate.
+- **Cost**: the numbers from `--summary` in the Cost section. Say it is approximate.
 - **Outside scope**: every file from "Edited outside scope", each with why it had to change. Leave the section out when there are none.
 - **Check yourself**: two or three questions that test understanding of this unit, each with its answer folded. Ask about why and what-if, not trivia.
-- **Try it yourself**: the commands to run it by hand and the output to expect.
-- **Pending**: the next units and what each needs from the developer.
+- **What now exists**: the commands to run it by hand and the real output.
+- **Test it by hand** and **How to roll back**: concrete steps and commands, never generic ones.
 
-For a short-flow change, keep the same template but only the sections that have content.
+For a short-flow change, keep the same template. Required sections stay; say briefly why one has little to say rather than deleting it.
 
 ## 3. Update the board, then commit the bookkeeping
 
 - `board-data.js`: unit status `review`, a "Report" link, and `waiting` set to "Review <unit id>" with a link to the report. With no pull request, put the branch and the diff command in `waiting.detail`.
-- `plan.md`: the unit's heading to `[review]`. `plan.html`: the epic's status tag to `review`.
+- `plan.md`: the unit's heading to `[review]`. `plan.html`: the epic's status mark to `<span class="status" data-st="move">your review</span>`.
 - `state.md`: `phase: unit-review`, `unit: <id> review`, `waiting_for_developer: yes`.
 
 Then make one commit on the unit's branch, `<E1>: report and board`, with everything under `.boxbox/` that changed during this unit. This is the only `.boxbox/` commit for the unit.
@@ -115,7 +118,7 @@ Then run `sh .boxbox/pitwall/say ask "Stop 2: review <unit id>" --kind unit --st
 1. Unit = epic: squash-merge the epic branch into the feature branch with the message `<E1> <title>` followed by the task list. Use the host's merge if a pull request is open (`gh pr merge --squash`), otherwise `git merge --squash`. Do not delete branches unless asked.
 2. Record the approval everywhere it shows:
    - `plan.md` and `plan.html`: the unit to `done`.
-   - `report.md`: `status: approved, <date>`. `report.html`: the "Waiting for your review" pill becomes `<span class="pill ok">Approved <date></span>`, and the review ask becomes a plain note saying it was approved.
+   - `report.md`: `status: approved, <date>`. `report.html`: the "Your move" callout becomes `data-kind="note"` saying it was approved on <date>. Run the checker again.
    - `board-data.js`: the unit to `done`; `waiting` to `null`.
    - `state.md`: `last_approved`, `waiting_for_developer: no`, and `phase: build` with `unit: <next id> todo` if units remain, or `phase: done` with `unit: none` if not.
 
@@ -128,6 +131,6 @@ Then run `sh .boxbox/pitwall/say ask "Stop 2: review <unit id>" --kind unit --st
 1. Set the unit to `changes`. If they commented on the pull request, read the comments (`gh pr view --comments`).
 2. If a request is unclear or you think it is wrong, say so and discuss before changing anything. Do not agree just to be agreeable.
 3. Make the changes as new commits with **boxbox-tdd**, then **boxbox-verify**, and **boxbox-inspect** if the change is more than small.
-4. Add a "Changes after your review" section to `report.md` and `report.html`: what they asked, what changed, the new commits.
+4. Add a "Changes after your review" section to `report.md`, and to `report.html` as a new section built from the gallery (`data-section="changes-after-review" data-required="no"`): what they asked, what changed, the new commits. Run the checker again.
 5. If they corrected how you work, use **boxbox-lessons**: record the rule, and if it is the second time, propose a check.
 6. Set the unit back to `review` and stop again.

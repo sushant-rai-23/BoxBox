@@ -1,0 +1,1157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boxbox 0.6 specimen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="fonts" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<script>
+/* Theme before first paint. In 0.6 this lives at the top of kit/assets/boxbox.js. */
+(function () { var t = null; try { t = localStorage.getItem("boxbox-theme"); } catch (e) {} if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t); })();
+</script>
+
+<!-- ===================================================================
+     SYSTEM CSS. This block is the draft of kit/assets/boxbox.css.
+     Everything inside it ships; nothing outside it does.
+     =================================================================== -->
+<style id="sys">
+/* ---------- tokens ---------- */
+:root{
+  --f-ui:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-read:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --f-code:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:48px;--s8:64px;--s9:96px;
+  --rail:220px;
+  /* light: cool drafting paper */
+  --bg:#F3F5F4;--bg-2:#E6ECEB;--bg-code:#E9EFEE;--rule:#C9D3D2;--rule-strong:#0F2229;
+  --ink:#0F2229;--ink-2:#3C535A;--ink-3:#566B72;
+  --hud:#00728A;
+  --live:#00728A;--done:#11764A;--verified:#6A3FCB;--move:#965500;--flag:#BC2A2F;--todo:#566B72;
+  --move-fill:#F5AE45;--move-ink:#1E1400;
+  --ins-bg:#DBEEE2;--del-bg:#F6E0DF;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1F27;--bg-2:#152A34;--bg-code:#0B181E;--rule:#26414D;--rule-strong:#E4EEF0;
+    --ink:#E4EEF0;--ink-2:#A6BCC2;--ink-3:#7E959C;
+    --hud:#7FE0EE;
+    --live:#7FE0EE;--done:#4CD68A;--verified:#B79BFF;--move:#FFB547;--flag:#FF6E6B;--todo:#7E959C;
+    --move-fill:#FFB547;--move-ink:#1E1400;
+    --ins-bg:#123628;--del-bg:#3A1D22;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1F27;--bg-2:#152A34;--bg-code:#0B181E;--rule:#26414D;--rule-strong:#E4EEF0;
+  --ink:#E4EEF0;--ink-2:#A6BCC2;--ink-3:#7E959C;
+  --hud:#7FE0EE;
+  --live:#7FE0EE;--done:#4CD68A;--verified:#B79BFF;--move:#FFB547;--flag:#FF6E6B;--todo:#7E959C;
+  --move-fill:#FFB547;--move-ink:#1E1400;
+  --ins-bg:#123628;--del-bg:#3A1D22;
+  color-scheme:dark;
+}
+
+/* ---------- base ---------- */
+*,*::before,*::after{box-sizing:border-box}
+html{background:var(--bg);color:var(--ink);-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:15px;line-height:1.5;font-stretch:100%}
+a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
+a:hover{text-decoration-color:var(--live)}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--live);outline-offset:2px}
+code,kbd,samp{font-family:var(--f-code);font-size:.86em}
+data,.num{font-variant-numeric:tabular-nums}
+img,svg{max-width:100%}
+h1,h2,h3{text-wrap:balance}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* ---------- theme switch (every page and the pit wall) ---------- */
+.theme{display:inline-flex;border:1px solid var(--rule);border-radius:2px}
+.theme button{background:none;border:0;padding:4px 10px;font-size:12.5px;font-weight:500;color:var(--ink-2);cursor:pointer;font-stretch:90%}
+.theme button+button{border-left:1px solid var(--rule)}
+.theme button[aria-checked="true"]{background:var(--ink);color:var(--bg)}
+
+/* ---------- status: six fixed colours, each with a word ---------- */
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;font-stretch:90%;white-space:nowrap;color:var(--ink)}
+.status::before{content:"";width:8px;height:8px;background:var(--todo);flex:none}
+.status[data-st="live"]::before{background:var(--live)}
+.status[data-st="done"]::before{background:var(--done)}
+.status[data-st="verified"]::before{background:var(--verified)}
+.status[data-st="move"]::before{background:var(--move)}
+.status[data-st="flag"]::before{background:var(--flag)}
+.status[data-st="claimed"]::before{background:none;border:1.5px dashed var(--ink-3);width:9px;height:9px}
+
+/* ---------- link to another Boxbox page ---------- */
+.pagelinks{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.pagelink{display:inline-flex;align-items:baseline;gap:8px;padding:5px 10px 6px;border:1px solid var(--rule);border-radius:2px;text-decoration:none;font-size:13.5px;font-weight:600;line-height:1.2}
+.pagelink small{font-weight:400;color:var(--ink-3);font-size:12.5px}
+.pagelink:hover{border-color:var(--ink-2)}
+
+/* ---------- metric strip ---------- */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin:0;border-top:2px solid var(--rule-strong)}
+.metrics>div{display:flex;flex-direction:column-reverse;justify-content:flex-end;gap:2px;padding:var(--s3) var(--s4) var(--s3) 0;min-width:0}
+.metrics>div+div{padding-left:var(--s4);border-left:1px solid var(--rule)}
+.metrics dt{font-size:13px;color:var(--ink-2)}
+.metrics dd{margin:0}
+.metrics dd.metric{font-size:36px;line-height:1.05;font-weight:600;font-stretch:68%;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.metrics dd.metric small{font-size:15px;font-weight:400;font-stretch:90%;color:var(--ink-2);margin-left:4px;letter-spacing:0}
+.metrics dd.metric-note{font-size:12.5px;color:var(--ink-3);order:-1;margin-top:2px}
+
+/* =====================================================================
+   COCKPIT: the pit wall and the board
+   ===================================================================== */
+.app{display:grid;grid-template-columns:var(--rail) minmax(0,1fr);min-height:100vh}
+.rail{border-right:1px solid var(--rule);padding:var(--s4) var(--s3);display:flex;flex-direction:column;gap:var(--s5);position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;padding:4px 8px;font-size:19px;font-weight:700;font-stretch:118%;letter-spacing:-.01em}
+.brand svg{width:22px;height:22px;fill:none;stroke:var(--hud);stroke-width:1.5}
+.rail-project{padding:0 8px;display:flex;flex-direction:column}
+.rail-project b{font-weight:600}
+.rail-project span{font-size:13px;color:var(--ink-2)}
+.views{display:flex;flex-direction:column}
+.views a{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:7px 8px;text-decoration:none;font-weight:600;font-stretch:110%;border-left:2px solid transparent}
+.views a span{font-weight:400;font-stretch:90%;font-size:12.5px;color:var(--ink-3)}
+.views a:hover{background:var(--bg-2)}
+.views a[aria-current="page"]{border-left-color:var(--hud);background:var(--bg-2)}
+.rail-foot{margin:auto 8px 0;font-size:12px;color:var(--ink-3)}
+
+.main{min-width:0;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:var(--s5);padding:10px var(--s6);border-bottom:1px solid var(--rule);background:var(--bg)}
+.radio{display:flex;align-items:center;gap:var(--s3);min-width:0;flex:1}
+.radio canvas{flex:none}
+.radio div{min-width:0;display:flex;flex-direction:column}
+.radio b,.radio span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.radio b{font-weight:600}
+.radio span{font-size:13px;color:var(--ink-2)}
+.chain{margin:0;font-size:13px;color:var(--ink-2);white-space:nowrap}
+.chain b{color:var(--ink);font-weight:600}
+.pause{display:inline-flex;align-items:center;gap:10px;padding:8px 16px;border:1.5px solid var(--ink);border-radius:2px;background:none;font-weight:700;font-stretch:110%;cursor:pointer;white-space:nowrap}
+.pause i{display:inline-flex;gap:3px}
+.pause i::before,.pause i::after{content:"";width:3px;height:12px;background:currentColor}
+.pause:hover{background:var(--ink);color:var(--bg)}
+.yourmove{display:flex;align-items:center;gap:var(--s4);padding:10px var(--s6);background:var(--move-fill);color:var(--move-ink)}
+.yourmove b{font-weight:800;font-stretch:118%;white-space:nowrap}
+.yourmove span{min-width:0}
+.yourmove small{font-size:13.5px;margin-left:8px;opacity:.85}
+.yourmove em{margin-left:auto;font-style:normal;font-weight:700;white-space:nowrap;border-bottom:2px solid currentColor}
+
+.wall{padding:var(--s5) var(--s6) var(--s8);display:flex;flex-direction:column;gap:var(--s6);min-width:0}
+.wall-head{display:flex;align-items:baseline;gap:var(--s4);flex-wrap:wrap}
+.wall-head h1{margin:0;font-size:30px;line-height:1.05;font-weight:700;font-stretch:122%;letter-spacing:-.015em}
+.wall-head p{margin:0;color:var(--ink-2)}
+
+/* stage ruler: one line, a tick per stage, a bright marker on the current one */
+.stages{list-style:none;margin:0;padding:0;display:flex;overflow-x:auto;scrollbar-width:none}
+.stages::-webkit-scrollbar{display:none}
+.stage{flex:1 0 78px;position:relative;padding:14px 10px 0 0;font-size:12.5px;line-height:1.25;color:var(--ink-3);font-stretch:88%}
+.stage::before{content:"";position:absolute;left:0;right:0;top:5px;height:1px;background:var(--rule)}
+.stage::after{content:"";position:absolute;left:0;top:0;width:1px;height:11px;background:var(--ink-3)}
+.stage span{display:block;font-weight:500}
+.stage small{display:block;font-size:11.5px;font-family:var(--f-code);font-stretch:100%}
+.stage[data-st="done"]{color:var(--ink-2)}
+.stage[data-st="done"]::before{height:3px;top:4px;background:var(--done)}
+.stage[data-st="skip"]{opacity:.5}
+.stage[data-st="live"],.stage[data-st="move"]{color:var(--ink)}
+.stage[data-st="live"] span,.stage[data-st="move"] span{font-weight:700}
+.stage[data-st="live"]::after,.stage[data-st="move"]::after{width:3px;height:15px;top:-2px;background:var(--live)}
+.stage[data-st="move"]::after{background:var(--move)}
+.stage[data-st="live"] span::before{content:"";position:absolute;left:0;top:4px;width:40%;height:3px;background:var(--live)}
+.stage[data-st="live"] small{color:var(--live)}
+.stage[data-st="move"] small{color:var(--move)}
+
+/* the deck: columns are added as the window widens */
+.deck{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s6) var(--s7)}
+.deck>section{min-width:0}
+.colhead{margin:0 0 var(--s3);padding-top:var(--s2);border-top:2px solid var(--rule-strong);font-size:15px;font-weight:700;font-stretch:115%;display:flex;justify-content:space-between;align-items:baseline}
+.colhead a{font-weight:500;font-size:13px;font-stretch:90%}
+.colhead data{font-weight:500;font-stretch:80%;color:var(--ink-2);font-size:14px}
+@media (min-width:1100px){
+  .deck{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+  .deck>.feedcol{grid-column:1/-1}
+}
+@media (min-width:1700px){
+  .deck{grid-template-columns:minmax(0,1.15fr) minmax(0,.9fr) minmax(0,1.25fr)}
+  .deck>.feedcol{grid-column:auto}
+}
+
+/* Now: the one bright centre */
+.now{display:grid;grid-template-columns:auto minmax(0,1fr);gap:var(--s5) var(--s6);align-items:center}
+.hud{position:relative;width:300px;height:300px;flex:none}
+.hud canvas{position:absolute;left:40px;top:40px}
+.hud svg{position:absolute;inset:0;width:300px;height:300px;overflow:visible}
+.hud{--orb:var(--hud)}
+.hud[data-st="move"]{--orb:var(--move)}
+.hud .tick{stroke:var(--ink-3);stroke-width:1}
+.hud .tick.major{stroke:var(--ink-2)}
+.hud .ring{fill:none;stroke:var(--rule);stroke-width:1}
+.hud .seg{fill:none;stroke-width:4}
+.hud .seg[data-st="verified"]{stroke:var(--verified)}
+.hud .seg[data-st="done"]{stroke:var(--done)}
+.hud .seg[data-st="live"]{stroke:var(--live)}
+.hud .seg[data-st="move"]{stroke:var(--move)}
+.hud .seg[data-st="todo"]{stroke:var(--rule)}
+.hud .lead{stroke:var(--ink-3);stroke-width:1;fill:none}
+.hud-ro{position:absolute;font-size:11.5px;line-height:1.2;color:var(--ink-3);font-stretch:85%}
+.hud-ro b{display:block;font-size:15px;font-weight:600;color:var(--ink);font-stretch:72%;font-variant-numeric:tabular-nums}
+.hud-ro[data-pos="tl"]{left:-6px;top:6px}
+.hud-ro[data-pos="tr"]{right:-6px;top:6px;text-align:right}
+.hud-ro[data-pos="bl"]{left:-6px;bottom:6px}
+.hud-ro[data-pos="br"]{right:-6px;bottom:6px;text-align:right}
+.now-text{min-width:0;display:flex;flex-direction:column;gap:var(--s3)}
+.now-kind{margin:0;display:flex;gap:var(--s3);align-items:center;font-size:13px;color:var(--ink-2)}
+.now-what{margin:0;font-size:28px;line-height:1.15;font-weight:650;font-stretch:105%;letter-spacing:-.01em;overflow-wrap:anywhere}
+.now-what code{font-size:.82em;font-weight:500}
+.now-why{margin:0;color:var(--ink-2);max-width:48ch}
+.now-why b{color:var(--ink);font-weight:600}
+
+/* lists of rows: needs you, team radio */
+.rows{list-style:none;margin:0;padding:0}
+.rows>li{border-top:1px solid var(--rule)}
+.rows>li:first-child{border-top:0}
+.need{display:grid;grid-template-columns:3px minmax(0,1fr) auto;gap:var(--s3) var(--s4);padding:var(--s3) 0;align-items:start}
+.need::before{content:"";align-self:stretch;background:var(--todo)}
+.need[data-st="move"]::before{background:var(--move)}
+.need[data-st="flag"]::before{background:var(--flag)}
+.need b{display:block;font-weight:600}
+.need p{margin:2px 0 0;font-size:13.5px;color:var(--ink-2)}
+.need .status{margin-bottom:4px}
+.empty{color:var(--ink-2);padding:var(--s3) 0;margin:0}
+.feed>li{display:grid;grid-template-columns:44px 74px minmax(0,1fr) auto;gap:var(--s3);align-items:baseline;padding:7px 0;font-size:14px}
+.feed time{font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums;font-stretch:85%}
+.feed .kind{font-size:12.5px;font-weight:600;color:var(--ink-2);font-stretch:88%}
+.feed .what{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed .what em{font-style:normal;color:var(--ink-3)}
+.feed .res{font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.feed .res[data-st="done"]{color:var(--done);font-weight:600}
+.feed .res[data-st="flag"]{color:var(--flag);font-weight:600}
+.feed .res[data-st="live"]{color:var(--live)}
+.feed .what .status{margin-left:8px}
+
+@media (max-width:1099px){ .wall{padding:var(--s5) var(--s5) var(--s8)} .topbar,.yourmove{padding-left:var(--s5);padding-right:var(--s5)} }
+@media (max-width:760px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;gap:var(--s2) var(--s4);padding:var(--s3) var(--s4);border-right:0;border-bottom:1px solid var(--rule)}
+  .rail-project,.rail-foot{display:none}
+  .views{flex-direction:row;overflow-x:auto;scrollbar-width:none;width:100%}
+  .views a{border-left:0;border-bottom:2px solid transparent;white-space:nowrap}
+  .views a span{display:none}
+  .views a[aria-current="page"]{border-bottom-color:var(--hud);background:none}
+  .topbar{flex-wrap:wrap;gap:var(--s3);padding:10px var(--s4)}
+  .chain{display:none}
+  .radio{flex-basis:100%}
+  .yourmove{flex-wrap:wrap;padding:10px var(--s4);gap:4px var(--s3)}
+  .yourmove small{display:block;margin:0}
+  .yourmove em{margin-left:0}
+  .wall{padding:var(--s4) var(--s4) var(--s7);gap:var(--s5)}
+  .now{grid-template-columns:minmax(0,1fr);justify-items:center}
+  .now-text{justify-self:stretch}
+  .now-what{font-size:22px}
+  .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .metrics>div:nth-child(odd){padding-left:0;border-left:0}
+  .metrics>div:nth-child(n+3){border-top:1px solid var(--rule)}
+  .feed>li{grid-template-columns:62px minmax(0,1fr) auto}
+  .feed time{display:none}
+}
+
+/* =====================================================================
+   MANUAL: every reading page
+   ===================================================================== */
+.pagebar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:10px var(--s6);background:var(--bg);border-bottom:1px solid var(--rule)}
+.crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:2px 0;font-size:13.5px;min-width:0}
+.crumbs a,.crumbs span{white-space:nowrap}
+.crumbs a{color:var(--ink-2);text-decoration:none}
+.crumbs a:hover{color:var(--ink);text-decoration:underline}
+.crumbs>*+*::before{content:"/";color:var(--ink-3);margin:0 10px}
+.crumbs [aria-current]{font-weight:600}
+.crumbs .brandlink{font-weight:700;font-stretch:118%;color:var(--ink)}
+
+.doc{--measure:640px;--margin:260px;--gap:56px;display:grid;grid-template-columns:minmax(0,1fr);padding:var(--s6) var(--s4) var(--s9)}
+.toc{font-size:13.5px;margin-bottom:var(--s6)}
+.toc p{margin:0 0 var(--s2);color:var(--ink-2)}
+.toc ol{list-style:none;margin:0;padding:0;border-left:1px solid var(--rule)}
+.toc a{display:block;padding:4px 0 4px 14px;margin-left:-1px;border-left:2px solid transparent;text-decoration:none;color:var(--ink-2);line-height:1.3}
+.toc a:hover{color:var(--ink)}
+.toc a[aria-current="true"]{border-left-color:var(--ink);color:var(--ink);font-weight:600}
+.article{min-width:0;max-width:var(--measure);width:100%;justify-self:center}
+@media (min-width:1100px){
+  .doc{grid-template-columns:200px var(--measure) var(--margin);column-gap:var(--gap);justify-content:center;padding:var(--s7) var(--s6) var(--s9)}
+  .toc{position:sticky;top:76px;align-self:start;margin:0;max-height:calc(100vh - 100px);overflow:auto}
+  .article{grid-column:2}
+}
+@media (min-width:1700px){
+  .doc{--measure:680px;--margin:380px;--gap:88px;grid-template-columns:260px var(--measure) var(--margin)}
+}
+
+/* type for reading */
+.doc-head{margin-bottom:var(--s6)}
+.doc-head h1{margin:0 0 var(--s4);font-size:44px;line-height:1.06;font-weight:700;font-stretch:112%;letter-spacing:-.018em}
+.lede{font-family:var(--f-read);font-size:21px;line-height:1.5;color:var(--ink-2);margin:0 0 var(--s5)}
+.article section{margin-top:var(--s7)}
+.article h2{margin:0 0 var(--s4);padding-top:var(--s3);border-top:2px solid var(--rule-strong);font-size:26px;line-height:1.15;font-weight:650;font-stretch:108%;letter-spacing:-.01em}
+.article h3{margin:var(--s6) 0 var(--s2);font-size:19px;line-height:1.25;font-weight:650;font-stretch:104%}
+.article p,.article li{font-family:var(--f-read);font-size:18px;line-height:1.65}
+.article p{margin:0 0 var(--s4)}
+.article ul,.article ol{margin:0 0 var(--s4);padding-left:22px}
+.article li{margin-bottom:var(--s2)}
+.article li::marker{color:var(--ink-3)}
+.article strong{font-weight:650}
+.article p code,.article li code{background:var(--bg-2);padding:1px 5px;border-radius:2px;font-size:.8em}
+
+/* margin notes: beside the prose on wide screens, inline below 1100 px */
+.side{font-family:var(--f-ui);font-size:13.5px;line-height:1.5;color:var(--ink-2);margin:0 0 var(--s4);padding-left:var(--s3);border-left:1px solid var(--rule)}
+.side p,.article .side p{font-family:var(--f-ui);font-size:13.5px;line-height:1.5;margin:0 0 var(--s2)}
+.side b{color:var(--ink);font-weight:600}
+.side ul{list-style:none;padding:0;margin:0}
+.article .side li{font-family:var(--f-ui);font-size:13.5px;line-height:1.45;margin:0 0 6px}
+@media (min-width:1100px){
+  .side{float:right;clear:right;width:var(--margin);margin-right:calc(-1 * (var(--margin) + var(--gap)));margin-top:6px;padding-left:0;border-left:0;border-top:1px solid var(--rule);padding-top:var(--s2)}
+  .article .wide{margin-right:calc(-1 * (var(--margin) + var(--gap)));clear:right}
+}
+
+/* footer: related pages */
+.pagefoot{margin-top:var(--s8);padding-top:var(--s3);border-top:2px solid var(--rule-strong)}
+.pagefoot h2{font-size:15px;font-weight:700;font-stretch:115%;margin:0 0 var(--s3);border:0;padding:0}
+
+/* ---------- callout ---------- */
+.callout{margin:var(--s5) 0;padding:2px 0 2px var(--s4);border-left:3px solid var(--ink-3)}
+.callout p,.article .callout p{font-family:var(--f-ui);font-size:15.5px;line-height:1.55;margin:0 0 var(--s2)}
+.callout>:last-child{margin-bottom:0}
+.callout b:first-child{font-weight:700;font-stretch:110%}
+.callout[data-kind="warning"]{border-left-color:var(--flag)}
+.callout[data-kind="warning"] b:first-child{color:var(--flag)}
+.callout[data-kind="decision"]{border-left-color:var(--verified)}
+.callout[data-kind="move"]{border-left:0;padding:var(--s4) var(--s5);background:var(--move-fill);color:var(--move-ink)}
+.callout[data-kind="move"] a{color:inherit;font-weight:700}
+.callout[data-kind="move"] code{background:none;padding:0;color:inherit;font-weight:600}
+
+/* ---------- code with numbered notes ---------- */
+.code{margin:var(--s5) 0}
+.code figcaption,.diff figcaption,.diagram figcaption{font-size:13px;color:var(--ink-2);margin-bottom:6px;display:flex;justify-content:space-between;gap:var(--s3)}
+.code figcaption code,.diff figcaption code{font-size:12.5px;color:var(--ink)}
+pre{margin:0;padding:var(--s4);overflow-x:auto;background:var(--bg-code);border-top:2px solid var(--ink);font-family:var(--f-code);font-size:13.5px;line-height:1.6;tab-size:2;font-variant-ligatures:none}
+pre code{font-size:inherit}
+.pin{display:inline-grid;place-items:center;width:18px;height:18px;margin-left:10px;font:600 11px/1 var(--f-ui);font-stretch:85%;color:var(--bg);background:var(--live);border-radius:50%;vertical-align:1px}
+ol.code-notes{list-style:none;margin:var(--s3) 0 0;padding:0;counter-reset:n}
+ol.code-notes li,.article ol.code-notes li{counter-increment:n;position:relative;padding-left:30px;font-family:var(--f-ui);font-size:15px;line-height:1.5;margin-bottom:var(--s2)}
+ol.code-notes li::before{content:counter(n);position:absolute;left:0;top:2px;display:grid;place-items:center;width:18px;height:18px;font:600 11px/1 var(--f-ui);color:var(--bg);background:var(--live);border-radius:50%}
+.output{border-top:1px dashed var(--rule);background:var(--bg-code);color:var(--ink-2)}
+
+/* ---------- diff with a note per hunk ---------- */
+.diff{margin:var(--s5) 0}
+.hunk+.hunk{margin-top:var(--s4)}
+.hunk pre{white-space:normal;padding:var(--s2) 0}
+.hunk code>span{display:block;white-space:pre;padding:0 var(--s4)}
+.hunk .add{background:var(--ins-bg)}
+.hunk .add::before{content:"+ ";color:var(--done)}
+.hunk .del{background:var(--del-bg)}
+.hunk .del::before{content:"- ";color:var(--flag)}
+.hunk .ctx::before{content:"  "}
+.hunk p,.article .hunk p{font-family:var(--f-ui);font-size:15px;line-height:1.5;margin:var(--s2) 0 0;padding-left:var(--s3);border-left:1px solid var(--rule)}
+
+/* ---------- file change ---------- */
+.changes{list-style:none;margin:var(--s5) 0;padding:0}
+.change{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px var(--s4);padding:var(--s3) 0;border-top:1px solid var(--rule)}
+.change:last-child{border-bottom:1px solid var(--rule)}
+.change>code{font-size:14px;font-weight:500;overflow-wrap:anywhere}
+.delta{font-family:var(--f-code);font-size:12.5px;white-space:nowrap}
+.delta ins{text-decoration:none;color:var(--done)}
+.delta del{text-decoration:none;color:var(--flag);margin-left:6px}
+.change p,.article .change p{grid-column:1/-1;font-family:var(--f-ui);font-size:15px;line-height:1.5;margin:0}
+.change p b{font-weight:600}
+
+/* ---------- annotated file tree ---------- */
+.tree,.tree ul{list-style:none;margin:0;padding:0}
+.tree{margin:var(--s5) 0;font-family:var(--f-code);font-size:13.5px;line-height:1.5}
+.tree ul{margin-left:9px;padding-left:var(--s4);border-left:1px solid var(--rule)}
+.tree li,.article .tree li{font-family:var(--f-code);font-size:13.5px;line-height:1.5;margin:0;padding:3px 0;display:block}
+.tree li>span{font-family:var(--f-ui);font-size:13.5px;color:var(--ink-2);margin-left:var(--s3)}
+.tree li[data-st]>code::after{font-family:var(--f-ui);font-size:11.5px;font-weight:600;margin-left:8px}
+.tree li[data-st="new"]>code::after{content:"new";color:var(--done)}
+.tree li[data-st="changed"]>code::after{content:"changed";color:var(--live)}
+.tree li[data-st="outside"]>code::after{content:"outside scope";color:var(--flag)}
+.tree code{font-size:inherit}
+
+/* ---------- diagram frame ---------- */
+.diagram{margin:var(--s5) 0;padding:var(--s4) 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.diagram svg{display:block;width:100%;height:auto;margin:0 auto}
+.diagram figcaption{margin:var(--s3) 0 0}
+.d-box{fill:var(--bg);stroke:var(--ink-2);stroke-width:1.25}
+.d-box.hot{stroke:var(--live);stroke-width:2.25}
+.d-box.out{stroke:var(--ink-3);stroke-dasharray:4 4}
+.d-label{fill:var(--ink);font:600 14px var(--f-ui)}
+.d-sub{fill:var(--ink-3);font:12px var(--f-code)}
+.d-note{fill:var(--ink-2);font:13px var(--f-ui)}
+.d-edge{fill:none;stroke:var(--ink-2);stroke-width:1.25}
+.d-edge.hot{stroke:var(--live);stroke-width:2}
+.d-edge.back{stroke-dasharray:5 4}
+.d-head{fill:var(--ink-2)}
+.d-life{stroke:var(--rule);stroke-width:1;stroke-dasharray:3 4}
+.d-step{fill:var(--live);font:600 11px var(--f-ui)}
+
+/* ---------- request path ---------- */
+.path{list-style:none;margin:var(--s5) 0;padding:0;counter-reset:p}
+.path>li{counter-increment:p;position:relative;display:grid;grid-template-columns:32px minmax(0,1fr);gap:0 var(--s3);padding-bottom:var(--s4)}
+.path>li::before{content:counter(p);grid-row:1/3;width:24px;height:24px;display:grid;place-items:center;font:600 12px/1 var(--f-ui);border:1.5px solid var(--ink);background:var(--bg);position:relative;z-index:1}
+.path>li::after{content:"";position:absolute;left:12px;top:24px;bottom:0;width:1px;background:var(--rule)}
+.path>li:last-child::after{display:none}
+.path b,.article .path b{font-family:var(--f-ui);font-size:16px;font-weight:650}
+.path b code{font-weight:500}
+.path p,.article .path p{grid-column:2;font-family:var(--f-ui);font-size:15px;line-height:1.5;margin:2px 0 0;color:var(--ink-2)}
+.path .at{font-size:12.5px;color:var(--ink-3);margin-left:8px;font-weight:400}
+
+/* ---------- tables: comparison, risks, tests ---------- */
+.table{overflow-x:auto;margin:var(--s5) 0}
+table{border-collapse:collapse;width:100%;font-size:15px;line-height:1.45}
+th{text-align:left;font-weight:600;font-size:13px;color:var(--ink-2);padding:6px var(--s3) 6px 0;border-bottom:2px solid var(--rule-strong);vertical-align:bottom}
+td{padding:var(--s3) var(--s3) var(--s3) 0;border-bottom:1px solid var(--rule);vertical-align:top}
+td:first-child{font-weight:600}
+td code{font-size:13px}
+tr.chosen td{background:var(--bg-2)}
+tr.chosen td:first-child{box-shadow:inset 3px 0 0 var(--done);padding-left:var(--s3)}
+tr.chosen td:first-child::after{content:"Chosen";display:block;font-size:12px;font-weight:600;color:var(--done)}
+td.likely{white-space:nowrap}
+
+/* ---------- decision ---------- */
+.decision{margin:var(--s6) 0;padding-top:var(--s3);border-top:1px solid var(--rule)}
+.decision h3{margin-top:0}
+.decision h3 data{font-stretch:80%;color:var(--ink-3);margin-right:6px}
+.decision .status{margin-bottom:var(--s2)}
+.decision dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:4px var(--s4);margin:var(--s4) 0 0;font-size:14.5px}
+.decision dt{color:var(--ink-2)}
+.decision dd{margin:0}
+
+/* ---------- glossary term ---------- */
+.term{position:relative;border-bottom:1.5px dotted var(--ink-3);cursor:help}
+.term-def{position:absolute;left:0;bottom:calc(100% + 8px);z-index:4;width:max-content;max-width:300px;padding:var(--s2) var(--s3);background:var(--ink);color:var(--bg);font-family:var(--f-ui);font-size:13.5px;line-height:1.45;font-style:normal;opacity:0;visibility:hidden;transition:opacity .12s}
+.term:hover .term-def,.term:focus .term-def{opacity:1;visibility:visible}
+.terms{margin:var(--s5) 0;display:grid;grid-template-columns:max-content minmax(0,1fr);gap:var(--s2) var(--s5)}
+.terms dt{font-weight:650}
+.terms dd{margin:0;font-family:var(--f-read);font-size:17px;line-height:1.55}
+
+/* ---------- check yourself ---------- */
+.checks{list-style:none;margin:var(--s5) 0;padding:0;counter-reset:q}
+.checks>li,.article .checks>li{counter-increment:q;border-top:1px solid var(--rule);margin:0;font-family:var(--f-ui)}
+.checks>li:last-child{border-bottom:1px solid var(--rule)}
+.checks summary{cursor:pointer;list-style:none;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:var(--s2);padding:var(--s3) 0;font-size:16.5px;font-weight:600;line-height:1.4}
+.checks summary::-webkit-details-marker{display:none}
+.checks summary::before{content:"Q" counter(q);font-size:13px;color:var(--ink-3);font-stretch:85%;padding-top:2px}
+.checks summary::after{content:"Show answer";font-size:12.5px;font-weight:500;color:var(--ink-2);text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+.checks details[open] summary::after{content:"Hide"}
+.checks details>div{padding:0 0 var(--s4) 36px;font-family:var(--f-read);font-size:17px;line-height:1.6;color:var(--ink-2)}
+
+/* ---------- manual checklist ---------- */
+.checklist{list-style:none;margin:var(--s5) 0;padding:0}
+.checklist li,.article .checklist li{font-family:var(--f-ui);font-size:15.5px;margin:0;padding:var(--s2) 0;border-top:1px solid var(--rule)}
+.checklist label{display:grid;grid-template-columns:22px minmax(0,1fr);gap:var(--s3);cursor:pointer}
+.checklist input{width:16px;height:16px;margin:3px 0 0;accent-color:var(--done)}
+.checklist span{display:block;font-size:14px;color:var(--ink-2)}
+.checklist input:checked+div{color:var(--ink-3);text-decoration:line-through}
+
+@media (max-width:1099px){
+  .pagebar{padding:10px var(--s4)}
+  .toc{display:flex;align-items:baseline;gap:var(--s4);margin:0 0 var(--s5);border-bottom:1px solid var(--rule);overflow:hidden}
+  .toc p{margin:0;white-space:nowrap;flex:none}
+  .toc ol{display:flex;overflow-x:auto;scrollbar-width:none;border-left:0;white-space:nowrap;gap:var(--s4)}
+  .toc ol::-webkit-scrollbar{display:none}
+  .toc a{padding:6px 0;margin:0 0 -1px;border-left:0;border-bottom:2px solid transparent}
+  .toc a[aria-current="true"]{border-bottom-color:var(--ink)}
+  .crumbs a:not(:first-child):not(:nth-last-child(2)){display:none}
+}
+@media (max-width:620px){
+  .crumbs{flex-wrap:nowrap;overflow:hidden}
+  .crumbs .brandlink{display:none}
+  .crumbs a:nth-last-child(2)::before{display:none}
+  .crumbs [aria-current]{overflow:hidden;text-overflow:ellipsis}
+  .doc-head h1{font-size:32px}
+  .lede{font-size:19px}
+  .article p,.article li{font-size:17px}
+  .article h2{font-size:22px}
+  .terms{grid-template-columns:minmax(0,1fr)}
+  .terms dd{margin-bottom:var(--s3)}
+}
+@media print{.pagebar,.toc,.theme{display:none}.doc{display:block}}
+</style>
+
+<!-- ===================================================================
+     SPECIMEN-ONLY CSS. Frames, the design note. Not shipped.
+     =================================================================== -->
+<style>
+.sp{padding:var(--s7) var(--s6) var(--s9)}
+.sp-top{display:flex;justify-content:space-between;align-items:center;gap:var(--s4);padding:10px var(--s6);border-bottom:1px solid var(--rule);position:sticky;top:0;background:var(--bg);z-index:9}
+.sp-top b{font-weight:700;font-stretch:118%}
+.sp h1{font-size:56px;line-height:1;margin:0 0 var(--s4);font-weight:700;font-stretch:122%;letter-spacing:-.02em}
+.sp>p{max-width:68ch;font-family:var(--f-read);font-size:19px;line-height:1.6;color:var(--ink-2);margin:0 0 var(--s4)}
+.sp h2.sp-h{font-size:30px;font-weight:700;font-stretch:118%;margin:var(--s9) 0 var(--s2);padding-top:var(--s3);border-top:2px solid var(--rule-strong);letter-spacing:-.01em}
+.sp h3.sp-h{font-size:17px;font-weight:650;font-stretch:108%;margin:var(--s6) 0 var(--s3)}
+.sp-sub{max-width:72ch;color:var(--ink-2);margin:0 0 var(--s5)}
+.sp-note{display:grid;gap:var(--s6) var(--s7);grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));margin-top:var(--s6)}
+.sp-note section h3{margin:0 0 var(--s3);padding-top:var(--s2);border-top:2px solid var(--rule-strong);font-size:15px;font-weight:700;font-stretch:115%}
+.sp-swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0;border-top:1px solid var(--rule)}
+.sp-sw{display:grid;grid-template-columns:28px 1fr;gap:4px 10px;padding:8px 0;border-bottom:1px solid var(--rule);font-size:13px;align-items:center}
+.sp-sw i{grid-row:1/3;width:28px;height:28px;border:1px solid var(--rule)}
+.sp-sw code{font-size:11.5px;color:var(--ink-2)}
+.sp-scale{list-style:none;margin:0;padding:0}
+.sp-scale li{display:grid;grid-template-columns:120px 1fr;gap:var(--s3);align-items:baseline;padding:6px 0;border-bottom:1px solid var(--rule);overflow:hidden}
+.sp-scale li code{font-size:11.5px;color:var(--ink-3)}
+.sp-scale li span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp-principles{margin:0;padding-left:22px}
+.sp-principles li{margin-bottom:var(--s3);font-size:16px}
+.sp-principles b{font-weight:700}
+.sp-frames{display:grid;gap:var(--s5);grid-template-columns:minmax(0,1fr)}
+.sp-frames.pair{grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr))}
+.sp-frames.phones{grid-template-columns:repeat(auto-fill,minmax(392px,392px));gap:var(--s6)}
+.sp-frame figcaption{font-size:13px;color:var(--ink-2);margin-bottom:6px}
+.sp-frame figcaption b{color:var(--ink);font-weight:600}
+.sp-frame{margin:0}
+.sp-clip{position:relative;overflow:hidden;border:1px solid var(--rule)}
+.sp-clip iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:#fff}
+.sp-gallery{display:grid;grid-template-columns:minmax(0,1fr);max-width:1180px}
+.sp-comp{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--s3) var(--s7);padding:var(--s6) 0;border-top:1px solid var(--rule)}
+@media(min-width:1100px){.sp-comp{grid-template-columns:240px minmax(0,1fr)}}
+.sp-comp>header h3{margin:0 0 6px;font-size:17px;font-weight:700;font-stretch:110%}
+.sp-comp>header p{margin:0;font-size:13.5px;color:var(--ink-2)}
+.sp-comp>header code{font-size:12px}
+body.sp-solo>*{display:none!important}body.sp-solo{margin:0}body.sp-solo>.sp{display:block!important;padding:0}.sp-solo .sp>*:not(.sp-frames),.sp-solo .sp-frame:not(.solo),.sp-solo .sp-frame figcaption{display:none!important}.sp-solo .sp-frames{display:block!important}.sp-solo .sp-clip{border:0}
+.sp-comp .article{max-width:680px;justify-self:start}
+@media(max-width:760px){.sp{padding:var(--s5) var(--s4) var(--s8)}.sp h1{font-size:38px}.sp-top{padding:10px var(--s4)}.sp-frames.phones{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+
+<div class="sp-top">
+  <b>Boxbox 0.6 specimen</b>
+  <div class="theme" role="radiogroup" aria-label="Colour theme">
+    <button role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button role="radio" data-theme-set="light" aria-checked="false">Light</button><button role="radio" data-theme-set="dark" aria-checked="false">Dark</button>
+  </div>
+</div>
+
+<div class="sp">
+  <h1>Jarvis on the pit wall</h1>
+  <p>One system with two registers. The cockpit (pit wall and board) is dense and live. The manual (every page Boxbox writes) is calm long-form reading. Both share these tokens, families, spacing and status colours. The switch above controls this page; every frame below has its theme fixed so you can compare the two themes side by side.</p>
+
+  <div class="sp-note">
+    <section>
+      <h3>Palette</h3>
+      <div class="sp-swatches" id="sw"></div>
+      <p class="sp-sub" style="margin-top:12px">Dark is pit-lane night: a petrol base, not near-black. Light is cool drafting paper, not cream. Neither theme is an inversion of the other: each status colour is tuned separately and passes 4.5:1 for text on both the page and raised surfaces (checked: lowest is 4.65 for live on light raised).</p>
+    </section>
+    <section>
+      <h3>Type</h3>
+      <ul class="sp-scale">
+        <li><code>Archivo 122% 700</code><span style="font-size:30px;font-weight:700;font-stretch:122%;letter-spacing:-.015em">Pit wall</span></li>
+        <li><code>Archivo 112% 700 44</code><span style="font-size:28px;font-weight:700;font-stretch:112%">E1 is done</span></li>
+        <li><code>Archivo 108% 650 26</code><span style="font-size:22px;font-weight:650;font-stretch:108%">The request path</span></li>
+        <li><code>Archivo 68% 600 36</code><span style="font-size:36px;font-weight:600;font-stretch:68%;line-height:1">14/14 2.10M $4.10</span></li>
+        <li><code>Source Serif 4 18</code><span style="font-family:var(--f-read);font-size:18px">A reset token is a key cut for one lock.</span></li>
+        <li><code>JetBrains Mono 13.5</code><span style="font-family:var(--f-code);font-size:13.5px">hashToken(raw)</span></li>
+      </ul>
+      <p class="sp-sub" style="margin-top:12px">One sans, used across its width axis: expanded for names and headings, condensed for numbers. The serif is only for long-form reading. Mono is only for code and file paths, never labels. Scale: 12.5, 13.5, 15, 18, 21, 26, 30, 36, 44.</p>
+    </section>
+    <section>
+      <h3>Grid</h3>
+      <p class="sp-sub">4 px base; spacing 4, 8, 12, 16, 24, 32, 48, 64, 96. Corners: 2 px on controls, none on blocks.</p>
+      <p class="sp-sub"><b>Cockpit:</b> a 220 px rail, then a fluid deck with no max-width. One column under 1100 px, two from 1100 to 1700 px (Now and Needs you, Team radio below), three above 1700 px (Now, Needs you, Team radio side by side).</p>
+      <p class="sp-sub"><b>Manual:</b> the prose column stays at 640 to 680 px (about 70 characters). From 1100 px a sticky contents column sits on the left and a margin column on the right for notes and file links. Code, diagrams and tables extend into the margin.</p>
+    </section>
+    <section>
+      <h3>Principles</h3>
+      <ol class="sp-principles">
+        <li><b>Rules, not boxes.</b> Type, alignment and a few strong rules make the hierarchy. A filled surface means code or "your move", nothing else.</li>
+        <li><b>Colour is status.</b> Six fixed colours, each with one meaning and always paired with a word. Everything else is ink.</li>
+        <li><b>One bright centre.</b> Rings, ticks and readouts live on the orb and the stage ruler only. The rest stays quiet.</li>
+      </ol>
+    </section>
+  </div>
+
+  <!-- ============ PIT WALL ============ -->
+  <h2 class="sp-h">Pit wall, Home</h2>
+  <p class="sp-sub">Sample data from the example-app password-reset mockup. The app shell has no max-width: the deck goes from two columns to three as the window widens. The stage ruler and the orb carry the HUD treatment; everything else is rows and rules.</p>
+
+  <h3 class="sp-h">2560 px</h3>
+  <div class="sp-frames pair">
+    <figure class="sp-frame" data-tpl="tpl-pitwall" data-w="2560" data-h="1300" data-theme="dark"><figcaption><b>Dark</b>, 2560 × 1300</figcaption></figure>
+    <figure class="sp-frame" data-tpl="tpl-pitwall" data-w="2560" data-h="1300" data-theme="light"><figcaption><b>Light</b>, 2560 × 1300</figcaption></figure>
+  </div>
+
+  <h3 class="sp-h">1440 px</h3>
+  <div class="sp-frames pair">
+    <figure class="sp-frame" data-tpl="tpl-pitwall" data-w="1440" data-h="1000" data-theme="dark"><figcaption><b>Dark</b>, 1440 × 1000</figcaption></figure>
+    <figure class="sp-frame" data-tpl="tpl-pitwall" data-w="1440" data-h="1000" data-theme="light"><figcaption><b>Light</b>, 1440 × 1000</figcaption></figure>
+    <figure class="sp-frame" data-tpl="tpl-pitwall" data-w="1440" data-h="1000" data-theme="dark" data-state="wait"><figcaption><b>Dark, waiting for you.</b> The Your move bar sits inside the same edges as the deck.</figcaption></figure>
+    <figure class="sp-frame" data-tpl="tpl-pitwall" data-w="1440" data-h="1000" data-theme="light" data-state="wait"><figcaption><b>Light, waiting for you</b></figcaption></figure>
+  </div>
+
+  <h3 class="sp-h">390 px</h3>
+  <div class="sp-frames phones">
+    <figure class="sp-frame" data-tpl="tpl-pitwall" data-w="390" data-h="1500" data-theme="dark" data-scale="1"><figcaption><b>Dark</b>, 390 px</figcaption></figure>
+    <figure class="sp-frame" data-tpl="tpl-pitwall" data-w="390" data-h="1500" data-theme="light" data-scale="1" data-state="wait"><figcaption><b>Light</b>, 390 px, waiting for you</figcaption></figure>
+  </div>
+
+  <!-- ============ READING PAGES ============ -->
+  <h2 class="sp-h">Reading pages</h2>
+  <p class="sp-sub">The start of an E1 report and the start of a knowledge page. The prose column keeps its measure at every width; extra width goes to the contents column on the left and margin notes on the right.</p>
+
+  <h3 class="sp-h">Report, 1440 px</h3>
+  <div class="sp-frames pair">
+    <figure class="sp-frame" data-tpl="tpl-report" data-w="1440" data-h="1500" data-theme="dark"><figcaption><b>Dark</b>, 1440 px</figcaption></figure>
+    <figure class="sp-frame" data-tpl="tpl-report" data-w="1440" data-h="1500" data-theme="light"><figcaption><b>Light</b>, 1440 px</figcaption></figure>
+  </div>
+  <h3 class="sp-h">Report, 2560 px and 390 px</h3>
+  <div class="sp-frames pair">
+    <figure class="sp-frame" data-tpl="tpl-report" data-w="2560" data-h="1400" data-theme="light"><figcaption><b>Light</b>, 2560 px. The margin column widens; prose does not.</figcaption></figure>
+    <figure class="sp-frame" data-tpl="tpl-report" data-w="390" data-h="1500" data-theme="dark" data-scale="1" style="max-width:392px"><figcaption><b>Dark</b>, 390 px. Margin notes sit inline, just before the paragraph they belong to; the contents become one scrolling line.</figcaption></figure>
+  </div>
+
+  <h3 class="sp-h">Knowledge page, 1440 px</h3>
+  <div class="sp-frames pair">
+    <figure class="sp-frame" data-tpl="tpl-knowledge" data-w="1440" data-h="1700" data-theme="light"><figcaption><b>Light</b>, 1440 px</figcaption></figure>
+    <figure class="sp-frame" data-tpl="tpl-knowledge" data-w="1440" data-h="1700" data-theme="dark"><figcaption><b>Dark</b>, 1440 px</figcaption></figure>
+  </div>
+
+  <!-- ============ GALLERY ============ -->
+  <h2 class="sp-h">Component gallery</h2>
+  <p class="sp-sub">The exact markup the agent copies. This page follows the switch at the top, so flip it to see each component in both themes. In 0.6 this becomes <code>kit/templates/_components.html</code>, and the page checker allows only these classes.</p>
+
+  <div class="sp-gallery">
+
+    <div class="sp-comp"><header><h3>Callout</h3><p><code>aside.callout[data-kind]</code>: note, warning, decision, move. The bold run-in word names the kind; no box.</p></header>
+      <div class="article">
+        <aside class="callout" data-kind="note"><p><b>Note.</b> The reset email reuses the welcome email's layout in <code>src/mailer.js</code>, so both stay consistent.</p></aside>
+        <aside class="callout" data-kind="warning"><p><b>Warning.</b> Tokens are compared with <code>timingSafeEqual</code>. A plain <code>===</code> would leak how many characters matched through response time.</p></aside>
+        <aside class="callout" data-kind="decision"><p><b>Decision D2.</b> Tokens expire after 30 minutes. You chose this over 24 hours on 11 October.</p></aside>
+        <aside class="callout" data-kind="move"><p><b>Your move.</b> Review E1 in <a href="#">pull request #41</a>. Approve it in chat, or say what to change.</p></aside>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Code with numbered notes</h3><p><code>figure.code</code> with <code>b.pin</code> at the end of a line and an <code>ol.code-notes</code> in the same order.</p></header>
+      <div class="article">
+<figure class="code">
+<figcaption><code>src/resets.js</code><span>lines 14 to 27</span></figcaption>
+<pre><code>export function createResetToken(userId, now = Date.now()) {
+  const raw = randomBytes(32).toString("hex");<b class="pin">1</b>
+  const hash = hashToken(raw);<b class="pin">2</b>
+  db.resets.upsert({ userId, hash, expiresAt: now + 30 * MINUTE });<b class="pin">3</b>
+  return raw;
+}</code></pre>
+<ol class="code-notes">
+  <li>32 random bytes from the operating system. Nobody can guess the next one, which a counter or a timestamp would allow.</li>
+  <li>Only the hash is stored. A leaked database copy holds fingerprints, not keys that open accounts.</li>
+  <li><code>upsert</code> replaces any older token for this user, so only the newest link works (task E1.3).</li>
+</ol>
+</figure>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Before and after</h3><p><code>figure.diff</code> with one <code>div.hunk</code> per change. Each line is a <code>span.add</code>, <code>span.del</code> or <code>span.ctx</code>; the paragraph says what it means in plain words.</p></header>
+      <div class="article">
+<figure class="diff">
+<figcaption><code>src/server.js</code><span class="delta"><ins>+12</ins><del>−1</del></span></figcaption>
+<div class="hunk">
+<pre><code><span class="ctx">app.post("/login", login);</span><span class="del">app.post("/password-reset", notImplemented);</span><span class="add">app.post("/password-reset/request", async (req, res) =&gt; {</span><span class="add">  await requestReset(req.body.email);</span><span class="add">  res.status(202).json({ ok: true });</span><span class="add">});</span></code></pre>
+<p>The placeholder route is replaced by a real one. It answers 202 whether or not the email exists, so the reply can't be used to find accounts.</p>
+</div>
+</figure>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>File change</h3><p><code>ul.changes</code> of <code>li.change</code>: path, lines changed, what changed, why.</p></header>
+      <div class="article">
+<ul class="changes">
+  <li class="change"><code>src/resets.js</code><span class="delta"><ins>+41</ins><del>−6</del></span><p><b>What:</b> new module that creates, hashes, stores and checks reset tokens.</p><p><b>Why:</b> keeps token rules in one place, so E2 and E3 add to it instead of to the route handlers.</p></li>
+  <li class="change"><code>src/server.js</code><span class="delta"><ins>+12</ins><del>−1</del></span><p><b>What:</b> the request route.</p><p><b>Why:</b> the only public entry point for this unit.</p></li>
+</ul>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Annotated file tree</h3><p><code>ul.tree</code>. Mark a file with <code>data-st</code> new, changed or outside; add a short <code>span</code> note.</p></header>
+      <div class="article">
+<ul class="tree">
+  <li><code>src/</code>
+    <ul>
+      <li data-st="new"><code>resets.js</code><span>tokens: create, hash, check</span></li>
+      <li data-st="changed"><code>server.js</code><span>routes</span></li>
+      <li><code>users.js</code><span>password hashing, unchanged</span></li>
+      <li data-st="outside"><code>mailer.js</code><span>reused the email template</span></li>
+    </ul>
+  </li>
+  <li><code>test/</code>
+    <ul><li data-st="new"><code>resets.test.js</code><span>9 tests</span></li></ul>
+  </li>
+</ul>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Diagram frame</h3><p><code>figure.diagram</code> with an inline <code>svg role="img" aria-label</code>. Shapes use only the <code>d-</code> classes, so both themes work. Three patterns: boxes and arrows, flow, sequence.</p></header>
+      <div class="article">
+<figure class="diagram wide">
+<svg viewBox="0 0 760 210" role="img" aria-label="Modules: server.js calls resets.js, which reads users.js; server.js also calls mailer.js. resets.js is new in this unit.">
+  <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0 0L10 5L0 10z"/></marker></defs>
+  <rect class="d-box" x="20" y="74" width="170" height="62"/><text class="d-label" x="36" y="100">HTTP routes</text><text class="d-sub" x="36" y="120">src/server.js</text>
+  <rect class="d-box hot" x="300" y="20" width="170" height="62"/><text class="d-label" x="316" y="46">Reset tokens</text><text class="d-sub" x="316" y="66">src/resets.js</text>
+  <rect class="d-box" x="300" y="128" width="170" height="62"/><text class="d-label" x="316" y="154">Email</text><text class="d-sub" x="316" y="174">src/mailer.js</text>
+  <rect class="d-box" x="570" y="20" width="170" height="62"/><text class="d-label" x="586" y="46">Users</text><text class="d-sub" x="586" y="66">src/users.js</text>
+  <path class="d-edge hot" d="M190 96 L296 60" marker-end="url(#ah)"/>
+  <path class="d-edge" d="M190 116 L296 152" marker-end="url(#ah)"/>
+  <path class="d-edge" d="M470 51 L566 51" marker-end="url(#ah)"/>
+  <text class="d-note" x="488" y="40">find by email</text>
+</svg>
+<figcaption>Boxes and arrows. The highlighted box is new in this unit.</figcaption>
+</figure>
+<figure class="diagram wide">
+<svg viewBox="0 0 760 250" role="img" aria-label="Sequence: the browser posts an email to server.js, server.js asks resets.js for a token, resets.js looks up the user, then mailer.js sends the link and the server answers 202.">
+  <text class="d-label" x="40" y="22">Browser</text><text class="d-label" x="220" y="22">server.js</text><text class="d-label" x="420" y="22">resets.js</text><text class="d-label" x="610" y="22">mailer.js</text>
+  <line class="d-life" x1="66" y1="34" x2="66" y2="240"/><line class="d-life" x1="252" y1="34" x2="252" y2="240"/><line class="d-life" x1="450" y1="34" x2="450" y2="240"/><line class="d-life" x1="640" y1="34" x2="640" y2="240"/>
+  <path class="d-edge hot" d="M66 64 H248" marker-end="url(#ah)"/><text class="d-note" x="80" y="56">POST /password-reset/request</text>
+  <path class="d-edge" d="M252 108 H446" marker-end="url(#ah)"/><text class="d-note" x="266" y="100">createResetToken(user)</text>
+  <path class="d-edge back" d="M450 148 H256" marker-end="url(#ah)"/><text class="d-note" x="300" y="140">raw token</text>
+  <path class="d-edge" d="M252 188 H636" marker-end="url(#ah)"/><text class="d-note" x="266" y="180">sendReset(email, link)</text>
+  <path class="d-edge back" d="M252 226 H70" marker-end="url(#ah)"/><text class="d-note" x="110" y="218">202, same for any email</text>
+</svg>
+<figcaption>Sequence. Solid arrows are calls, dashed arrows are replies.</figcaption>
+</figure>
+<figure class="diagram">
+<svg viewBox="0 0 640 120" role="img" aria-label="Flow: request, then is the email known? If yes, create a token and send the email. Either way, answer 202.">
+  <rect class="d-box" x="10" y="36" width="110" height="48"/><text class="d-label" x="26" y="65">Request</text>
+  <rect class="d-box hot" x="170" y="36" width="140" height="48"/><text class="d-label" x="186" y="65">Email known?</text>
+  <rect class="d-box" x="360" y="4" width="140" height="48"/><text class="d-label" x="376" y="33">Token + email</text>
+  <rect class="d-box" x="530" y="36" width="100" height="48"/><text class="d-label" x="546" y="65">Answer 202</text>
+  <path class="d-edge" d="M120 60 H166" marker-end="url(#ah)"/>
+  <path class="d-edge" d="M310 50 L356 32" marker-end="url(#ah)"/><text class="d-note" x="318" y="22">yes</text>
+  <path class="d-edge" d="M500 30 L526 50" marker-end="url(#ah)"/>
+  <path class="d-edge" d="M310 72 Q420 110 526 70" marker-end="url(#ah)"/><text class="d-note" x="400" y="112">no</text>
+</svg>
+<figcaption>Flow. One question per diamond-free box keeps it readable at phone width.</figcaption>
+</figure>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Request path</h3><p><code>ol.path</code>. The steps in the order a request meets the code, each with <code>span.at</code> for file and line.</p></header>
+      <div class="article">
+<ol class="path">
+  <li><b>The route receives the email</b><span class="at">src/server.js:42</span><p>Reads <code>req.body.email</code> and hands it on without checking whether it exists.</p></li>
+  <li><b>Look up the user</b><span class="at">src/users.js:18</span><p><code>findByEmail</code> returns <code>null</code> for an unknown address. The path stops quietly here in that case.</p></li>
+  <li><b>Create and store the token</b><span class="at">src/resets.js:14</span><p>32 random bytes, stored as a hash with a 30-minute expiry.</p></li>
+  <li><b>Send the link</b><span class="at">src/mailer.js:61</span><p>The raw token goes into the link and exists only in the email.</p></li>
+</ol>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Comparison table</h3><p><code>div.table &gt; table</code>; mark the picked row <code>tr.chosen</code>.</p></header>
+      <div class="article">
+<div class="table"><table>
+  <thead><tr><th>Option</th><th>Gains</th><th>Costs</th></tr></thead>
+  <tbody>
+    <tr class="chosen"><td>Hash the token, store the hash</td><td>A leaked database can't reset passwords</td><td>One extra hash per request, under 1 ms</td></tr>
+    <tr><td>Store the raw token</td><td>Simplest lookup</td><td>Anyone with a database copy can take over accounts</td></tr>
+    <tr><td>Signed token, nothing stored</td><td>No table to clean up</td><td>Can't be revoked; a new request doesn't cancel the old link</td></tr>
+  </tbody>
+</table></div>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Decision</h3><p><code>section.decision[data-state]</code>: the question, why now, the comparison table, the recommendation, and a <code>dl</code> for the cost of changing it later and who decided.</p></header>
+      <div class="article">
+<section class="decision" data-state="answered" id="d2">
+  <span class="status" data-st="done">answered</span>
+  <h3><data>D2</data>How long should a reset link stay valid?</h3>
+  <p>E1 stores the expiry with every token, so this has to be settled before the first test is written.</p>
+  <div class="table"><table>
+    <thead><tr><th>Option</th><th>Gains</th><th>Costs</th></tr></thead>
+    <tbody>
+      <tr class="chosen"><td>30 minutes</td><td>A forwarded or leaked email is useless quickly</td><td>Slow mail servers can make a few links expire</td></tr>
+      <tr><td>24 hours</td><td>Fewer "link expired" complaints</td><td>A day-long window for a leaked email</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>Recommendation:</strong> 30 minutes. It's the OWASP guidance, and the reset form can offer a new link when one expires.</p>
+  <dl><dt>Cost to change later</dt><dd>Low: one constant in <code>src/resets.js</code>.</dd><dt>Decided by</dt><dd>Priya, 11 October</dd></dl>
+</section>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Glossary term</h3><p><code>span.term[tabindex=0]</code> with the definition in <code>span.term-def[role=tooltip]</code>. Shows on hover and keyboard focus. The page's glossary uses <code>dl.terms</code>.</p></header>
+      <div class="article">
+<p>The server keeps only a <span class="term" tabindex="0">hash<span class="term-def" role="tooltip">A fixed-length fingerprint of some data. The same input always gives the same hash, but you can't work back from the hash to the input.</span></span> of the token, never the token itself.</p>
+<dl class="terms"><dt>Hash</dt><dd>A fixed-length fingerprint of some data. You can't work back from it to the input.</dd><dt>Timing attack</dt><dd>Guessing a secret by measuring how long a comparison takes.</dd></dl>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Check yourself</h3><p><code>ol.checks</code> of <code>details</code>. Answers stay hidden until asked for.</p></header>
+      <div class="article">
+<ol class="checks">
+  <li><details><summary>Why does an unknown email get the same 202 as a known one?</summary><div>If the answers differed, anyone could test which emails have accounts. The same answer every time gives nothing away.</div></details></li>
+  <li><details><summary>What happens if someone requests a reset twice?</summary><div>The second token replaces the first through <code>upsert</code>, so only the newest link works.</div></details></li>
+</ol>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Risk list</h3><p><code>div.table &gt; table</code> with a <code>td.likely</code> status cell.</p></header>
+      <div class="article">
+<div class="table"><table>
+  <thead><tr><th>Risk</th><th>Likelihood</th><th>What we did</th></tr></thead>
+  <tbody>
+    <tr><td>Email provider is slow and links expire before they arrive</td><td class="likely"><span class="status" data-st="move">medium</span></td><td>The expired-link page offers a new link in one click</td></tr>
+    <tr><td>Someone floods one address with reset emails</td><td class="likely"><span class="status" data-st="flag">high</span></td><td>Not handled in E1. Rate limiting is E3.</td></tr>
+  </tbody>
+</table></div>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Test table</h3><p>Evidence comes from the pit wall: <code>verified</code> when a passing run was seen after the last edit, <code>claimed</code> when it wasn't.</p></header>
+      <div class="article">
+<div class="table"><table>
+  <thead><tr><th>Test</th><th>What it proves</th><th>Evidence</th></tr></thead>
+  <tbody>
+    <tr><td><code>stores only the hash</code></td><td>The raw token never reaches the database</td><td><span class="status" data-st="verified">observed</span></td></tr>
+    <tr><td><code>unknown email gets 202</code></td><td>The endpoint can't be used to find accounts</td><td><span class="status" data-st="verified">observed</span></td></tr>
+    <tr><td><code>email contains the link</code></td><td>The raw token reaches the user</td><td><span class="status" data-st="claimed">claimed</span></td></tr>
+  </tbody>
+</table></div>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Manual checklist</h3><p><code>ul.checklist</code>. Ticks are saved in this browser when storage is allowed.</p></header>
+      <div class="article">
+<ul class="checklist">
+  <li><label><input type="checkbox"><div>Request a reset for your own account<span>An email arrives within a minute with a link to /reset?token=…</span></div></label></li>
+  <li><label><input type="checkbox"><div>Request a reset for an address with no account<span>Same "check your inbox" message, and no email is sent</span></div></label></li>
+</ul>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Metric strip</h3><p><code>dl.metrics</code>; the number is <code>dd.metric</code>, an optional <code>dd.metric-note</code> under it.</p></header>
+      <div class="article">
+<dl class="metrics">
+  <div><dt>tests, all observed</dt><dd class="metric">14<small>/14</small></dd></div>
+  <div><dt>tokens</dt><dd class="metric">1.07<small>M</small></dd></div>
+  <div><dt>approximate cost</dt><dd class="metric">$1.62</dd></div>
+  <div><dt>time to build</dt><dd class="metric">52<small>min</small></dd></div>
+</dl>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Status</h3><p><code>span.status[data-st]</code>. Six fixed colours, always with a word.</p></header>
+      <div class="article" style="display:flex;flex-wrap:wrap;gap:12px 24px">
+        <span class="status" data-st="live">in progress</span><span class="status" data-st="done">done</span><span class="status" data-st="verified">verified</span><span class="status" data-st="move">needs you</span><span class="status" data-st="flag">flag</span><span class="status">to do</span><span class="status" data-st="claimed">claimed</span>
+      </div>
+    </div>
+
+    <div class="sp-comp"><header><h3>Links to other pages</h3><p><code>nav.pagelinks</code> of <code>a.pagelink</code> with a <code>small</code> for the page kind.</p></header>
+      <div class="article">
+<nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="#">Password reset <small>context</small></a><a class="pagelink" href="#">D1 to D4 <small>decisions</small></a><a class="pagelink" href="#">3 epics <small>plan</small></a><a class="pagelink" href="#">Reset tokens <small>knowledge</small></a></nav>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =================================================================== FRAME TEMPLATES -->
+<template id="tpl-pitwall">
+<div class="app">
+  <aside class="rail">
+    <a class="brand" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>boxbox</a>
+    <div class="rail-project"><b>example-app</b><span>Password reset by email</span></div>
+    <nav class="views" aria-label="Views">
+      <a href="#" aria-current="page">Pit wall<span>home</span></a>
+      <a href="#">Board<span>plan</span></a>
+      <a href="#">Telemetry<span>live</span></a>
+      <a href="#">Map<span>codebase</span></a>
+      <a href="#">Timing<span>cost</span></a>
+      <a href="#">Garage<span>docs</span></a>
+    </nav>
+    <p class="rail-foot">Runs on this machine only.</p>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="radio"><canvas data-orb="22" width="22" height="22" aria-hidden="true"></canvas><div><b data-show="live">Editing src/resets.js</b><b data-show="wait">Your move: approve the E3 design</b><span data-show="live">least code to make the hashing test pass</span><span data-show="wait">Answer in chat</span></div></div>
+      <p class="chain"><b>M1</b> Password reset / <b>E2</b> Set a new password / <b>E2.3</b></p>
+      <div class="theme" role="radiogroup" aria-label="Colour theme"><button role="radio" data-theme-set="auto" aria-checked="false">Auto</button><button role="radio" data-theme-set="light" aria-checked="false">Light</button><button role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+      <button class="pause"><i></i>Pause</button>
+    </header>
+    <div class="yourmove" role="alert" data-show="wait"><b>Your move</b><span>Approve the design for E3: rate limiting<small>Token bucket per email and per IP. Written 20 minutes ago.</small></span><em>Answer in chat</em></div>
+    <main class="wall">
+      <div class="wall-head"><h1>Pit wall</h1><p>Everything about this work, as it happens.</p></div>
+      <ol class="stages" aria-label="Where the work is in the Boxbox flow">
+        <li class="stage" data-st="done"><span>Setup</span></li>
+        <li class="stage" data-st="done"><span>Learn repo</span></li>
+        <li class="stage" data-st="skip"><span>Skills</span></li>
+        <li class="stage" data-st="done"><span>Discover</span></li>
+        <li class="stage" data-st="done"><span>Knowledge</span></li>
+        <li class="stage" data-st="done"><span>Decisions</span></li>
+        <li class="stage" data-st="done"><span>Plan</span></li>
+        <li class="stage" data-st="done"><span>Plan review</span></li>
+        <li class="stage" data-st="done" data-show="live"><span>Design</span></li>
+        <li class="stage" data-st="done" data-show="live"><span>Design stop</span></li>
+        <li class="stage" data-st="live" aria-current="step" data-show="live"><span>Build</span><small>E2.3</small></li>
+        <li class="stage" data-st="done" data-show="wait"><span>Design</span><small>E3</small></li>
+        <li class="stage" data-st="move" aria-current="step" data-show="wait"><span>Design stop</span><small>you</small></li>
+        <li class="stage" data-show="wait"><span>Build</span></li>
+        <li class="stage"><span>Verify</span></li>
+        <li class="stage"><span>Inspect</span></li>
+        <li class="stage"><span>Report</span></li>
+        <li class="stage"><span>Your review</span></li>
+        <li class="stage"><span>Approved</span></li>
+        <li class="stage"><span>Merged</span></li>
+      </ol>
+      <dl class="metrics">
+        <div><dt>tests pass, seen by the hook 22 min ago</dt><dd class="metric">14<small>/14</small></dd></div>
+        <div><dt>tokens on this work, 62% from cache</dt><dd class="metric">2.10<small>M</small></dd></div>
+        <div><dt>approximate cost</dt><dd class="metric">$4.10</dd></div>
+        <div><dt>current unit, 2 of 4 tasks</dt><dd class="metric">E2</dd></div>
+        <div><dt>plan freshness: every edit is in scope</dt><dd class="metric">0<small>drift</small></dd></div>
+      </dl>
+      <div class="deck">
+        <section class="now" aria-labelledby="now-h">
+          <div class="hud">
+            <canvas data-orb="220" width="220" height="220" role="img" aria-label="Agent activity"></canvas>
+            <svg class="hud-rings" viewBox="0 0 300 300" aria-hidden="true" data-segs="verified verified verified verified verified verified live todo todo todo todo"></svg>
+            <span class="hud-ro" data-pos="tl"><b>E2.3</b>task</span>
+            <span class="hud-ro" data-pos="tr"><b>6/11</b>milestone</span>
+            <span class="hud-ro" data-pos="bl"><b>19:42</b>on this unit</span>
+            <span class="hud-ro" data-pos="br"><b>+9 −2</b>last edit</span>
+          </div>
+          <div class="now-text">
+            <p class="now-kind" data-show="live"><span class="status" data-st="live">Editing</span>changing code, now</p>
+            <p class="now-kind" data-show="wait"><span class="status" data-st="move">Waiting</span>for you, 3 min</p>
+            <h2 class="now-what" id="now-h" data-show="live">Editing <code>src/resets.js</code></h2>
+            <h2 class="now-what" data-show="wait">Approve the E3 design</h2>
+            <p class="now-why" data-show="live"><b>Why:</b> least code to make the hashing test pass.</p>
+            <p class="now-why" data-show="wait"><b>Detail:</b> token bucket per email and per IP. Nothing runs until you answer.</p>
+            <nav class="pagelinks" aria-label="Pages for this work"><a class="pagelink" href="#">Plan</a><a class="pagelink" href="#">E2 <small>design</small></a><a class="pagelink" href="#">Decisions</a></nav>
+          </div>
+        </section>
+        <section aria-labelledby="needs-h">
+          <h2 class="colhead" id="needs-h">Needs you <data>2</data></h2>
+          <ul class="rows">
+            <li class="need" data-st="move"><div><span class="status" data-st="move">decision</span><b>D4: how strict should rate limiting be?</b><p>Parked by you yesterday. E3 can't start until it's decided.</p></div><a class="pagelink" href="#">Open</a></li>
+            <li class="need" data-st="flag"><div><span class="status" data-st="flag">scope</span><b>src/mailer.js changed outside E2's files</b><p>It belongs to E1. The report will list it.</p></div><a class="pagelink" href="#">Map</a></li>
+          </ul>
+        </section>
+        <section class="feedcol" aria-labelledby="radio-h">
+          <h2 class="colhead" id="radio-h">Team radio <a href="#">Full telemetry</a></h2>
+          <ul class="rows feed">
+            <li><time>14:11</time><span class="kind">Editing</span><span class="what"><code>src/resets.js</code> <em>least code to make the hashing test pass</em></span><span class="res" data-st="live">now</span></li>
+            <li><time>14:09</time><span class="kind">Reviewer</span><span class="what"><code>git diff password-reset...HEAD</code> <em>separate review of E2 so far</em></span><span class="res">212 lines</span></li>
+            <li><time>14:07</time><span class="kind">Testing</span><span class="what"><code>npm test</code> <em>all checks before the commit</em></span><span class="res" data-st="done">14 passed</span></li>
+            <li><time>14:05</time><span class="kind">Editing</span><span class="what"><code>src/mailer.js</code> <em>reuse the reset email template</em><span class="status" data-st="flag">outside E2</span></span><span class="res">+4</span></li>
+            <li><time>14:01</time><span class="kind">Editing</span><span class="what"><code>test/resets.test.js</code> <em>test first: the new password is stored hashed</em></span><span class="res">+18</span></li>
+            <li><time>13:58</time><span class="kind">Searching</span><span class="what"><code>scryptSync</code> <em>every place a password hash is made</em></span><span class="res">2 matches</span></li>
+            <li><time>13:56</time><span class="kind">Reading</span><span class="what"><code>src/users.js</code> <em>how passwords are hashed today</em></span><span class="res">84 lines</span></li>
+            <li><time>13:52</time><span class="kind">Commit</span><span class="what"><code>E2.2: reject expired and used tokens</code></span><span class="res">a91c2f0</span></li>
+            <li><time>13:49</time><span class="kind">Testing</span><span class="what"><code>npm test -- resets</code> <em>the failing test first</em></span><span class="res" data-st="flag">1 failed</span></li>
+          </ul>
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+</template>
+
+<template id="tpl-report">
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><a class="brandlink" href="#">boxbox</a><a href="#">Pit wall</a><a href="#">Board</a><a href="#">Password reset</a><span aria-current="page">E1 report</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button role="radio" data-theme-set="auto" aria-checked="false">Auto</button><button role="radio" data-theme-set="light" aria-checked="false">Light</button><button role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents">
+    <p>14 min read</p>
+    <ol>
+      <li><a href="#exists" aria-current="true">What now exists</a></li>
+      <li><a href="#path">The request path</a></li>
+      <li><a href="#files">File by file</a></li>
+      <li><a href="#tests">Tests and what they prove</a></li>
+      <li><a href="#decisions">Decisions made while building</a></li>
+      <li><a href="#tradeoffs">Trade-offs</a></li>
+      <li><a href="#risks">Risks not covered</a></li>
+      <li><a href="#manual">Test it by hand</a></li>
+      <li><a href="#rollback">How to roll back</a></li>
+      <li><a href="#cost">Cost</a></li>
+      <li><a href="#check">Check yourself</a></li>
+    </ol>
+  </nav>
+  <article class="article">
+    <header class="doc-head">
+      <h1>E1 is done: a known email now gets a one-time reset link</h1>
+      <p class="lede">POST /password-reset/request creates a random token, stores only its hash with a 30-minute expiry, and emails the link. An unknown email gets exactly the same answer, so the endpoint can't be used to find out who has an account.</p>
+      <dl class="metrics">
+        <div><dt>tasks done</dt><dd class="metric">4<small>/4</small></dd></div>
+        <div><dt>tests, all observed</dt><dd class="metric">14<small>/14</small></dd></div>
+        <div><dt>tokens</dt><dd class="metric">1.07<small>M</small></dd></div>
+        <div><dt>to build</dt><dd class="metric">52<small>min</small></dd></div>
+      </dl>
+    </header>
+    <aside class="callout" data-kind="move"><p><b>Your move.</b> The code is in <a href="#">pull request #41</a> on <code>password-reset-e1-request</code>. Approve it in chat, or say what to change.</p></aside>
+
+    <section data-section="exists" data-required="yes" data-min-words="120" id="exists">
+      <h2>What now exists, and how to see it working</h2>
+      <aside class="side"><p><b>Files in this unit</b></p><ul><li><code>src/resets.js</code> new</li><li><code>src/server.js</code> +12 −1</li><li><code>test/resets.test.js</code> new, 9 tests</li></ul></aside>
+      <p>Before this unit, the "Forgot password?" link on the login screen went to a page that said "coming soon". Now it posts the email to a real endpoint. If the address belongs to an account, the server makes a token that works once, keeps a fingerprint of it, and sends the user a link carrying the token itself.</p>
+      <p>You can see it work without a mail server. In development, <code>src/mailer.js</code> writes outgoing mail to the console instead of sending it, so the link appears in your terminal:</p>
+<figure class="code wide">
+<figcaption><span>Run in the repo root</span><span>development only</span></figcaption>
+<pre><code>npm run dev
+curl -s -X POST localhost:3000/password-reset/request \
+  -H 'content-type: application/json' -d '{"email":"asha@scene.on"}'</code></pre>
+<pre class="output"><code>{"ok":true}
+[mailer] to=asha@scene.on subject="Reset your example-app password"
+[mailer] link=http://localhost:3000/reset?token=9f2c41…e07a</code></pre>
+</figure>
+      <aside class="side"><p><b>New to you:</b> why the raw token is never stored. <a href="#">Reset tokens</a> explains it in 8 minutes.</p></aside>
+      <p>Run the same command with an address that has no account. The reply is identical, and nothing is printed by the mailer. That sameness is deliberate, and the request path below shows where it comes from.</p>
+    </section>
+
+    <section data-section="path" data-required="yes" data-min-words="80" id="path">
+      <h2>The request path</h2>
+      <p>The order a request meets the new code, not the order it was written:</p>
+      <ol class="path">
+        <li><b>The route receives the email</b><span class="at">src/server.js:42</span><p>Reads <code>req.body.email</code> and passes it on without checking it exists.</p></li>
+        <li><b>Look up the user</b><span class="at">src/users.js:18</span><p>An unknown address returns <code>null</code> and the path stops quietly.</p></li>
+      </ol>
+    </section>
+  </article>
+</div>
+</template>
+
+<template id="tpl-knowledge">
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><a class="brandlink" href="#">boxbox</a><a href="#">Pit wall</a><a href="#">Garage</a><a href="#">Knowledge</a><span aria-current="page">Reset tokens</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button role="radio" data-theme-set="auto" aria-checked="false">Auto</button><button role="radio" data-theme-set="light" aria-checked="false">Light</button><button role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents">
+    <p>18 min read</p>
+    <ol>
+      <li><a href="#idea" aria-current="true">The idea in plain words</a></li>
+      <li><a href="#why">Why it exists</a></li>
+      <li><a href="#how">How it works, step by step</a></li>
+      <li><a href="#here">How example-app uses it</a></li>
+      <li><a href="#trace">A worked example</a></li>
+      <li><a href="#traps">Common mistakes</a></li>
+      <li><a href="#not">When not to use it</a></li>
+      <li><a href="#check">Check yourself</a></li>
+      <li><a href="#more">Further reading</a></li>
+    </ol>
+  </nav>
+  <article class="article">
+    <header class="doc-head">
+      <h1>Reset tokens: random values, hashing and expiry</h1>
+      <p class="lede">For Priya, who knows Express and SQL but hasn't built account recovery before. It goes as far as E1 to E3 need: how a token is made, why only its hash is stored, and why it expires. Afterwards you can review <code>src/resets.js</code> line by line.</p>
+    </header>
+
+    <section data-section="idea" data-required="yes" data-min-words="120" id="idea">
+      <h2>The idea in plain words</h2>
+      <aside class="side"><p><b>Where you'll meet it</b></p><ul><li><code>src/resets.js</code>, all of it</li><li><code>src/server.js:42</code>, the route</li><li>E2 report, when the link is used</li></ul></aside>
+      <p>A reset token is a key cut for one lock, posted to the person who owns it, and thrown away after one use. Whoever holds the key can set a new password, so the key has to be impossible to guess, short-lived, and useless to anyone who sees the server's records.</p>
+      <p>The server never keeps the key itself. It keeps a <span class="term" tabindex="0">hash<span class="term-def" role="tooltip">A fixed-length fingerprint of some data. The same input always gives the same hash, but you can't work back from the hash to the input.</span></span> of it, the way a cloakroom keeps a matching stub rather than a second copy of your ticket. When the link comes back, the server hashes what it received and checks that the two fingerprints match.</p>
+    </section>
+
+    <section data-section="why" data-required="yes" data-min-words="100" id="why">
+      <h2>Why it exists</h2>
+      <p>Someone who forgot their password can't prove who they are with it. The only thing they still control is their inbox, so the server sends proof there and asks for it back. Every rule on this page exists because that proof travels through email, which is slow, gets forwarded, and sits in mailboxes for years.</p>
+<figure class="diagram wide">
+<svg viewBox="0 0 760 140" role="img" aria-label="The token's life: created as 32 random bytes, hashed and stored, sent in the email, then hashed again when the link is used and compared with the stored hash.">
+  <defs><marker id="ak" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0 0L10 5L0 10z"/></marker></defs>
+  <rect class="d-box" x="10" y="40" width="150" height="58"/><text class="d-label" x="24" y="65">Random bytes</text><text class="d-sub" x="24" y="85">randomBytes(32)</text>
+  <rect class="d-box hot" x="205" y="40" width="150" height="58"/><text class="d-label" x="219" y="65">Store the hash</text><text class="d-sub" x="219" y="85">db.resets</text>
+  <rect class="d-box out" x="400" y="40" width="150" height="58"/><text class="d-label" x="414" y="65">Email the raw</text><text class="d-sub" x="414" y="85">mailer.js</text>
+  <rect class="d-box" x="595" y="40" width="155" height="58"/><text class="d-label" x="609" y="65">Hash and compare</text><text class="d-sub" x="609" y="85">E2, on use</text>
+  <path class="d-edge" d="M160 69 H201" marker-end="url(#ak)"/><path class="d-edge" d="M355 69 H396" marker-end="url(#ak)"/><path class="d-edge" d="M550 69 H591" marker-end="url(#ak)"/>
+  <text class="d-note" x="405" y="125">the only copy of the raw token</text>
+</svg>
+<figcaption>One token's life. The dashed box is outside the server: the user's inbox.</figcaption>
+</figure>
+    </section>
+  </article>
+</div>
+</template>
+
+<script>
+"use strict";
+/* ---------- theme switch: this is the boxbox.js behaviour ---------- */
+function wireTheme(doc, persist) {
+  const root = doc.documentElement;
+  const sync = () => {
+    const t = root.getAttribute("data-theme") || "auto";
+    doc.querySelectorAll("[data-theme-set]").forEach(b => b.setAttribute("aria-checked", String(b.dataset.themeSet === t)));
+  };
+  doc.addEventListener("click", e => {
+    const b = e.target.closest("[data-theme-set]"); if (!b) return;
+    const t = b.dataset.themeSet;
+    if (t === "auto") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", t);
+    if (persist) { try { t === "auto" ? localStorage.removeItem("boxbox-theme") : localStorage.setItem("boxbox-theme", t); } catch (err) { /* storage blocked: the switch still works for this visit */ } }
+    sync(); doc.dispatchEvent(new Event("boxbox-theme"));
+  });
+  sync();
+}
+wireTheme(document, true);
+
+/* ---------- palette swatches ---------- */
+const PAL = [["bg","page","#0F1F27","#F3F5F4"],["bg-2","raised, code","#152A34","#E6ECEB"],["rule","hairlines","#26414D","#C9D3D2"],["ink","text","#E4EEF0","#0F2229"],["ink-2","secondary","#A6BCC2","#3C535A"],["ink-3","muted","#7E959C","#566B72"],
+  ["live","in progress, HUD","#7FE0EE","#00728A"],["done","done","#4CD68A","#11764A"],["verified","proven by a run","#B79BFF","#6A3FCB"],["move","needs you","#FFB547","#965500"],["flag","outside scope, failing","#FF6E6B","#BC2A2F"],["move-fill","your-move bar","#FFB547","#F5AE45"]];
+document.getElementById("sw").innerHTML = PAL.map(([k, d, dk, lt]) =>
+  `<div class="sp-sw"><i style="background:linear-gradient(135deg,${dk} 50%,${lt} 50%)"></i><b>${k}</b><span><code>${dk} / ${lt}</code> ${d}</span></div>`).join("");
+
+/* ---------- the orb: dots on a sphere, ink from --hud ---------- */
+function drawOrb(canvas, t) {
+  const size = +canvas.dataset.orb, dpr = Math.min(2, window.devicePixelRatio || 1), ctx = canvas.getContext("2d");
+  canvas.width = size * dpr; canvas.height = size * dpr; canvas.style.width = canvas.style.height = size + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, size, size);
+  const cs = getComputedStyle(canvas.ownerDocument.documentElement);
+  const ink = (getComputedStyle(canvas).getPropertyValue("--orb") || cs.getPropertyValue("--hud")).trim(), n = size > 100 ? 520 : 60, R = size * .44, c = size / 2, ay = t, ax = .42;
+  ctx.fillStyle = ink;
+  for (let i = 0; i < n; i++) {
+    const y = 1 - (i / (n - 1)) * 2, r = Math.sqrt(1 - y * y), th = i * 2.39996;
+    let x = Math.cos(th) * r, z = Math.sin(th) * r, yy = y;
+    [x, z] = [x * Math.cos(ay) - z * Math.sin(ay), x * Math.sin(ay) + z * Math.cos(ay)];
+    [yy, z] = [yy * Math.cos(ax) - z * Math.sin(ax), yy * Math.sin(ax) + z * Math.cos(ax)];
+    const d = (z + 1) / 2;
+    ctx.globalAlpha = .12 + d * .88;
+    ctx.beginPath(); ctx.arc(c + x * R, c + yy * R, (size > 100 ? .6 : .35) + d * (size > 100 ? 1.3 : .7), 0, 6.283); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+/* ---------- HUD rings: ticks, one segment per task ---------- */
+function drawRings(svg) {
+  const NS = "http://www.w3.org/2000/svg", c = 150, el = (n, a) => { const e = svg.ownerDocument.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); svg.appendChild(e); return e; };
+  el("circle", { class: "ring", cx: c, cy: c, r: 146 });
+  el("circle", { class: "ring", cx: c, cy: c, r: 118, "stroke-dasharray": "2 5" });
+  for (let i = 0; i < 120; i++) {
+    const a = i / 120 * Math.PI * 2 - Math.PI / 2, major = i % 10 === 0, r1 = 146, r2 = major ? 136 : 141;
+    el("line", { class: "tick" + (major ? " major" : ""), x1: c + Math.cos(a) * r1, y1: c + Math.sin(a) * r1, x2: c + Math.cos(a) * r2, y2: c + Math.sin(a) * r2 });
+  }
+  const segs = svg.dataset.segs.split(" "), gap = .035, span = (Math.PI * 2) / segs.length, R = 128;
+  segs.forEach((st, i) => {
+    const a0 = i * span - Math.PI / 2 + gap / 2, a1 = (i + 1) * span - Math.PI / 2 - gap / 2;
+    el("path", { class: "seg", "data-st": st, d: `M${c + Math.cos(a0) * R} ${c + Math.sin(a0) * R} A${R} ${R} 0 0 1 ${c + Math.cos(a1) * R} ${c + Math.sin(a1) * R}` });
+  });
+  el("path", { class: "lead", d: "M8 30 L40 30 L62 52" }); el("path", { class: "lead", d: "M292 30 L260 30 L238 52" });
+  el("path", { class: "lead", d: "M8 270 L40 270 L62 248" }); el("path", { class: "lead", d: "M292 270 L260 270 L238 248" });
+}
+
+/* ---------- frames ---------- */
+const SYS = document.getElementById("sys").textContent, FONTS = document.getElementById("fonts").href;
+const FRAME_ONLY = `[data-state="wait"] .hud{--orb:var(--move)}[data-state="live"] [data-show="wait"],[data-state="wait"] [data-show="live"]{display:none!important}`;
+document.querySelectorAll(".sp-frame").forEach(fig => {
+  const w = +fig.dataset.w, h = +fig.dataset.h, theme = fig.dataset.theme, state = fig.dataset.state || "live";
+  const clip = document.createElement("div"); clip.className = "sp-clip";
+  const f = document.createElement("iframe");
+  f.title = fig.querySelector("figcaption").textContent; f.width = w; f.height = h; f.style.width = w + "px"; f.style.height = h + "px";
+  f.srcdoc = `<!doctype html><html lang="en" data-theme="${theme}" data-state="${state}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="${FONTS}"><style>${SYS}${FRAME_ONLY}</style></head><body>${document.getElementById(fig.dataset.tpl).innerHTML}</body></html>`;
+  clip.appendChild(f); fig.appendChild(clip);
+  const solo = /^#solo=(\d+)$/.exec(location.hash), idx = [...document.querySelectorAll(".sp-frame")].indexOf(fig);
+  if (solo && +solo[1] === idx) { document.body.classList.add("sp-solo"); fig.classList.add("solo"); fig.dataset.scale = "1"; }
+  const fit = () => { const s = fig.dataset.scale ? +fig.dataset.scale : Math.min(1, clip.clientWidth / w); f.style.transform = `scale(${s})`; clip.style.height = Math.round(h * s) + "px"; if (fig.dataset.scale) clip.style.width = w + 2 + "px"; };
+  new ResizeObserver(fit).observe(fig); fit();
+  f.addEventListener("load", () => {
+    const d = f.contentDocument; wireTheme(d, false);
+    const paint = () => { d.querySelectorAll("canvas[data-orb]").forEach(cv => drawOrb(cv, .8)); };
+    d.querySelectorAll("svg.hud-rings").forEach(drawRings);
+    (d.fonts ? d.fonts.ready : Promise.resolve()).then(paint); paint();
+    d.addEventListener("boxbox-theme", paint);
+    const stg = [...d.querySelectorAll('.stages [aria-current="step"]')].find(e => e.offsetParent), strip = d.querySelector(".stages");
+    if (stg && strip) strip.scrollLeft = Math.max(0, stg.offsetLeft - strip.clientWidth / 2);
+  });
+});
+</script>
+</body>
+</html>

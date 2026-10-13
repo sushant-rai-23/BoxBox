@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="components">
+<title>Components: Boxbox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/boxbox.css">
+<script src="../assets/boxbox.js"></script>
+</head>
+<body>
+<!-- COMPONENT GALLERY. Every class a Boxbox page may use is on this page, and nothing else is allowed:
+     the page checker (pitwall/check-page.js) reads its class list from this file.
+     To add a section to a page, build it only from these components. Copy the markup exactly,
+     then replace the sample content. Never write <style>, style= or a class that is not here.
+     The sample content is example-app, a small Flask app with password reset: replace all of it.
+
+     RELIABILITY ATTRIBUTES (the checker verifies every one of them against the repo):
+       data-evidence="observed|code|inferred|unknown|source"  where a claim comes from. On a p, li, tr or
+           dd, or on its ul, ol, dl, div.table, figure or aside to cover all of it. "unknown" is a fine
+           answer; a guess is not. "source" needs a link to the source in the same block.
+       data-commit="<commit>"         on the article: the commit the page describes (default HEAD).
+       data-range="<before>..<last>"  the commits a unit spans, for git:diff and git:commits.
+       data-unit="<unit id>"          the unit for pitwall facts.
+       data-source="git:commit|git:branch|git:diff|git:commits|pitwall:tests|pitwall:task|pitwall:tokens|
+                    pitwall:cost|pitwall:time"  a fact the checker reads from git or the pit wall.
+                    Write what the data says; with no pit wall data, write "not recorded".
+       <pre data-quote="path:first-last[@commit]">  code copied byte for byte from the repo.
+       <figure class="code" data-new>              proposed code that is not in the repo yet (a design page).
+       <code>path:line</code> and span.at       file:line references; the line must exist. For a line at another
+                                                commit than the page's, add data-commit to that element:
+                                                <code data-commit="b4be3a7">app/resets.py:48</code>
+       <code data-test>name</code>               a test that must exist in a test file. -->
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="../board.html">Board</a><span aria-current="page">Components</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article" data-commit="90d5bb1" data-unit="E1" data-range="c2f54a1..90d5bb1">
+    <header class="doc-head">
+      <h1>Components</h1>
+      <p class="lede">Every block a Boxbox page is built from. Templates already use them; copy from here when a page needs a section the template does not have.</p>
+      <div class="marks"><span class="status" data-st="live">in progress</span><span class="status" data-st="move">needs you</span></div>
+    </header>
+
+    <!-- A section. data-section names it, data-required says whether a template insists on it,
+         data-min-words is the least prose it needs (code and diagrams do not count). data-min-items and
+         data-max-items count list items; data-needs="svg" asks for a diagram. The checker reads these from
+         the TEMPLATE, so changing them on a page changes nothing. h2 becomes the contents entry; add
+         data-short="..." to the h2 for a shorter entry. data-repeat marks a section you may copy. -->
+    <section data-section="shell" data-required="no" id="shell">
+      <h2 data-short="Page shell">The page shell</h2>
+      <p>Every template starts with the same shell: the bar with breadcrumbs and the theme switch, the contents column, the article, and the footer with related pages. Never change it. The contents and the reading time fill themselves from the sections.</p>
+      <aside class="side"><p><b>Margin note.</b> <code>aside.side</code> sits in the right margin on wide screens and inline on narrow ones. Put it just before the paragraph it belongs to.</p></aside>
+      <p>Below 1100 px the margin notes drop inline and the contents become one scrolling line. Add <code>wide</code> to a figure, code block or table to let it run into the margin on wide screens.</p>
+    </section>
+
+    <section data-section="evidence" data-required="no" id="evidence">
+      <h2 data-short="Evidence">Evidence labels</h2>
+      <p data-evidence="observed">The pit wall saw <code>python -m pytest</code> pass 21 tests after the last edit to E1.</p>
+      <p data-evidence="code">Only a SHA-256 hash of the token reaches the database: <code>app/resets.py:24</code> stores <code>hash_token(raw)</code>.</p>
+      <p data-evidence="inferred">The 30-minute window was chosen for leaked emails rather than slow mail; the commit message does not say.</p>
+      <p data-evidence="unknown">Nobody has measured how long the request route takes for a known email against an unknown one.</p>
+      <p data-evidence="source">OWASP recommends single-use, time-limited tokens for password reset (<a href="https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html">Forgot Password Cheat Sheet</a>).</p>
+      <ul data-evidence="code"><li>A label on a list, table, figure or aside covers everything inside it.</li><li>A label on a section does not: label the blocks.</li></ul>
+    </section>
+
+    <section data-section="status" data-required="no" id="status">
+      <h2 data-short="Status">Status, and new or known</h2>
+      <p>Six fixed colours, always with a word. Use them for state only.</p>
+      <div class="marks">
+        <span class="status" data-st="live">in progress</span>
+        <span class="status" data-st="done">done</span>
+        <span class="status" data-st="verified">verified</span>
+        <span class="status" data-st="move">needs you</span>
+        <span class="status" data-st="flag">flag</span>
+        <span class="status">to do</span>
+        <span class="status" data-st="claimed">claimed</span>
+      </div>
+      <p>Mark whether an idea is new to this developer with <span class="level" data-level="new">new</span> or <span class="level" data-level="known">known</span>, following <code>config.md</code>.</p>
+    </section>
+
+    <section data-section="callout" data-required="no" id="callout">
+      <h2>Callout</h2>
+      <aside class="callout" data-kind="note"><p><b>Note.</b> The reset email reuses the welcome email's layout in <code>app/mailer.py</code>.</p></aside>
+      <aside class="callout" data-kind="warning"><p><b>Warning.</b> Tokens are compared with <code>hmac.compare_digest</code>. A plain <code>==</code> can leak how many characters matched through response time.</p></aside>
+      <aside class="callout" data-kind="decision"><p><b>Decision D2.</b> Tokens expire after 30 minutes, chosen over 24 hours.</p></aside>
+      <aside class="callout" data-kind="move"><p><b>Your move.</b> Review E1 on <code>password-reset-e1-request</code>. Approve it in chat, or say what to change.</p></aside>
+    </section>
+
+    <section data-section="verify" data-required="no" id="verify">
+      <h2 data-short="Verify yourself">Verify these yourself</h2>
+      <p>The last section of every report: the three claims that matter most if they are wrong, each with how to check it in a minute. Exactly three.</p>
+      <aside class="callout" data-kind="verify" data-evidence="code">
+        <ol>
+          <li><b>The database never holds a raw token.</b><span>Open <code>app/resets.py:24</code> and check the value stored is <code>hash_token(raw)</code>.</span></li>
+          <li><b>An unknown email gets the same answer as a known one.</b><span>Run <code data-test>test_reset_request_gives_the_same_message_either_way</code>.</span></li>
+          <li><b>A second request cancels the first link.</b><span>Read the <code>ON CONFLICT</code> clause at <code>app/resets.py:22</code>.</span></li>
+        </ol>
+      </aside>
+    </section>
+
+    <section data-section="facts" data-required="no" id="facts">
+      <h2>Facts</h2>
+      <p>Three to six key lines. Each names real files or commands. A fact the checker can read (a branch, a commit) carries <code>data-source</code>.</p>
+      <dl class="facts" data-evidence="code">
+        <dt>Stack</dt><dd>Python 3.12, Flask 3.1, SQLite through the standard library</dd>
+        <dt>Tests</dt><dd><code>python -m pytest</code></dd>
+        <dt>Branch</dt><dd><code data-source="git:branch">password-reset-e1-request</code> at <code data-source="git:commit">90d5bb1</code></dd>
+      </dl>
+    </section>
+
+    <section data-section="metrics" data-required="no" id="metrics">
+      <h2>Metric strip</h2>
+      <p>Numbers first, label under. Numbers the pit wall or git knows come from there, through <code>data-source</code>; the checker compares them.</p>
+      <dl class="metrics">
+        <div><dt>tests passed, observed by the pit wall</dt><dd class="metric" data-source="pitwall:tests">21<small>/21</small></dd></div>
+        <div><dt>commits</dt><dd class="metric" data-source="git:commits">5</dd></div>
+        <div><dt>tokens</dt><dd class="metric" data-source="pitwall:tokens">1.50<small>M</small></dd></div>
+        <div><dt>approximate cost</dt><dd class="metric" data-source="pitwall:cost">$1.51</dd><dd class="metric-note">from prices.json</dd></div>
+      </dl>
+    </section>
+
+    <section data-section="code" data-required="no" id="code">
+      <h2 data-short="Code">Code with numbered notes</h2>
+      <p>Code from the repo is quoted exactly, with <code>data-quote</code> naming the file and lines. Put a <code>b.pin</code> at the end of a line and explain it in <code>ol.code-notes</code> in the same order. For command output, add a second <code>pre.output</code>.</p>
+<figure class="code" data-evidence="code">
+<figcaption><code>app/resets.py</code><span>lines 16 to 27</span></figcaption>
+<pre data-quote="app/resets.py:16-27"><code>def create_reset_token(user_id, now=None):
+    now = now or datetime.now(timezone.utc)
+    raw = secrets.token_hex(32)<b class="pin">1</b>
+    db = get_db()
+    db.execute(
+        "INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, ?) "
+        "ON CONFLICT(user_id) DO UPDATE SET token_hash = excluded.token_hash, "<b class="pin">2</b>
+        "expires_at = excluded.expires_at, used_at = NULL",
+        (user_id, hash_token(raw), (now + RESET_TTL).isoformat()),<b class="pin">3</b>
+    )
+    db.commit()
+    return raw</code></pre>
+<ol class="code-notes">
+  <li>32 random bytes from the operating system, as 64 hex characters.</li>
+  <li>A second request for the same user replaces the first token, so only the newest link works.</li>
+  <li>Only the hash is stored, with the expiry 30 minutes from now.</li>
+</ol>
+</figure>
+<figure class="code wide" data-evidence="observed">
+<figcaption><span>Run in the repo root</span></figcaption>
+<pre><code>python -m pytest -q</code></pre>
+<pre class="output"><code>.....................                                                    [100%]
+21 passed in 0.65s</code></pre>
+</figure>
+    </section>
+
+    <section data-section="diff" data-required="no" id="diff">
+      <h2 data-short="Before and after">Before and after</h2>
+      <p>One <code>div.hunk</code> per change. Each line is a <code>span.add</code>, <code>span.del</code> or <code>span.ctx</code>, with no line breaks between the spans. The paragraph says what the hunk means.</p>
+<figure class="diff" data-evidence="code">
+<figcaption><code>app/mailer.py</code><span class="delta" data-source="git:diff" data-file="app/mailer.py" data-range="3982816..90d5bb1"><ins>+2</ins><del>−1</del></span></figcaption>
+<div class="hunk">
+<pre><code><span class="ctx">    message = send_mail(email, "Reset your example-app password", f"Open this link within 30 minutes: {link}")</span><span class="del">    print(f"[mailer] link={link}")</span><span class="add">    if current_app.debug:</span><span class="add">        print(f"[mailer] link={link}")</span><span class="ctx">    return message</span></code></pre>
+<p>The link is printed only in debug mode, so it never lands in a production log.</p>
+</div>
+</figure>
+    </section>
+
+    <section data-section="changes" data-required="no" id="changes">
+      <h2 data-short="File changes">File change</h2>
+<ul class="changes" data-evidence="code" data-range="c2f54a1..90d5bb1">
+  <li class="change"><code>app/resets.py</code><span class="delta" data-source="git:diff" data-file="app/resets.py"><ins>+37</ins><del>−0</del></span><p><b>What:</b> a new module that creates, hashes, stores and sends reset tokens.</p><p><b>Why:</b> keeps token rules in one place, so E2 and E3 add to it instead of to the routes.</p></li>
+</ul>
+    </section>
+
+    <section data-section="tree" data-required="no" id="tree">
+      <h2 data-short="File tree">Annotated file tree</h2>
+<ul class="tree" data-evidence="code">
+  <li><code>app/</code>
+    <ul>
+      <li data-st="new"><code>resets.py</code><span>tokens: create, hash, send</span></li>
+      <li data-st="changed"><code>routes.py</code><span>the request route</span></li>
+      <li><code>users.py</code><span>password hashing, unchanged</span></li>
+      <li data-st="outside"><code>mailer.py</code><span>send_reset added</span></li>
+    </ul>
+  </li>
+</ul>
+    </section>
+
+    <section data-section="diagram" data-required="no" id="diagram">
+      <h2>Diagrams</h2>
+      <p>An inline SVG with <code>role="img"</code> and an <code>aria-label</code> that says what it shows. Shapes use only the <code>d-</code> classes, so both themes work. Keep boxes 140 to 180 wide and text inside them (about 8 px per character for labels, 7.2 px for the code line). Add <code>hot</code> to what is new or changed, <code>out</code> to what is outside the repo, <code>back</code> to a reply. Define the arrow marker once per page and reuse its id in later diagrams.</p>
+<figure class="diagram wide">
+<svg viewBox="0 0 760 210" role="img" aria-label="Modules: routes.py calls resets.py, which reads users.py; resets.py also calls mailer.py, which prints to the console in development. resets.py is new.">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0 0L10 5L0 10z"/></marker></defs>
+  <rect class="d-box" x="20" y="74" width="170" height="62"/><text class="d-label" x="36" y="100">Routes</text><text class="d-sub" x="36" y="120">app/routes.py</text>
+  <rect class="d-box hot" x="300" y="20" width="170" height="62"/><text class="d-label" x="316" y="46">Reset tokens</text><text class="d-sub" x="316" y="66">app/resets.py</text>
+  <rect class="d-box" x="300" y="128" width="170" height="62"/><text class="d-label" x="316" y="154">Mailer</text><text class="d-sub" x="316" y="174">app/mailer.py</text>
+  <rect class="d-box" x="570" y="20" width="170" height="62"/><text class="d-label" x="586" y="46">Users</text><text class="d-sub" x="586" y="66">app/users.py</text>
+  <rect class="d-box out" x="570" y="128" width="170" height="62"/><text class="d-label" x="586" y="154">Console</text><text class="d-sub" x="586" y="174">outside the repo</text>
+  <path class="d-edge hot" d="M190 96 L296 60" marker-end="url(#arrow)"/>
+  <path class="d-edge" d="M385 82 L385 124" marker-end="url(#arrow)"/>
+  <path class="d-edge" d="M470 51 L566 51" marker-end="url(#arrow)"/>
+  <path class="d-edge" d="M470 159 L566 159" marker-end="url(#arrow)"/>
+  <text class="d-note" x="488" y="40">find by email</text>
+</svg>
+<figcaption>Boxes and arrows: the real modules. The highlighted box is new in this unit; the dashed one is outside the repo.</figcaption>
+</figure>
+<figure class="diagram wide">
+<svg viewBox="0 0 760 250" role="img" aria-label="Sequence: the browser posts an email to routes.py, routes.py asks resets.py for a token, resets.py sends it through mailer.py, and the route answers 202.">
+  <text class="d-label" x="40" y="22">Browser</text><text class="d-label" x="220" y="22">routes.py</text><text class="d-label" x="420" y="22">resets.py</text><text class="d-label" x="610" y="22">mailer.py</text>
+  <line class="d-life" x1="66" y1="34" x2="66" y2="240"/><line class="d-life" x1="252" y1="34" x2="252" y2="240"/><line class="d-life" x1="450" y1="34" x2="450" y2="240"/><line class="d-life" x1="640" y1="34" x2="640" y2="240"/>
+  <path class="d-edge hot" d="M66 64 H248" marker-end="url(#arrow)"/><text class="d-note" x="80" y="56">POST /password-reset/request</text>
+  <path class="d-edge" d="M252 108 H446" marker-end="url(#arrow)"/><text class="d-note" x="266" y="100">request_reset(email, base_url)</text>
+  <path class="d-edge" d="M450 148 H636" marker-end="url(#arrow)"/><text class="d-note" x="462" y="140">send_reset(email, link)</text>
+  <path class="d-edge back" d="M252 226 H70" marker-end="url(#arrow)"/><text class="d-note" x="110" y="218">202, same for any email</text>
+</svg>
+<figcaption>Sequence: lifelines are dotted, calls solid, replies dashed.</figcaption>
+</figure>
+<figure class="diagram">
+<svg viewBox="0 0 640 120" role="img" aria-label="Flow: a request; if the email is known, create a token and send the email; either way, answer 202.">
+  <rect class="d-box" x="10" y="36" width="110" height="48"/><text class="d-label" x="26" y="65">Request</text>
+  <rect class="d-box hot" x="170" y="36" width="140" height="48"/><text class="d-label" x="186" y="65">Email known?</text>
+  <rect class="d-box" x="360" y="4" width="140" height="48"/><text class="d-label" x="376" y="33">Token + email</text>
+  <rect class="d-box" x="530" y="36" width="100" height="48"/><text class="d-label" x="546" y="65">Answer 202</text>
+  <path class="d-edge" d="M120 60 H166" marker-end="url(#arrow)"/>
+  <path class="d-edge" d="M310 50 L356 32" marker-end="url(#arrow)"/><text class="d-note" x="318" y="22">yes</text>
+  <path class="d-edge" d="M500 30 L526 50" marker-end="url(#arrow)"/>
+  <path class="d-edge" d="M310 72 Q420 110 526 70" marker-end="url(#arrow)"/><text class="d-note" x="400" y="112">no</text>
+  <text class="d-step" x="176" y="30">1</text>
+</svg>
+<figcaption>Flow: one question per box, the answers on the arrows. <code>d-step</code> numbers a box when the text refers to it.</figcaption>
+</figure>
+    </section>
+
+    <section data-section="path" data-required="no" id="path">
+      <h2 data-short="Request path">Request path</h2>
+      <p>The steps in the order a request meets the code, each with the file and line in <code>span.at</code>. The checker opens each line. For code not written yet, write the file and "(new)".</p>
+<ol class="path" data-evidence="code">
+  <li><b>The route reads the email</b><span class="at">app/routes.py:42</span><p>Normalises it and answers 400 if it is empty.</p></li>
+  <li><b>Look up the user</b><span class="at">app/resets.py:32</span><p><code>find_by_email</code> returns <code>None</code> for an unknown address, and nothing else happens.</p></li>
+  <li><b>Create, store and send the token</b><span class="at">app/resets.py:35-36</span><p>A new token for a known user, emailed as a link.</p></li>
+</ol>
+    </section>
+
+    <section data-section="timeline" data-required="no" id="timeline">
+      <h2>Timeline</h2>
+      <p>Dated events in order: commits, approvals, incidents.</p>
+<ol class="timeline" data-evidence="code">
+  <li><time>11 Oct</time><b>E1.1 committed</b><p><code data-source="git:commit">bf77abe</code>: hashed token with a 30-minute expiry.</p></li>
+  <li><time>12 Oct</time><b>E1 merged</b><p><code data-source="git:commit">1f5842f</code>, after one review fix.</p></li>
+</ol>
+    </section>
+
+    <section data-section="table" data-required="no" id="table">
+      <h2 data-short="Tables">Comparison, risk and test tables</h2>
+      <p>Wrap every table in <code>div.table</code>. Mark the picked option <code>tr.chosen</code>; a choice that went against the recommendation also gets <code>override</code>. Test names use <code>code data-test</code>, and the checker finds each one in a test file.</p>
+<div class="table" data-evidence="inferred"><table>
+  <thead><tr><th>Option</th><th>Gains</th><th>Costs</th></tr></thead>
+  <tbody>
+    <tr class="chosen"><td>Hash the token, store the hash</td><td>A leaked database can't reset passwords</td><td>One extra hash per request, well under a millisecond</td></tr>
+    <tr><td>Store the raw token</td><td>Simplest lookup</td><td>Anyone with a database copy can take over accounts</td></tr>
+  </tbody>
+</table></div>
+<div class="table" data-evidence="inferred"><table>
+  <thead><tr><th>Risk</th><th>Likelihood</th><th>What we did</th></tr></thead>
+  <tbody>
+    <tr><td>Someone floods one address with reset emails</td><td class="likely"><span class="status" data-st="flag">high</span></td><td>Not handled here; rate limiting is E3</td></tr>
+  </tbody>
+</table></div>
+<div class="table" data-evidence="code"><table>
+  <thead><tr><th>Test</th><th>What it proves</th></tr></thead>
+  <tbody>
+    <tr><td><code data-test>test_stores_only_the_hash</code></td><td>The raw token never reaches the database</td></tr>
+    <tr class="override"><td><code data-test>test_reset_request_gives_the_same_message_either_way</code></td><td>The response does not reveal whether an account exists</td></tr>
+  </tbody>
+</table></div>
+    </section>
+
+    <section class="decision" data-section="decision" data-required="no" id="d2">
+      <h2><data>D2</data>How long should a reset link stay valid?</h2>
+      <span class="status" data-st="done">answered</span>
+      <p data-evidence="code">E1 stores the expiry with every token (<code>app/resets.py:24</code>), so this had to be settled before the first test.</p>
+      <div class="table" data-evidence="inferred"><table>
+        <thead><tr><th>Option</th><th>Gains</th><th>Costs</th></tr></thead>
+        <tbody>
+          <tr class="chosen"><td>30 minutes</td><td>A forwarded or leaked email is useless quickly</td><td>Slow mail can make a few links expire</td></tr>
+          <tr><td>24 hours</td><td>Fewer "link expired" complaints</td><td>A day-long window for a leaked email</td></tr>
+        </tbody>
+      </table></div>
+      <p data-evidence="source"><strong>Recommendation:</strong> 30 minutes, in line with the <a href="https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html">OWASP guidance</a>.</p>
+      <dl data-evidence="code"><dt>Cost to change later</dt><dd>Low: one constant, <code>RESET_TTL</code> at <code>app/resets.py:9</code>.</dd><dt>Decided by</dt><dd>the developer, 10 October</dd></dl>
+    </section>
+
+    <section data-section="glossary" data-required="no" id="glossary">
+      <h2>Glossary</h2>
+      <p>The server keeps only a <span class="term" tabindex="0">hash<span class="term-def" role="tooltip">A fixed-length fingerprint of some data. You can't work back from it to the input.</span></span> of the token.</p>
+<dl class="terms"><dt>Hash</dt><dd>A fixed-length fingerprint of some data. You can't work back from it to the input.</dd><dt>Timing attack</dt><dd>Guessing a secret by measuring how long a comparison takes.</dd></dl>
+    </section>
+
+    <section data-section="check" data-required="no" id="check">
+      <h2 data-short="Check yourself">Check yourself</h2>
+<ol class="checks">
+  <li><details><summary>Why does an unknown email get the same 202 as a known one?</summary><div>If the answers differed, anyone could test which emails have accounts.</div></details></li>
+</ol>
+    </section>
+
+    <section data-section="checklist" data-required="no" id="checklist">
+      <h2 data-short="Checklist">Manual checklist</h2>
+<ul class="checklist">
+  <li><label><input type="checkbox"><div>Request a reset for your own account in debug mode<span>The terminal prints a link to /reset?token=…</span></div></label></li>
+</ul>
+    </section>
+
+    <section data-section="findings" data-required="no" id="findings">
+      <h2 data-short="Findings">Findings and risks</h2>
+      <p>Worst first. <code>flag</code> is high or must fix, <code>move</code> is medium or should fix, no colour is low or a note.</p>
+<ul class="findings" data-evidence="code">
+  <li data-st="flag"><span class="status" data-st="flag">must fix</span><b><code>app/users.py:36</code> compares hashes with ==</b><p>Response time can leak how much of the hash matched. Use <code>hmac.compare_digest</code>.</p></li>
+  <li data-st="move"><span class="status" data-st="move">should fix</span><b>Sessions never expire</b><p>A stolen <code>sid</code> cookie works until someone logs out.</p></li>
+  <li><span class="status">note</span><b>No index on <code>sessions.user_id</code></b><p>Fine at a few thousand accounts.</p></li>
+</ul>
+    </section>
+
+    <section data-section="epics" data-required="no" id="epics">
+      <h2 data-short="Epics and tasks">Epics and tasks</h2>
+      <article class="epic" id="e1">
+        <span class="status" data-st="done">done</span>
+        <h3><data>E1</data>Ask for a reset email</h3>
+        <p>A known email gets a one-time link; an unknown one gets the same answer.</p>
+        <dl class="facts"><dt>Branch</dt><dd><code data-source="git:branch">password-reset-e1-request</code></dd><dt>Depends on</dt><dd>nothing</dd><dt>Design stop</dt><dd>no</dd></dl>
+        <h4>Done when</h4>
+        <ul class="accept"><li>POST /password-reset/request answers 202 for any email</li><li>Only a hash of the token is stored</li></ul>
+        <ol class="tasks">
+          <li data-st="verified"><b>E1.1</b>Hashed token with a 30-minute expiry <span class="status" data-st="verified" data-source="pitwall:task" data-task="E1.1">verified</span>
+            <dl><dt>First test</dt><dd><code data-test>test_stores_only_the_hash</code></dd><dt>Fails when</dt><dd>the clock is wrong; the expiry is computed from the server's time</dd><dt>Files</dt><dd><code>app/resets.py</code>, <code>tests/test_resets.py</code></dd></dl></li>
+          <li data-st="live"><b>E1.2</b>No token for unknown emails <span class="status" data-st="move">you</span>
+            <dl><dt>First test</dt><dd><code data-test>test_unknown_email_creates_no_row</code></dd><dt>Files</dt><dd><code>app/resets.py</code></dd></dl></li>
+        </ol>
+      </article>
+    </section>
+
+    <footer class="pagefoot">
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="../board.html">Board</a></nav>
+      <p>Source for the agent: the templates in .boxbox/templates/.</p>
+    </footer>
+  </article>
+</div>
+</body>
+</html>

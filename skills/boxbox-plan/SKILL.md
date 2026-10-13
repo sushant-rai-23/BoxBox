@@ -54,7 +54,7 @@ Anything on the "Ask first, always" list in `GUIDE.md` is asked at every level.
 
 ## 3. Open the decisions page before asking
 
-Write `.boxbox/<feature>/decisions.html` from `.boxbox/templates/decisions.html`. One card per decision to ask, hardest to change first. Each card has:
+Copy it with `cp .boxbox/templates/decisions.html .boxbox/<feature>/decisions.html`. Copy its decision section once per decision to ask (ids `d1`, `d2`...), hardest to change first. Each has:
 
 - the question, as a question
 - why it matters: what it changes in the build
@@ -63,7 +63,7 @@ Write `.boxbox/<feature>/decisions.html` from `.boxbox/templates/decisions.html`
 - how hard it is to change later, and why
 - links to the part of the context page or the knowledge page to read first
 
-List the defaults you chose in the table at the bottom, with ids A1, A2.
+List the defaults you chose in the table at the bottom, with ids A1, A2. Then run `node .boxbox/pitwall/check-page.js .boxbox/<feature>/decisions.html` and fix everything it reports, until it prints `OK`. Only then show the page.
 
 Open the page and tell the developer: "N decisions need you. The page has the reasoning for each. Read them, take any to your team, and tell me when to start asking." If there are three or fewer, start asking straight away.
 
@@ -78,7 +78,7 @@ The developer can:
 - **Park it.** Mark it parked. Tasks that depend on it become `blocked`; plan the rest.
 - **Override a default.** Record it as a decision.
 
-After each answer, add a row to `.boxbox/decisions.md` (format in `GUIDE.md`; `developer (override)` when they chose against your recommendation) and update the card on the page: class `answered`, the chosen option marked, a "Decided" line.
+After each answer, add a row to `.boxbox/decisions.md` (format in `GUIDE.md`; `developer (override)` when they chose against your recommendation) and update its section on the page: the status to `<span class="status" data-st="done">answered</span>`, the chosen row `tr.chosen` (`chosen override` when it went against your recommendation), and the "Decided by" line. Run the checker again.
 
 If an answer changes the split, change it and say what moved.
 
@@ -124,7 +124,7 @@ tasks:
 - <noticed, out of scope>
 ```
 
-**`.boxbox/<feature>/plan.html`**: copy `.boxbox/templates/plan.html` and fill it. `{{ROOT}}` is `../`. Overridden recommendations get the `override` row class. Every epic shows its acceptance criteria under "Done when": the developer is approving what "done" means, not only the task list.
+**`.boxbox/<feature>/plan.html`**: copy it with `cp .boxbox/templates/plan.html .boxbox/<feature>/plan.html` and fill its sections following "Pages" in `GUIDE.md`. `{{ROOT}}` is `../`. One `article.epic` per epic; every task names its first test, how it can fail and its files. Overridden recommendations get the `override` row class. Then run `node .boxbox/pitwall/check-page.js .boxbox/<feature>/plan.html` and fix everything it reports, until it prints `OK`. Only then show the page. Every epic shows its acceptance criteria under "Done when": the developer is approving what "done" means, not only the task list.
 
 ## 6. Update and stop
 
@@ -134,7 +134,7 @@ tasks:
 
 Then run `sh .boxbox/pitwall/say ask "Stop 1: approve the plan" --kind plan --stage plan-review` and stop. Say what the plan is in three lines, name the first unit, and ask for "go" or changes. Remind them they can change the unit of control, reorder epics, or add or remove a design stop now. If the plan holds a decision that is costly or cannot be undone, offer to challenge it first: "say 'grill the plan' if you want me to try to break it".
 
-**Do not write feature code until the developer approves.** When they do: set `approved: yes, <date>` in `plan.md`, update `state.md` (`last_approved`, `phase: build`, `unit: E1 todo`, `waiting_for_developer: no`), change the pill and the approval note on `plan.html` as its comments describe, clear `waiting` on the board, and continue with the **boxbox-build** skill for the first unit.
+**Do not write feature code until the developer approves.** When they do: set `approved: yes, <date>` in `plan.md`, update `state.md` (`last_approved`, `phase: build`, `unit: E1 todo`, `waiting_for_developer: no`), change the status marks and the "Your move" callout on `plan.html` as its comments describe (then run the checker again), clear `waiting` on the board, and continue with the **boxbox-build** skill for the first unit.
 
 ## If the plan grows
 

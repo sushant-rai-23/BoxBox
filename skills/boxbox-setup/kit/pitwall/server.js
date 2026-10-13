@@ -535,6 +535,10 @@ function serve() {
       return send(res, 200, html, TYPES[".html"]);
     }
     if (p === "/orbs.js") return send(res, 200, readText(path.join(PITWALL, "orbs.js")), TYPES[".js"]);
+    // The shared look comes from the kit next to this server, never from the repo's .boxbox/assets:
+    // a repo's CSS could otherwise read the pause token from this page.
+    if (p === "/boxbox.css") return send(res, 200, readText(path.join(PITWALL, "..", "assets", "boxbox.css")), TYPES[".css"]);
+    if (p === "/boxbox.js") return send(res, 200, readText(path.join(PITWALL, "..", "assets", "boxbox.js")), TYPES[".js"]);
     if (p === "/favicon.ico") { res.writeHead(204); return res.end(); }
     if (p === "/api/ping") return send(res, 200, JSON.stringify({ boxbox: true, root: ROOT, clients: clients.size }), TYPES[".json"]);
     if (p === "/api/state") return send(res, 200, JSON.stringify(live.state()), TYPES[".json"]);

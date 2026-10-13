@@ -226,7 +226,7 @@ function inferStage(rel, cur, now, sessionStart) {
   if (!found) return null;
   if (!cur || !cur.stage) return found;
   const curTs = Date.parse(cur.ts) || 0;
-  if (curTs >= now) return null;
+  if (curTs > now) return null; // a stage stamped after this write wins; the same millisecond does not
   if (sessionStart && curTs < sessionStart) return found;
   const epic = u => String(u || "").split(".")[0];
   if (found.unit && epic(found.unit) !== epic(cur.unit)) return found;
@@ -256,17 +256,27 @@ function parseState(text) {
 //       sh|bash [<repo>/].boxbox/pitwall/say stage|ask <words or quoted text>
 //       node [<repo>/].boxbox/pitwall/server.js --ensure [--open]
 //       node [<repo>/].boxbox/pitwall/server.js --summary <unit id>
-//     where <repo>/ is empty or this repo's own absolute path.
+//       node [<repo>/].boxbox/pitwall/check-page.js [<repo>/].boxbox/<path>.html ...
+//     where <repo>/ is empty or this repo's own absolute path, and a page path never contains "..".
 //  3. The repo's script is byte-for-byte the plugin's own copy. A script the repo changed always asks.
 const SAY_FORM = /^(?:sh|bash) (\/\S+\/|)\.boxbox\/pitwall\/say (?:stage|ask)(?: (?:[^\s"']+|"[^"]*"|'[^']*'))+$/;
 const SERVER_FORM = /^node (\/\S+\/|)\.boxbox\/pitwall\/server\.js (?:--ensure(?: --open)?|--summary [A-Za-z0-9.]+)$/;
+const CHECK_FORM = /^node (\/\S+\/|)\.boxbox\/pitwall\/check-page\.js((?: (?:\/\S+\/|)\.boxbox\/[\w./-]+\.html)+)$/;
 function approvalFor(cmd, root, kitDir) {
   cmd = String(cmd || "").trim().replace(/[ \t]+/g, " ");
   if (/[;&|<>`$\\\r\n]/.test(cmd)) return false;
   let m = cmd.match(SAY_FORM), file = "say";
   if (!m) { m = cmd.match(SERVER_FORM); file = "server.js"; }
+  if (!m) { m = cmd.match(CHECK_FORM); file = "check-page.js"; }
   if (!m) return false;
   if (m[1] && path.resolve(m[1]) !== path.resolve(root)) return false;
+  if (file === "check-page.js") {
+    for (const page of m[2].trim().split(" ")) {
+      if (page.split("/").includes("..")) return false;
+      const prefix = page.slice(0, page.indexOf(".boxbox/"));
+      if (prefix && path.resolve(prefix) !== path.resolve(root)) return false;
+    }
+  }
   try {
     return fs.readFileSync(path.join(root, ".boxbox", "pitwall", file)).equals(fs.readFileSync(path.join(kitDir, file)));
   } catch { return false; }

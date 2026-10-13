@@ -153,3 +153,29 @@ test("current stage is 'outside the flow' when a session started after the last 
   const sameSecond = { stage: "build", unit: "E1.2", ts: "2026-10-13T09:23:49Z" };
   assert.equal(s.currentStage(sameSecond, [{ ts: "2026-10-13T09:23:49.610Z", type: "session", target: "Claude Code session startup" }]).stage, "build", "say writes whole seconds");
 });
+
+test("the pit wall serves the kit's own boxbox.css and boxbox.js, not the repo's copies", async () => {
+  const os = require("os");
+  const { spawn } = require("child_process");
+  const box = fs.mkdtempSync(path.join(os.tmpdir(), "bbserve-"));
+  fs.mkdirSync(path.join(box, "assets"));
+  fs.writeFileSync(path.join(box, "assets", "boxbox.css"), "/* changed by the repo */");
+  const server = path.join(__dirname, "..", "..", "skills", "boxbox-setup", "kit", "pitwall", "server.js");
+  const child = spawn(process.execPath, [server, "--box", box], { stdio: ["ignore", "pipe", "pipe"] });
+  try {
+    const url = await new Promise((resolve, reject) => {
+      let out = "";
+      child.stdout.on("data", d => { out += d; const m = out.match(/http:\/\/127\.0\.0\.1:\d+\//); if (m) resolve(m[0]); });
+      child.on("exit", c => reject(new Error("server exited " + c)));
+      setTimeout(() => reject(new Error("no URL")), 5000);
+    });
+    const kit = path.join(__dirname, "..", "..", "skills", "boxbox-setup", "kit", "assets");
+    const css = await fetch(url + "boxbox.css");
+    assert.equal(css.status, 200);
+    assert.match(css.headers.get("content-type"), /text\/css/);
+    assert.equal(await css.text(), fs.readFileSync(path.join(kit, "boxbox.css"), "utf8"));
+    const js = await fetch(url + "boxbox.js");
+    assert.match(js.headers.get("content-type"), /javascript/);
+    assert.equal(await js.text(), fs.readFileSync(path.join(kit, "boxbox.js"), "utf8"));
+  } finally { child.kill(); }
+});

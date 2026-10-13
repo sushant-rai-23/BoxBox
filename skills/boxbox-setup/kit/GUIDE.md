@@ -38,9 +38,9 @@ Whatever the decision level, ask before any of these:
   decisions.md        every decision, one row each
   glossary.md         project terms, one meaning each
   lessons.md          corrections from the developer and the rule each became
-  assets/             style.css and page.js. Fixed; never edit them
-  templates/          page skeletons to copy. Fixed; refreshed from the kit by boxbox-setup
-  pitwall/            the live pit wall: server.js, index.html, orbs.js, prices.json, say. Fixed, except prices.json
+  assets/             boxbox.css and boxbox.js (style.css and page.js only for pages from 0.5). Fixed; never edit them
+  templates/          page templates to copy, and _components.html, the gallery of every allowed block. Fixed; refreshed from the kit by boxbox-setup
+  pitwall/            the live pit wall: server.js, index.html, orbs.js, prices.json, say, check-page.js. Fixed, except prices.json
   live/               written by the hooks and the pit wall while you work. Local only; never committed
   knowledge/<topic>.html
   explained/<feature>.html    how an existing feature works, written on request
@@ -81,7 +81,7 @@ These are for milestones, epics and tasks. Whether the plan itself is approved i
 
 ```js
 window.BOXBOX_BOARD = {
-  "project": "Scene ON backend",
+  "project": "example-app",
   "goal": "One line on what this project is building right now.",
   "updated": "2026-10-08",
   "unit": "epic",
@@ -89,8 +89,8 @@ window.BOXBOX_BOARD = {
   "waiting": { "what": "Review E1", "detail": "Report and pull request are open.",
                "label": "Open report", "href": "password-reset/e1-request-reset/report.html" },
   "knowledge": [ { "title": "Job queues", "href": "knowledge/job-queues.html" } ],
-  "modules": [ { "name": "Reset tokens", "files": ["src/resets.js"], "role": "Creates and checks one-time reset tokens." },
-               { "name": "Tests", "files": ["test/**"], "role": "Node test runner suites." } ],
+  "modules": [ { "name": "Reset tokens", "files": ["app/resets.py"], "role": "Creates and checks one-time reset tokens." },
+               { "name": "Tests", "files": ["tests/**"], "role": "pytest suites." } ],
   "milestones": [ {
     "id": "M1", "title": "Password reset", "goal": "Users can reset a password by email.",
     "status": "in_progress",
@@ -100,7 +100,7 @@ window.BOXBOX_BOARD = {
     "epics": [ {
       "id": "E1", "title": "Request a reset email", "outcome": "A known email gets a reset email with a one-time token.",
       "status": "review", "branch": "password-reset-e1-request-reset",
-      "files": ["src/resets.js", "src/server.js", "test/resets.test.js"],
+      "files": ["app/resets.py", "app/routes.py", "tests/test_resets.py"],
       "pr": "https://github.com/org/repo/pull/12",
       "links": [ { "label": "Report", "href": "password-reset/e1-request-reset/report.html" } ],
       "tasks": [ { "id": "E1.1", "title": "Create and store a hashed token",
@@ -117,7 +117,7 @@ window.BOXBOX_BOARD = {
 - `href` values are relative paths or `http(s)://` URLs. Nothing else.
 - Keep the comment lines at the top of the file. Fill `goal` when the first feature is discovered.
 - `modules`: the parts of the codebase, each with a plain `name`, the `files` globs it covers, and a one-line `role`. boxbox-discover fills it; the pit wall's Map draws it. Five to twelve modules for most repos.
-- `files` on an epic: the globs it expects to touch, tests included (`src/resets.js`, `test/**`). boxbox-plan fills it. The pit wall flags any edit outside the current epic's `files`, marks an approved epic "changed after approval" when one of its files is edited later, and shows the plan as behind when edited files match no epic.
+- `files` on an epic: the globs it expects to touch, tests included (`app/resets.py`, `tests/**`). boxbox-plan fills it. The pit wall flags any edit outside the current epic's `files`, marks an approved epic "changed after approval" when one of its files is edited later, and shows the plan as behind when edited files match no epic.
 
 ## The pit wall and the live folder
 
@@ -161,37 +161,49 @@ When you run the test command from `config.md`, the hook records the result it s
 
 ## Pages
 
-Every developer page is made by copying a file from `templates/` and filling it. There is one template per page: `context`, `decisions`, `plan`, `design`, `report`, `knowledge`, `explain`, and `review` (`templates/review.html`, notes for a human reviewer).
+Every developer page is a template from `templates/`, copied and filled. The agent writes content only, never layout or CSS: the templates hold the finished page, so a page costs the tokens of what it says and nothing for how it looks. There is one template per page: `context`, `decisions`, `plan`, `design`, `report`, `knowledge`, `explain` and `review`.
 
-- Delete the template's instruction comments (`<!-- ... -->`); they are for you, not the reader.
-- Replace every `{{...}}`. `{{ROOT}}` is the relative path back to `.boxbox/`: `../` for a page in a feature folder or in `knowledge/`, `../../` for a report or a design page. `{{TITLE}}` is "<page> · <feature title>". `{{FEATURE TITLE}}` is the feature's name in plain words ("Password reset"), not its folder name.
-- Use only the classes already in the template and in `assets/style.css`. Never add a `<style>` block, inline styles, or another stylesheet. Never edit `assets/`.
-- Delete a section, pill or tag that has nothing true to say. Repeat a component as many times as the content needs, and reorder components inside a section when the content calls for it.
-- After writing a page, check that no template placeholder is left unfilled. Double braces inside real code (a template language, a format string) are part of the code: keep them as they are and do not escape them. Then open the page for the developer if you can (`open`, `xdg-open` or `start`), and always print its path.
+**The workflow, every time:**
 
-Components you can use on any page:
+1. Copy the template with `cp`. For example: `cp .boxbox/templates/report.html .boxbox/password-reset/e1-request/report.html`. Never write a page from scratch or from memory, and never start from another page.
+2. Fill the sections (below). Replace `{{ROOT}}` with the path back to `.boxbox/`: `../` for a page in a feature folder, `knowledge/`, `explained/` or `reviews/`, and `../../` for a design or report page. `{{TITLE}}` is "<page>: <feature title>" (for a review, "Review: <name>"). `{{FEATURE TITLE}}` is the feature's name in plain words ("Password reset"), not its folder name.
+3. Run the checker: `node .boxbox/pitwall/check-page.js <the page>`. Fix every problem it lists and run it again until it prints `OK`. It is pre-approved, so it never asks for permission.
+4. For a report, context, review or explain page, run the fact-check: **boxbox-inspect** in page mode. A fresh agent checks the claims against the repo and lists the false ones; fix them and run the checker again.
+5. Only then open the page for the developer if you can (`open`, `xdg-open` or `start`), and always print its path.
 
-| Component | Markup | Use for |
-| --- | --- | --- |
-| Status pill | `<span class="pill ok|warn|acc|bad">` | State at the top of a page |
-| Tag | `<span class="tag you|new|known|warn">` | Marking a row |
-| Fact grid | `<div class="grid"><div class="fact"><div class="k">…</div><div class="v">…</div></div></div>` | 3 to 6 key facts |
-| Walk-through step | `<div class="step"><div class="n">1 · …</div><h3>…</h3>…</div>` | Pieces in the order a request meets them |
-| Code | `<div class="file">path</div><pre><code>…</code></pre>` | Real code from the repo, trimmed |
-| Code with output | `<div class="cell"><pre class="code"><code>…</code></pre><pre class="out">…</pre></div>` | Teaching: code and exactly what it prints. `out err` for errors |
-| Table | `<div class="tablewrap"><table>…</table></div>`; `tr.override` for an overridden recommendation | Decisions, commits, pending work |
-| Note | `<div class="note">`, `note ask` for an approval ask | Asides and asks |
-| Teaching notes | `<p class="note def|why|when|trap">` | Definition, why it exists, where it is used here, trap |
-| Gotcha | `<div class="gotcha"><b>Gotcha we hit.</b> …</div>` | A real problem met and its fix |
-| Definitions | `<dl><dt>…</dt><dd>…</dd></dl>` | Names in the code, vocabulary |
-| Decision card | `<section class="decision open|answered|parked">` | One decision with its options |
-| Check yourself | `<details class="check"><summary>question</summary><div>answer</div></details>` | Two or three questions at the end of a report |
-| Epic with tasks | `<section class="epic">` with `<ul class="accept">`, `<ol class="tasks">` (`span.box`, `box done`), `<ul class="fails">` | The plan page |
-| Option | `<div class="option">`, plus `rec` for recommended and `chosen` for the one picked | Inside a decision card |
-| Mark as done | `<label class="donebox"><input type="checkbox" id="…"> Mark as done</label>` | End of a knowledge section |
-| Id and number cells | `<td class="id">`, `<td class="num">` | Ids and commit hashes in tables |
+**Sections.** A template is a list of `<section data-section="<name>">` blocks. Each has a heading, a comment saying what goes in it and how deep, and sample markup built from the real components.
 
-Escape `<`, `>` and `&` inside code as `&lt;`, `&gt;` and `&amp;`.
+- You may: replace placeholders and sample content inside a section; delete a section marked `data-required="no"` when it has nothing true to say; copy a section marked `data-repeat` once per item (one decision card per decision); add a new section, built only from components in `templates/_components.html`, with its own `data-section` name, `data-required="no"` and an `id`.
+- You may not: write `<style>` or a `style=` attribute; use a class that is not in `templates/_components.html`; change the head, the bar, the contents column, the footer shell or the scripts; delete a `data-required="yes"` section.
+- Delete the template's instruction comments once the page is filled.
+- Double braces inside real code (a template language, a format string) are part of the code: keep them. The checker only flags a template's own placeholders inside code.
+- Escape `<`, `>` and `&` inside code as `&lt;`, `&gt;` and `&amp;`.
+
+**Components.** `templates/_components.html` shows every block once with its exact markup: page shell, margin note, status, new or known, callout, facts, metric strip, code with numbered notes, before and after, file change, annotated file tree, diagrams (boxes and arrows, sequence, flow), request path, timeline, comparison, risk and test tables, decision, glossary term, check yourself, manual checklist, findings, epics and tasks, and links to other pages. Copy from there. Status colours are fixed and always carry a word: `live` in progress, `done`, `verified` (a run the pit wall saw), `move` needs the developer, `flag` outside scope or failing, none for to do, `claimed` (done with no run seen). Risks and findings use one scale: `flag` is high or must fix, `move` is medium or should fix, no colour is low or a note.
+
+**Depth.** The pages are for a developer who should be able to learn the work cold, without opening chat. Each required section sets `data-min-words`, the least prose it needs, and some also set `data-min-items` (questions, links) or `data-needs="svg"` (a diagram). Code blocks and diagrams do not count, so a page cannot pass on pasted code. These are floors: a section about something `config.md` marks `new` usually needs far more. Always use real code and real file paths from this repo, never generic examples. What each page must cover:
+
+| Page | Required sections |
+| --- | --- |
+| Context | what the project is and who it serves; the architecture as a diagram of the real modules; how a request travels today; patterns and conventions to follow, with file references; constraints; what this touches and must not touch; concepts (known or new); how it can fail; open questions; glossary |
+| Knowledge | the idea in plain words with one analogy; why it exists; how it works step by step, with a diagram; how this repo uses it, with file and line; a worked example traced through real code; common mistakes; when not to use it; check yourself (3 to 5 questions); further reading (2 to 4 trusted links) |
+| Decisions | one section per decision: the question, why it matters now, options compared in a table, the recommendation and why, the cost to change later, who decided |
+| Plan | goal and non-goals; milestones, epics and tasks, each task with its first test, how it can fail and its files; the order and why; risks; where it stops for the developer; how we will know the milestone is done |
+| Design | the problem; the shape as a diagram; the interfaces (signatures, routes, schemas); alternatives considered; risks and what this locks in; what to approve |
+| Report | what now exists and how to see it working; the request path through the new code; file by file, with annotated code; tests and what each proves, marked observed or claimed from the pit wall; decisions made while building; trade-offs and rejected alternatives; risks and edge cases not covered; a manual checklist; how to roll back; cost; files outside scope (if any); check yourself |
+| Explain | the report's teaching sections, plus a map of the pieces and what is unclear or looks risky in the existing code |
+| Review | what the change claims to do; the request path; per-file notes; questions for the author; risks; a review checklist at the depth the reviewer chose |
+
+**Reliability.** A page is only useful if it is true. Four rules make it checkable:
+
+- **Label where each claim comes from.** In the required sections of report, context, review and explain pages, every paragraph, list item, table row and definition carries `data-evidence`, on itself or on its list, table, figure or margin note: `observed` (the pit wall or you saw it run), `code` (you read it in the repo), `inferred` (your reasoning), `unknown` (nobody knows yet) or `source` (a link to the source, in the same block). The page shows the label after the claim. Label a whole list or table only when every item has the same source; when they differ, label each item. **"unknown" is allowed; guessing is not.** On knowledge pages, every claim that is not about this repo is `source`, with the link.
+- **Facts come from data, not from you.** Test results, changed files and line counts, commits, the branch, tokens, cost and time are read, not written from memory. Mark each with `data-source` (`pitwall:tests`, `pitwall:task`, `pitwall:tokens`, `pitwall:cost`, `pitwall:time`, `git:diff`, `git:commits`, `git:commit`, `git:branch`) and write exactly what the data says: `node .boxbox/pitwall/server.js --summary <unit>` for tokens and cost, `git diff --numstat` and `git rev-list --count` for the range on the page's `data-range`. With no pit wall data, write "not recorded".
+- **References point at real lines.** Quote repo code exactly with `<pre data-quote="path:first-last">` (add `@<commit>` for code that has changed since). Cite lines as `path:line` in `<code>` or `span.at` (a line at another commit takes its own `data-commit`). Name tests with `<code data-test>`, exactly as in the test file. The article's `data-commit` says which commit the page describes.
+- **Reports end with "Verify these yourself":** the three claims that matter most if they are wrong, each with how to check it in a minute.
+
+**Checker.** `node .boxbox/pitwall/check-page.js <page> [more pages]` fails when a page has a leftover `{{...}}` placeholder, a `<style>` block or `style=` attribute, a class that is not in the gallery, a missing required section, a required section under its minimum length, a link to a Boxbox page or anchor that does not exist, a section without the items or diagram its template asks for, a claim without an evidence label, a fact that disagrees with git or the pit wall, a quote that does not match the repo, a file:line or test name or commit that does not exist, a link to an anchor that does not exist on the other page, a diagram with no text alternative, a script or stylesheet the template does not load, or writing that reads as machine-made: a line joined with middle dots, an arrow after text, or "should work". It reads the required sections and their minimums from the template, never from the page.
+
+**Older pages.** Pages written by Boxbox 0.5 still load `assets/style.css` and `assets/page.js`, which stay in the kit for them. Do not convert them unless the developer asks; write every new page from the 0.6 templates.
 
 ## Writing for the developer
 
@@ -199,7 +211,7 @@ Escape `<`, `>` and `&` inside code as `&lt;`, `&gt;` and `&amp;`.
 - Plain words, short sentences. Define a term the first time it appears.
 - Show real code from this repo, with its path. Never invent output: run it.
 - Explain why, not only what. Name the alternative that was not chosen.
-- Depth follows `config.md`: teach what is marked `new`, stay brief on what is marked `known`.
+- Depth follows `config.md`: teach what is marked `new`, stay brief on what is marked `known`. Depth means more explanation of what is new, never padding about what they already know.
 - State what you could not verify. Do not write "should work".
 
 ## Markdown files
