@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pit wall · Boxbox</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Boxbox pit wall, mockup. Every number, file and event below is sample data. */
+:root{
+  --asphalt:#0c1117;        /* page */
+  --carbon:#121922;         /* panels */
+  --carbon-2:#18212c;       /* raised */
+  --rule:#243040;           /* hairlines */
+  --ice:#e9f1fb;            /* primary ink, orb dots */
+  --mist:#93a3b8;           /* secondary ink */
+  --fog:#5e6e83;            /* muted ink */
+  /* status colours borrowed from the timing screen */
+  --purple:#b38cff;         /* verified: proven by a captured check */
+  --green:#3ddc84;          /* done */
+  --amber:#ffc53d;          /* needs you */
+  --red:#ff5a5f;            /* flag */
+  --blue:#5aa9ff;           /* in progress */
+  --display:"Titillium Web",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--asphalt);color:var(--ice);font-family:var(--display);font-size:15px;line-height:1.5;
+  background-image:radial-gradient(1200px 600px at 70% -10%,rgba(90,169,255,.07),transparent 60%),
+                   radial-gradient(900px 500px at -10% 110%,rgba(179,140,255,.05),transparent 60%);}
+a{color:inherit}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:6px}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- shell ---------- */
+.shell{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+.rail{border-right:1px solid var(--rule);padding:20px 14px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh;background:rgba(12,17,23,.7);backdrop-filter:blur(8px)}
+.brand{display:flex;align-items:center;gap:10px;padding:0 6px}
+.brand b{font-weight:900;font-size:20px;letter-spacing:-.01em}
+.brand span{color:var(--fog);font-weight:400}
+.project{padding:10px 10px;border:1px solid var(--rule);border-radius:10px;background:var(--carbon)}
+.project .p{font-weight:700}
+.project .s{color:var(--mist);font-size:13px}
+nav.views{display:flex;flex-direction:column;gap:2px}
+nav.views a{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:center;text-decoration:none;padding:9px 10px;border-radius:8px;color:var(--mist)}
+nav.views a .race{font-weight:700;color:var(--ice);font-size:15px}
+nav.views a .plain{font-size:13px;color:var(--fog)}
+nav.views a:hover{background:var(--carbon)}
+nav.views a[aria-current="page"]{background:var(--carbon-2);box-shadow:inset 3px 0 0 var(--blue)}
+nav.views svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6}
+.rail .foot{margin-top:auto;font-size:12px;color:var(--fog);padding:0 6px}
+
+/* ---------- top radio strip ---------- */
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:16px;padding:12px 28px;border-bottom:1px solid var(--rule);background:rgba(12,17,23,.82);backdrop-filter:blur(10px)}
+.radio{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.radio canvas{flex:none}
+.radio .what{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.radio .why{color:var(--mist);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chain{font-size:13px;color:var(--fog);white-space:nowrap}
+.chain b{color:var(--mist);font-weight:600}
+.pause{display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:999px;border:1px solid #3a4658;background:var(--carbon-2);cursor:pointer;font-weight:700;letter-spacing:.01em;white-space:nowrap}
+.pause:hover{border-color:var(--amber)}
+.pause .glyph{width:14px;height:14px;display:inline-flex;gap:3px}
+.pause .glyph i{display:block;width:4px;height:14px;background:var(--amber);border-radius:1px}
+.pause[data-state="pending"]{border-color:var(--amber);color:var(--amber)}
+.pause[data-state="paused"]{background:var(--amber);color:#1a1300;border-color:var(--amber)}
+.pause[data-state="paused"] .glyph i{background:#1a1300}
+
+main{padding:26px 28px 60px;max-width:1360px}
+.view{display:none}
+.view.on{display:block}
+.vhead{display:flex;align-items:baseline;gap:14px;margin:0 0 18px}
+.vhead h1{margin:0;font-size:30px;font-weight:900;letter-spacing:-.01em;line-height:1.1}
+.vhead h1 small{font-weight:400;color:var(--fog);font-size:18px;margin-left:6px}
+.vhead p{margin:0;color:var(--mist)}
+
+.panel{background:var(--carbon);border:1px solid var(--rule);border-radius:14px}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px 0}
+.ph h2{margin:0;font-size:15px;font-weight:700}
+.ph .aside{font-size:13px;color:var(--fog)}
+.pb{padding:12px 18px 18px}
+
+/* status marks: colour always paired with a word */
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--carbon-2);color:var(--mist);white-space:nowrap}
+.st::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--fog)}
+.st.done::before{background:var(--green)} .st.done{color:#bff3d4}
+.st.prog::before{background:var(--blue)} .st.prog{color:#cfe5ff}
+.st.wait::before{background:var(--amber)} .st.wait{color:#ffe7a8}
+.st.flag::before{background:var(--red)} .st.flag{color:#ffc9cb}
+.st.ver::before{background:var(--purple)} .st.ver{color:#e2d4ff}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:4px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--carbon-2);text-decoration:none;color:var(--ice);cursor:pointer}
+.chip:hover{border-color:#3a4a60}
+
+/* ---------- pit wall ---------- */
+.pw{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px}
+.now{position:relative;overflow:hidden;padding:26px 28px;display:grid;grid-template-columns:260px 1fr;gap:26px;align-items:center;min-height:330px}
+.now .halo{position:absolute;left:-40px;top:-40px;width:420px;height:420px;border-radius:50%;filter:blur(40px);opacity:.35;transition:background .6s}
+.now .orbwrap{position:relative;width:260px;height:260px}
+.now .kind{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--mist)}
+.now h2{margin:6px 0 8px;font-size:30px;line-height:1.15;font-weight:700;letter-spacing:-.01em}
+.now .because{color:var(--mist);font-size:16px;max-width:46ch}
+.now .because b{color:var(--ice);font-weight:600}
+.trail{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.lap{margin-top:20px}
+.lap .lbl{display:flex;justify-content:space-between;font-size:13px;color:var(--fog);margin-bottom:6px}
+.lapbar{display:flex;gap:3px;height:10px}
+.lapbar i{flex:1;border-radius:3px;background:#202a37}
+.lapbar i.done{background:var(--green)} .lapbar i.ver{background:var(--purple)} .lapbar i.prog{background:var(--blue)} .lapbar i.wait{background:var(--amber)}
+
+.needs .item{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;padding:12px 0;border-top:1px solid var(--rule)}
+.needs .item:first-child{border-top:0}
+.needs .item .t{font-weight:600}
+.needs .item .d{color:var(--mist);font-size:13.5px}
+.needs .empty{color:var(--mist)}
+
+.readouts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-top:18px}
+.ro{padding:16px 18px}
+.ro .k{font-size:13px;color:var(--fog)}
+.ro .v{font-size:30px;font-weight:700;line-height:1.15;margin-top:2px}
+.ro .v small{font-size:15px;color:var(--mist);font-weight:400}
+.ro .d{font-size:13px;color:var(--mist);margin-top:4px}
+.ro.flagged{box-shadow:inset 0 0 0 1px rgba(255,90,95,.35)}
+
+.feed{list-style:none;margin:0;padding:0}
+.feed li{display:grid;grid-template-columns:62px 22px 92px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--rule);font-size:14px}
+.feed li:first-child{border-top:0}
+.feed .time{color:var(--fog);font-size:12.5px}
+.feed .kindtag{font-size:12px;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--carbon-2);color:var(--mist);text-align:center;white-space:nowrap}
+.feed .body{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.feed .body code{font-family:var(--mono);font-size:12.5px;color:#cfe0f5}
+.feed .res{font-size:12.5px;white-space:nowrap}
+.res.pass{color:var(--green)} .res.fail{color:var(--red)} .res.plus{color:var(--mist)}
+.feed li.fresh{animation:fresh 1.6s ease-out}
+@keyframes fresh{from{background:rgba(90,169,255,.12)}to{background:transparent}}
+
+/* ---------- board ---------- */
+.ms{margin-bottom:18px}
+.ms .mhead{display:flex;align-items:center;gap:14px;padding:18px 20px;cursor:pointer}
+.ms .mhead h2{margin:0;font-size:20px;font-weight:700}
+.ms .mhead .goal{color:var(--mist);font-size:14px}
+.ms .mhead .right{margin-left:auto;display:flex;gap:10px;align-items:center}
+.epics{padding:0 20px 18px}
+.epic{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:16px;padding:16px 0;border-top:1px solid var(--rule)}
+.epic .eid{font-weight:900;font-size:22px;color:var(--fog);line-height:1}
+.epic h3{margin:0 0 2px;font-size:17px}
+.epic .out{color:var(--mist);font-size:14px}
+.epic .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.tasks{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.task{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;background:var(--carbon-2);font-size:13px}
+.task .tid{color:var(--fog)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--fog);flex:none}
+.dot.done{background:var(--green)} .dot.ver{background:var(--purple)} .dot.prog{background:var(--blue);box-shadow:0 0 0 4px rgba(90,169,255,.18)} .dot.wait{background:var(--amber)}
+.epic .side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.dep{font-size:13px;color:var(--fog)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--mist);margin-bottom:14px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+
+/* ---------- telemetry ---------- */
+.lanes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-bottom:18px}
+.lane{padding:18px;display:grid;grid-template-columns:72px 1fr;gap:14px;align-items:center}
+.lane .who{font-weight:700}
+.lane .role{font-size:13px;color:var(--fog)}
+.lane .doing{font-size:14px;color:var(--mist);margin-top:4px}
+.lane.idle{opacity:.55}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.filters button{border:1px solid var(--rule);background:var(--carbon);border-radius:999px;padding:5px 12px;font-size:13px;cursor:pointer;color:var(--mist);display:inline-flex;align-items:center;gap:6px}
+.filters button[aria-pressed="true"]{background:var(--carbon-2);color:var(--ice);border-color:#3a4a60}
+.kindkey{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:18px}
+.kindkey div{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--mist)}
+
+/* ---------- map ---------- */
+.mapwrap{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px}
+#mapsvg{width:100%;height:auto;display:block}
+.mapnode rect{fill:var(--carbon-2);stroke:var(--rule);stroke-width:1}
+.mapnode .nm{fill:var(--ice);font-weight:700;font-size:14px}
+.mapnode .sub{fill:var(--fog);font-size:12px}
+.mapnode .heat{transition:opacity .4s}
+.mapnode:hover rect{stroke:#3a4a60}
+.scope{fill:none;stroke:var(--blue);stroke-width:1.5;stroke-dasharray:6 6}
+.edge{stroke:#2c394b;stroke-width:1.4;fill:none}
+.files li{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--rule);font-size:13.5px}
+.files li:first-child{border-top:0}
+.files code{font-family:var(--mono);font-size:12.5px;color:#cfe0f5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- timing ---------- */
+.timing{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:18px}
+.bars{display:flex;flex-direction:column;gap:12px}
+.bar{display:grid;grid-template-columns:150px 1fr 110px;gap:12px;align-items:center;font-size:14px}
+.bar .track{height:14px;border-radius:4px;background:#1b2431;position:relative}
+.bar .fill{position:absolute;inset:0 auto 0 0;border-radius:0 4px 4px 0;background:var(--blue)}
+.bar .fill.cache{background:repeating-linear-gradient(135deg,rgba(90,169,255,.55) 0 3px,rgba(90,169,255,.25) 3px 6px)}
+.bar .val{text-align:right;color:var(--mist)}
+.bar .lbl b{font-weight:600}
+.tt{position:fixed;pointer-events:none;background:#0a0f15;border:1px solid var(--rule);border-radius:8px;padding:8px 10px;font-size:13px;z-index:20;display:none;max-width:260px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:9px 10px;border-top:1px solid var(--rule)}
+th{color:var(--fog);font-weight:600;font-size:13px;border-top:0}
+td.r,th.r{text-align:right}
+
+/* ---------- garage ---------- */
+.search{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--rule);background:var(--carbon);color:var(--ice);font:inherit;margin-bottom:18px}
+.shelves{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.shelf h2{margin:0 0 10px;font-size:15px}
+.doc{display:block;text-decoration:none;padding:10px 0;border-top:1px solid var(--rule)}
+.doc:first-of-type{border-top:0}
+.doc .dt{font-weight:600}
+.doc .dd{font-size:13px;color:var(--mist)}
+.doc:hover .dt{color:var(--blue)}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--carbon-2);border:1px solid var(--rule);padding:10px 16px;border-radius:10px;font-size:14px;display:none;z-index:30}
+.note{font-size:13px;color:var(--fog);margin-top:22px}
+
+@media (max-width:1100px){
+  .pw,.timing,.mapwrap{grid-template-columns:minmax(0,1fr)}
+  .readouts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .lanes,.shelves{grid-template-columns:1fr}
+}
+@media (max-width:760px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .rail{position:static;height:auto;flex-direction:row;flex-wrap:wrap;gap:10px}
+  nav.views{flex-direction:row;flex-wrap:wrap}
+  .project,.rail .foot{display:none}
+  .now{grid-template-columns:1fr;justify-items:center;text-align:center}
+  .feed li{grid-template-columns:22px 80px minmax(0,1fr)}
+  .feed .time,.feed .res{display:none}
+  .top{flex-wrap:wrap;padding:10px 16px} main{padding:20px 16px 60px}
+  .bar{grid-template-columns:1fr;gap:4px} .bar .val{text-align:left}
+  .chain{display:none} .radio{min-width:0}
+  .ms .mhead{flex-wrap:wrap} .ms .mhead .right{margin-left:0;flex-wrap:wrap}
+  .epic{grid-template-columns:1fr;gap:8px} .epic .side{flex-direction:row;flex-wrap:wrap;align-items:center}
+  .vhead{flex-wrap:wrap;gap:6px 12px}
+  table{display:block;overflow-x:auto}
+}
+@media (prefers-reduced-motion:reduce){ .feed li.fresh{animation:none} }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand"><canvas id="brandorb" width="28" height="28" aria-hidden="true"></canvas><b>/boxbox</b></div>
+    <div class="project"><div class="p">Scene ON backend</div><div class="s">Password reset by email</div></div>
+    <nav class="views" aria-label="Views">
+      <a href="#pitwall" data-v="pitwall"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/></svg><span><span class="race">Pit wall</span> <span class="plain">(Home)</span></span></a>
+      <a href="#board" data-v="board"><svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h10M4 19h13"/></svg><span><span class="race">Board</span> <span class="plain">(Plan)</span></span></a>
+      <a href="#telemetry" data-v="telemetry"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg><span><span class="race">Telemetry</span> <span class="plain">(Live)</span></span></a>
+      <a href="#map" data-v="map"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="4" width="7" height="6" rx="1.5"/><rect x="8.5" y="14" width="7" height="6" rx="1.5"/><path d="M6.5 10v2h11v-2M12 12v2"/></svg><span><span class="race">Map</span> <span class="plain">(Codebase)</span></span></a>
+      <a href="#timing" data-v="timing"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 13V9M10 3h4"/></svg><span><span class="race">Timing</span> <span class="plain">(Cost)</span></span></a>
+      <a href="#garage" data-v="garage"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6v10H3z"/><path d="M7 20v-6h10v6"/></svg><span><span class="race">Garage</span> <span class="plain">(Docs)</span></span></a>
+    </nav>
+    <div class="foot">Local only, on this machine. Sample data in this mockup.</div>
+  </aside>
+
+  <div>
+    <header class="top">
+      <div class="radio" aria-live="polite">
+        <canvas id="radioorb" width="20" height="20" aria-hidden="true"></canvas>
+        <div style="min-width:0">
+          <div class="what" id="r-what">Editing src/resets.js</div>
+          <div class="why" id="r-why">Least code to make the hashing test pass</div>
+        </div>
+      </div>
+      <div class="chain" id="r-chain"><b>M1</b> Password reset › <b>E2</b> Set a new password › <b>E2.3</b></div>
+      <button class="pause" id="pause" data-state="running" aria-describedby="pausehelp"><span class="glyph"><i></i><i></i></span><span id="pauselbl">Pause</span></button>
+      <span id="pausehelp" hidden>Stops the agent before its next action.</span>
+    </header>
+
+    <main>
+      <!-- ================= PIT WALL ================= -->
+      <section class="view" id="v-pitwall" aria-labelledby="h-pitwall">
+        <div class="vhead"><h1 id="h-pitwall">Pit wall <small>(Home)</small></h1><p>Everything about this feature, as it happens.</p></div>
+        <div class="pw">
+          <div class="panel now">
+            <div class="halo" id="halo"></div>
+            <div class="orbwrap"><canvas id="bigorb" width="260" height="260" role="img" aria-label="Agent activity"></canvas></div>
+            <div>
+              <div class="kind" id="n-kind">Editing code</div>
+              <h2 id="n-what">Editing src/resets.js</h2>
+              <p class="because" id="n-why"><b>Why:</b> least code to make the hashing test pass (E2.3, test written first).</p>
+              <div class="trail">
+                <a class="chip" data-open=".boxbox/password-reset/plan.html">Plan</a>
+                <a class="chip" data-open=".boxbox/password-reset/e2-set-password/design.html">E2 design</a>
+                <a class="chip" data-open=".boxbox/password-reset/decisions.html">Decisions</a>
+              </div>
+              <div class="lap">
+                <div class="lbl"><span>Milestone progress</span><span class="num" id="lapnum">6 of 12 tasks</span></div>
+                <div class="lapbar" id="lapbar"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel needs">
+            <div class="ph"><h2>Needs you</h2><span class="aside">2 waiting</span></div>
+            <div class="pb">
+              <div class="item"><span class="st wait">decision</span><div><div class="t">D4: how strict should rate limiting be?</div><div class="d">Parked by you yesterday. E3 can't start until it's decided.</div></div><a class="chip" data-open=".boxbox/password-reset/decisions.html#d4">Open</a></div>
+              <div class="item"><span class="st wait">design</span><div><div class="t">Approve the design for E3</div><div class="d">Token bucket per email and per IP. Written 20 minutes ago.</div></div><a class="chip" data-open=".boxbox/password-reset/e3-rate-limit/design.html">Open</a></div>
+              <div class="item"><span class="st flag">scope</span><div><div class="t">One file changed outside E2's scope</div><div class="d"><code style="font-family:var(--mono);font-size:12.5px">src/mailer.js</code> is in E1's files. The report will list it.</div></div><a class="chip" href="#map">Map</a></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="readouts">
+          <div class="panel ro"><div class="k">Tests</div><div class="v num" id="ro-tests">14 <small>of 14 pass</small></div><div class="d"><span class="st ver">verified</span> captured by the check runner, 2 min ago</div></div>
+          <div class="panel ro"><div class="k">Spend on this feature</div><div class="v num" id="ro-spend">1.84M <small>tokens</small></div><div class="d num" id="ro-cost">about $4.10, 71% from cache</div></div>
+          <div class="panel ro"><div class="k">Current unit</div><div class="v num">E2 <small>3 of 4 tasks</small></div><div class="d">on <code style="font-family:var(--mono);font-size:12.5px">password-reset-e2-set-password</code></div></div>
+          <div class="panel ro flagged"><div class="k">Plan freshness</div><div class="v">Behind <small>by 1 file</small></div><div class="d">src/mailer.js changed; no task covers it</div></div>
+        </div>
+
+        <div class="panel" style="margin-top:18px">
+          <div class="ph"><h2>Team radio</h2><a class="aside" href="#telemetry">Full telemetry</a></div>
+          <div class="pb"><ul class="feed" id="feed-mini"></ul></div>
+        </div>
+      </section>
+
+      <!-- ================= BOARD ================= -->
+      <section class="view" id="v-board" aria-labelledby="h-board">
+        <div class="vhead"><h1 id="h-board">Board <small>(Plan)</small></h1><p>How the work is broken down, and where each piece stands.</p></div>
+        <div class="legend"><span><i class="dot done"></i>done</span><span><i class="dot ver"></i>verified by a captured check</span><span><i class="dot prog"></i>in progress</span><span><i class="dot wait"></i>needs you</span><span><i class="dot"></i>to do</span></div>
+        <div id="board"></div>
+      </section>
+
+      <!-- ================= TELEMETRY ================= -->
+      <section class="view" id="v-telemetry" aria-labelledby="h-telemetry">
+        <div class="vhead"><h1 id="h-telemetry">Telemetry <small>(Live)</small></h1><p>Every action the agents take, the moment they take it.</p></div>
+        <div class="lanes" id="lanes"></div>
+        <div class="panel">
+          <div class="ph"><h2>Live feed</h2><span class="aside" id="feedcount"></span></div>
+          <div class="pb">
+            <div class="filters" id="filters"></div>
+            <ul class="feed" id="feed-full"></ul>
+            <div class="kindkey" id="kindkey"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= MAP ================= -->
+      <section class="view" id="v-map" aria-labelledby="h-map">
+        <div class="vhead"><h1 id="h-map">Map <small>(Codebase)</small></h1><p>Which parts of the code are changing, and whether that matches the plan.</p></div>
+        <div class="mapwrap">
+          <div class="panel"><div class="pb"><svg id="mapsvg" viewBox="0 0 760 430" role="img" aria-label="Codebase map with recent edits"></svg>
+            <div class="legend" style="margin:10px 0 0"><span><i class="dot prog"></i>edited in the last 10 minutes</span><span><svg width="26" height="10"><line x1="0" y1="5" x2="26" y2="5" class="scope"/></svg>E2's declared files</span><span><i class="dot" style="background:var(--red)"></i>edited outside the current epic</span></div></div></div>
+          <div class="panel"><div class="ph"><h2>Files touched in E2</h2></div><div class="pb"><ul class="files" id="files" style="list-style:none;margin:0;padding:0"></ul></div></div>
+        </div>
+      </section>
+
+      <!-- ================= TIMING ================= -->
+      <section class="view" id="v-timing" aria-labelledby="h-timing">
+        <div class="vhead"><h1 id="h-timing">Timing <small>(Cost)</small></h1><p>Tokens, cost and time for each piece of work.</p></div>
+        <div class="timing">
+          <div class="panel"><div class="ph"><h2>Tokens by epic</h2><span class="aside">solid: new tokens · striped: read from cache</span></div><div class="pb"><div class="bars" id="bars"></div></div></div>
+          <div class="panel"><div class="ph"><h2>Sessions</h2></div><div class="pb">
+            <table><thead><tr><th>Session</th><th>Agent</th><th>Built</th><th class="r">Tokens</th></tr></thead>
+            <tbody id="sessions"></tbody></table></div></div>
+        </div>
+        <div class="panel" style="margin-top:18px"><div class="ph"><h2>Per task</h2></div><div class="pb">
+          <table><thead><tr><th>Task</th><th>What</th><th class="r">Time</th><th class="r">Tokens</th><th class="r">Cost</th></tr></thead><tbody id="pertask"></tbody></table>
+        </div></div>
+      </section>
+
+      <!-- ================= GARAGE ================= -->
+      <section class="view" id="v-garage" aria-labelledby="h-garage">
+        <div class="vhead"><h1 id="h-garage">Garage <small>(Docs)</small></h1><p>Every page Boxbox has written for this repo.</p></div>
+        <input class="search" id="search" type="search" placeholder="Search plans, reports, decisions, knowledge pages" aria-label="Search documents">
+        <div class="shelves" id="shelves"></div>
+      </section>
+    </main>
+  </div>
+</div>
+<div class="tt" id="tt"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* ================= sample data ================= */
+const KINDS = {
+  think:   {label:"Planning",  mode:"orbits",  hue:"#5aa9ff"},
+  read:    {label:"Reading",   mode:"globe",   hue:"#7fd4ff"},
+  search:  {label:"Searching", mode:"globe",   hue:"#7fd4ff"},
+  edit:    {label:"Editing",   mode:"ribbon",  hue:"#b38cff"},
+  run:     {label:"Terminal",  mode:"bands",   hue:"#ffc53d"},
+  test:    {label:"Testing",   mode:"bands",   hue:"#3ddc84"},
+  web:     {label:"Web",       mode:"web",     hue:"#ff8fb1"},
+  page:    {label:"Page",      mode:"ribbon",  hue:"#e9f1fb"},
+  commit:  {label:"Commit",    mode:"ring",    hue:"#3ddc84"},
+  wait:    {label:"Waiting",   mode:"ring",    hue:"#ffc53d"}
+};
+const KIND_DESC = {
+  think:"working out the next step", read:"opening a file", search:"searching the codebase",
+  edit:"changing code", run:"running a command", test:"running the tests", web:"searching the web",
+  page:"writing a Boxbox page", commit:"committing a task", wait:"waiting for you"
+};
+
+const MILESTONES = [
+ {id:"M1", title:"Password reset", goal:"Users can reset a forgotten password by email.", status:"prog",
+  links:[["Context",".boxbox/password-reset/context.html"],["Decisions",".boxbox/password-reset/decisions.html"],["Plan",".boxbox/password-reset/plan.html"]],
+  epics:[
+   {id:"E1", title:"Ask for a reset email", out:"A known email gets a one-time link; an unknown one gets the same answer.", status:"done", ver:true,
+    branch:"password-reset-e1-request", pr:"#41", dep:"", changed:true,
+    links:[["Report",".boxbox/password-reset/e1-request/report.html"],["PR #41","https://github.com/"]],
+    tasks:[["E1.1","Hashed token with 30-minute expiry","ver"],["E1.2","No token for unknown emails","ver"],["E1.3","A new request replaces the old token","ver"],["E1.4","POST /password-reset/request sends the email","ver"]]},
+   {id:"E2", title:"Set a new password", out:"The link sets a new password once, then stops working.", status:"prog", ver:false,
+    branch:"password-reset-e2-set-password", pr:"", dep:"needs E1",
+    links:[["Design",".boxbox/password-reset/e2-set-password/design.html"]],
+    tasks:[["E2.1","Accept a valid token once","ver"],["E2.2","Reject expired and used tokens","ver"],["E2.3","Store the new password hashed","prog"],["E2.4","POST /password-reset/confirm","todo"]]},
+   {id:"E3", title:"Rate-limit reset requests", out:"Repeated requests for one email or IP are slowed down.", status:"wait", ver:false,
+    branch:"", pr:"", dep:"needs E1 · blocked by D4",
+    links:[["Design (to approve)",".boxbox/password-reset/e3-rate-limit/design.html"]],
+    tasks:[["E3.1","Count requests per email","wait"],["E3.2","Count requests per IP","wait"],["E3.3","Answer 429 with retry time","wait"],["E3.4","Show the limit in the email copy","wait"]]}
+  ]},
+ {id:"M0", title:"Accounts foundation", goal:"Sign-up, log-in and the mailer exist and are tested.", status:"done",
+  links:[["Explained",".boxbox/explained/accounts-foundation.html"]],
+  epics:[{id:"E1", title:"Sign up and log in", out:"Built before Boxbox; explained after the fact.", status:"done", ver:true, branch:"", pr:"", dep:"",
+    links:[["Explained",".boxbox/explained/accounts-foundation.html"]], tasks:[["E1.1","Sign up","done"],["E1.2","Log in","done"],["E1.3","Mailer outbox","done"]]}]}
+];
+
+/* the script that plays as "live" events in this mockup */
+const SCRIPT = [
+ {k:"think",  who:"Driver",   what:"Reading the plan line for E2.3", why:"start the next task in the plan", res:""},
+ {k:"read",   who:"Driver",   what:"<code>src/users.js</code>", why:"see how passwords are hashed today", res:"84 lines"},
+ {k:"search", who:"Driver",   what:"grep <code>scryptSync</code>", why:"find every place a password hash is made", res:"2 matches"},
+ {k:"edit",   who:"Driver",   what:"<code>test/resets.test.js</code>", why:"test first: the new password must be stored hashed", res:"+18"},
+ {k:"test",   who:"Driver",   what:"<code>npm test</code>", why:"watch the new test fail for the right reason", res:"1 failing", fail:true},
+ {k:"edit",   who:"Driver",   what:"<code>src/resets.js</code>", why:"least code to make the hashing test pass", res:"+9 −2"},
+ {k:"test",   who:"Driver",   what:"<code>npm test</code>", why:"all checks before the commit", res:"15 passed"},
+ {k:"commit", who:"Driver",   what:"<code>E2.3: store the new password hashed</code>", why:"one commit per task", res:"a91c2f0"},
+ {k:"web",    who:"Driver",   what:"Node docs: <code>crypto.timingSafeEqual</code>", why:"check the comparison is constant time for E2.4", res:"1 page"},
+ {k:"think",  who:"Driver",   what:"Starting E2.4", why:"last task in E2", res:""},
+ {k:"edit",   who:"Driver",   what:"<code>test/server.test.js</code>", why:"test first for POST /password-reset/confirm", res:"+31"},
+ {k:"run",    who:"Driver",   what:"<code>git diff --stat</code>", why:"check nothing outside E2's files changed", res:"3 files"}
+];
+const HISTORY = [
+ {t:"14:02", k:"page",   who:"Driver",   what:"<code>e3-rate-limit/design.html</code>", why:"design stop for E3", res:"written"},
+ {t:"14:05", k:"edit",   who:"Driver",   what:"<code>src/mailer.js</code>", why:"reuse the reset email template", res:"+4", outside:true},
+ {t:"14:07", k:"test",   who:"Driver",   what:"<code>npm test</code>", why:"all checks before the commit", res:"14 passed"},
+ {t:"14:08", k:"commit", who:"Driver",   what:"<code>E2.2: reject expired and used tokens</code>", why:"one commit per task", res:"7be03d1"},
+ {t:"14:09", k:"read",   who:"Reviewer", what:"<code>git diff password-reset...HEAD</code>", why:"separate review of E2 so far", res:"212 lines"}
+];
+
+const FILES = [["src/resets.js","+41 −6","in"],["test/resets.test.js","+77","in"],["src/server.js","+12","in"],["src/mailer.js","+4","out"]];
+
+const TIMING = [
+ {id:"E1", name:"Ask for a reset email", fresh:310, cache:640, cost:1.62, time:"52 min"},
+ {id:"E2", name:"Set a new password",    fresh:260, cache:520, cost:1.34, time:"41 min so far"},
+ {id:"E3", name:"Rate-limit (design)",   fresh:70,  cache:40,  cost:0.38, time:"9 min"},
+ {id:"Plan", name:"Discover and plan",   fresh:150, cache:110, cost:0.76, time:"23 min"}
+];
+const SESSIONS = [["7f3a…c1","Claude Code","Discover, plan, E1",                "1.21M"],["b02e…9d","Claude Code","E2 (this session)","0.62M"],["c55a…04","Codex","E2 review","0.11M"]];
+const PERTASK = [["E1.1","Hashed token, 30-minute expiry","14 min","212k","$0.36"],["E1.2","No token for unknown emails","8 min","118k","$0.20"],["E1.3","New request replaces old token","9 min","131k","$0.22"],["E1.4","Request endpoint sends email","21 min","489k","$0.84"],["E2.1","Accept a valid token once","12 min","201k","$0.35"],["E2.2","Reject expired and used tokens","15 min","244k","$0.41"],["E2.3","Store the new password hashed","in progress","96k","$0.17"]];
+
+const DOCS = {
+ "Plans and decisions":[["Context: password reset","What exists today, what's new to you, how it can fail"],["Decisions","D1–D3 answered, D4 parked, 6 defaults"],["Plan","3 epics, 12 tasks, approved 11 Oct"],["Design: E2 set a new password","Approved 12 Oct"],["Design: E3 rate limiting","Waiting for your approval"]],
+ "Reports and reviews":[["E1 report: ask for a reset email","Approved 12 Oct · PR #41"],["E2 review notes","Separate reviewer, 1 should-fix"],["Explained: accounts foundation","Written after the build, from git history"]],
+ "Knowledge":[["Reset tokens: random values, hashing, expiry","4 sections · 2 done"],["Timing attacks and constant-time comparison","3 sections"],["Rate limiting: token buckets","New, for E3"],["Glossary","9 terms"],["Lessons","2 rules, 1 enforced by a hook"]]
+};
+
+/* ================= dotted orbs (vanilla canvas, after thinking-orbs) ================= */
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const orbs = [];
+function makeOrb(canvas, size){
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  canvas.width = size*dpr; canvas.height = size*dpr; canvas.style.width = size+"px"; canvas.style.height = size+"px";
+  const ctx = canvas.getContext("2d"); ctx.scale(dpr, dpr);
+  const n = size > 100 ? 420 : size > 24 ? 90 : 46;
+  const pts = []; // fibonacci sphere
+  for(let i=0;i<n;i++){ const y = 1 - (i/(n-1))*2, r = Math.sqrt(1-y*y), th = i*2.39996; pts.push([Math.cos(th)*r, y, Math.sin(th)*r]); }
+  const web = pts.filter((_,i)=> i % Math.max(1, Math.floor(n/22)) === 0);
+  const o = {canvas, ctx, size, pts, web, mode:"orbits", paused:false, ink:"#e9f1fb"};
+  orbs.push(o); return o;
+}
+function rot(p, ax, ay){ // rotate around y then x
+  let [x,y,z]=p; let c=Math.cos(ay), s=Math.sin(ay); [x,z]=[x*c - z*s, x*s + z*c];
+  c=Math.cos(ax); s=Math.sin(ax); [y,z]=[y*c - z*s, y*s + z*c]; return [x,y,z];
+}
+function drawOrb(o, t){
+  const {ctx,size} = o, R = size*0.42, cx=size/2, cy=size/2, big=size>100, dot = big?1.6:size>24?1.1:0.8;
+  ctx.clearRect(0,0,size,size);
+  const put=(x,y,z,a,r)=>{ ctx.globalAlpha=Math.max(0,Math.min(1,a)); ctx.beginPath(); ctx.arc(cx+x*R, cy-y*R, r||dot*(0.6+0.5*(z+1)/2), 0, 6.283); ctx.fill(); };
+  ctx.fillStyle = o.ink; ctx.strokeStyle = o.ink;
+  const m = o.paused ? "ring" : o.mode;
+  if(m==="globe"){ // a scan meridian sweeps a dotted globe
+    const scan = (t*0.9) % 6.283;
+    for(const p of o.pts){ const q=rot(p,0.35,t*0.35); const lon=Math.atan2(q[2],q[0]); const d=Math.abs(((lon-scan+9.42)%6.283)-3.14);
+      const near = d<0.28 ? 1 : 0; put(q[0],q[1],q[2], (q[2]+1.2)/2.6 + near*0.6, near? dot*1.6 : 0); }
+  } else if(m==="orbits"){ // particles on tilted orbits
+    for(const p of o.pts){ const q=rot(p,0.4,t*0.12); put(q[0],q[1],q[2], 0.08+(q[2]+1)*0.06); }
+    const rings=[[0.5,0],[1.15,1.2],[-0.7,2.3]], per = big?40:12;
+    rings.forEach(([tilt,ph],ri)=>{ for(let i=0;i<per;i++){ const a=i/per*6.283 + t*(0.9+ri*0.25)+ph; let p=[Math.cos(a)*1.02,0,Math.sin(a)*1.02]; p=rot(p,tilt,ph+t*0.2);
+      const tail = (i%per)/per; put(p[0],p[1],p[2], 0.25+0.75*tail*((p[2]+1.4)/2.4), dot*(0.8+tail*0.9)); } });
+  } else if(m==="ribbon"){ // an undulating band: editing
+    for(const p of o.pts){ const q=rot(p,0.3,t*0.4); const band = Math.abs(q[1] - 0.45*Math.sin(Math.atan2(q[2],q[0])*2 + t*1.6));
+      put(q[0],q[1],q[2], band<0.2 ? 0.35+(q[2]+1)*0.33 : 0.06+(q[2]+1)*0.04, band<0.2? dot*1.3:0); }
+  } else if(m==="bands"){ // latitude bands step against each other: terminal and tests
+    const step = Math.floor(t*1.2), frac = Math.min(1,(t*1.2-step)*3);
+    for(const p of o.pts){ const band = Math.floor((p[1]+1)*2.5); const dir = band%2?1:-1; const ang = (step + (frac<1?frac:1))*0.52*dir + t*0.1;
+      const q=rot(p,0.45,ang); put(q[0],q[1],q[2], 0.18+(q[2]+1)*0.32); }
+  } else if(m==="web"){ // a constellation wires itself
+    const W=o.web.map(p=>rot(p,0.4,t*0.3)); ctx.lineWidth = big?0.7:0.4;
+    for(let i=0;i<W.length;i++) for(let j=i+1;j<W.length;j++){ const a=W[i],b=W[j]; const d=Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+      if(d<0.75){ const pulse=0.5+0.5*Math.sin(t*2+i+j); ctx.globalAlpha=(0.1+0.25*pulse)*((a[2]+b[2]+2)/4); ctx.beginPath(); ctx.moveTo(cx+a[0]*R,cy-a[1]*R); ctx.lineTo(cx+b[0]*R,cy-b[1]*R); ctx.stroke(); } }
+    for(const q of W) put(q[0],q[1],q[2], 0.4+(q[2]+1)*0.3, dot*1.5);
+  } else { // ring: waiting, paused, commit
+    const per = big?120:30, br = 0.82 + 0.12*Math.sin(t*1.4);
+    for(let i=0;i<per;i++){ const a=i/per*6.283; const w = 1+0.06*Math.sin(a*3+t*1.1); let p=[Math.cos(a)*br*w,0,Math.sin(a)*br*w]; p=rot(p,1.1,t*0.15); put(p[0],p[1],p[2],0.3+(p[2]+1)*0.33); }
+  }
+  ctx.globalAlpha = 1;
+}
+let t0 = performance.now();
+function frame(now){ const t=(now-t0)/1000; for(const o of orbs) if(o.canvas.offsetParent!==null) drawOrb(o,t); if(!reduce) requestAnimationFrame(frame); }
+
+/* ================= rendering ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function toast(msg){ const el=$("#toast"); el.textContent=msg; el.style.display="block"; clearTimeout(toast.h); toast.h=setTimeout(()=>el.style.display="none",2600); }
+document.addEventListener("click", e=>{ const a=e.target.closest("[data-open]"); if(a){ e.preventDefault(); toast("Opens "+a.dataset.open); } });
+
+const statusWord = {done:"done", prog:"in progress", wait:"needs you", ver:"verified", todo:"to do"};
+function stClass(s){ return {done:"done",prog:"prog",wait:"wait",ver:"ver",todo:""}[s]||""; }
+
+function renderBoard(){
+  $("#board").innerHTML = MILESTONES.map(m=>{
+    const tasks = m.epics.flatMap(e=>e.tasks), done = tasks.filter(t=>t[2]==="done"||t[2]==="ver").length;
+    return `<div class="panel ms"><div class="mhead"><span class="st ${stClass(m.status)}">${statusWord[m.status]}</span>
+      <div><h2>${m.id} · ${esc(m.title)}</h2><div class="goal">${esc(m.goal)}</div></div>
+      <div class="right"><span class="num" style="color:var(--mist);font-size:14px">${done} of ${tasks.length} tasks</span>${m.links.map(l=>`<a class="chip" data-open="${l[1]}">${l[0]}</a>`).join("")}</div></div>
+      <div class="epics">${m.epics.map(e=>`
+        <div class="epic"><div class="eid">${e.id}</div>
+          <div><h3>${esc(e.title)}</h3><div class="out">${esc(e.out)}</div>
+            <div class="tasks">${e.tasks.map(t=>`<span class="task"><i class="dot ${stClass(t[2])}"></i><span class="tid">${t[0]}</span>${esc(t[1])}</span>`).join("")}</div>
+            <div class="meta">${e.links.map(l=>`<a class="chip" data-open="${l[1]}">${l[0]}</a>`).join("")}${e.branch?`<span class="dep">branch ${e.branch}</span>`:""}</div>
+          </div>
+          <div class="side"><span class="st ${stClass(e.status)}">${statusWord[e.status]}</span>${e.ver?`<span class="st ver">verified</span>`:""}${e.changed?`<span class="st flag">changed after approval</span>`:""}${e.dep?`<span class="dep">${esc(e.dep)}</span>`:""}</div>
+        </div>`).join("")}</div></div>`;
+  }).join("");
+}
+
+function lapbar(){
+  const tasks = MILESTONES[0].epics.flatMap(e=>e.tasks);
+  $("#lapbar").innerHTML = tasks.map(t=>`<i class="${stClass(t[2])}" title="${t[0]} ${esc(t[1])}: ${statusWord[t[2]]}"></i>`).join("");
+  const done = tasks.filter(t=>t[2]==="done"||t[2]==="ver").length; $("#lapnum").textContent = `${done} of ${tasks.length} tasks`;
+}
+
+const events = HISTORY.map(e=>({...e}));
+const feedOrbs = [];
+function rowHTML(e){
+  const kd = KINDS[e.k];
+  return `<li class="${e.fresh?"fresh":""}" data-k="${e.k}"><span class="time num">${e.t}</span><canvas width="20" height="20" data-kind="${e.k}" aria-hidden="true"></canvas>
+    <span class="kindtag" style="color:${kd.hue}">${kd.label}</span>
+    <span class="body">${e.what} <span style="color:var(--fog)">· ${esc(e.why)}</span>${e.outside?` <span class="st flag" style="margin-left:6px">outside E2</span>`:""}</span>
+    <span class="res ${e.fail?"fail":/passed/.test(e.res)?"pass":"plus"}">${esc(e.res)}</span></li>`;
+}
+let filter = "all";
+function renderFeeds(){
+  const list = events.slice().reverse();
+  $("#feed-mini").innerHTML = list.slice(0,5).map(rowHTML).join("");
+  const shown = list.filter(e=> filter==="all" || e.k===filter);
+  $("#feed-full").innerHTML = shown.map(rowHTML).join("");
+  $("#feedcount").textContent = `${events.length} actions this session`;
+  feedOrbs.length = 0;
+  for(let i=orbs.length-1;i>=0;i--) if(orbs[i].group==="feed") orbs.splice(i,1); // keep brand, radio, big, lane and key orbs
+  document.querySelectorAll("canvas[data-kind]").forEach(c=>{ const o = makeOrb(c,20); o.group="feed"; o.mode = KINDS[c.dataset.kind].mode; o.ink = KINDS[c.dataset.kind].hue; });
+  events.forEach(e=>e.fresh=false);
+}
+function renderFilters(){
+  const ks = ["all","think","read","search","edit","run","test","web","commit","page"];
+  $("#filters").innerHTML = ks.map(k=>`<button aria-pressed="${k===filter}" data-f="${k}">${k==="all"?"All":KINDS[k].label}</button>`).join("");
+  $("#filters").onclick = e=>{ const b=e.target.closest("button"); if(!b) return; filter=b.dataset.f; renderFilters(); renderFeeds(); };
+  $("#kindkey").innerHTML = Object.entries(KINDS).map(([k,v])=>`<div><canvas width="20" height="20" data-key="${k}" aria-hidden="true"></canvas><span><b style="color:${v.hue};font-weight:600">${v.label}</b> ${KIND_DESC[k]}</span></div>`).join("");
+  document.querySelectorAll("canvas[data-key]").forEach(c=>{ const o=makeOrb(c,20); o.mode=KINDS[c.dataset.key].mode; o.ink=KINDS[c.dataset.key].hue; });
+}
+const LANES = [
+ {who:"Driver", role:"Main agent · Claude Code", key:"Driver"},
+ {who:"Pit crew", role:"Implementer subagent", key:"Crew", idle:"Idle: tasks run inline this session"},
+ {who:"Steward", role:"Reviewer · separate context", key:"Reviewer"}
+];
+function renderLanes(cur){
+  $("#lanes").innerHTML = LANES.map((l,i)=>{ const last = events.slice().reverse().find(e=>e.who===l.key);
+    const idle = !last || (l.key==="Reviewer" && cur && cur.who!=="Reviewer");
+    return `<div class="panel lane ${idle?"idle":""}"><canvas width="72" height="72" data-lane="${i}" aria-hidden="true"></canvas><div><div class="who">${l.who}</div><div class="role">${l.role}</div>
+      <div class="doing">${last? (idle? "Last: "+KINDS[last.k].label.toLowerCase()+" "+last.what.replace(/<[^>]+>/g,"") : KINDS[last.k].label+" "+last.what.replace(/<[^>]+>/g,"")) : l.idle||"Idle"}</div></div></div>`;}).join("");
+  document.querySelectorAll("canvas[data-lane]").forEach(c=>{ const i=+c.dataset.lane; const o=makeOrb(c,72); const l=LANES[i];
+    const last = events.slice().reverse().find(e=>e.who===l.key); const idle = !last || (l.key==="Reviewer" && cur && cur.who!=="Reviewer");
+    o.mode = idle? "ring" : KINDS[last.k].mode; o.ink = idle? "#5e6e83" : KINDS[last.k].hue; });
+}
+
+function renderMap(){
+  const N = [
+    {id:"server", x:300,y:30, nm:"HTTP routes", sub:"src/server.js", heat:0.6},
+    {id:"resets", x:60, y:180, nm:"Reset tokens", sub:"src/resets.js", heat:1, inScope:true},
+    {id:"users",  x:300,y:180, nm:"Users and passwords", sub:"src/users.js", heat:0.25, inScope:true},
+    {id:"mailer", x:540,y:180, nm:"Mailer", sub:"src/mailer.js", heat:0.7, outside:true},
+    {id:"tests",  x:180,y:330, nm:"Tests", sub:"test/*.test.js", heat:0.9, inScope:true},
+    {id:"limit",  x:470,y:330, nm:"Rate limiter", sub:"planned in E3", heat:0, planned:true}
+  ];
+  const E=[["server","resets"],["server","users"],["server","mailer"],["resets","users"],["tests","resets"],["tests","users"],["server","limit"]];
+  const byId=Object.fromEntries(N.map(n=>[n.id,n])), w=200,h=64;
+  let s = E.map(([a,b])=>{ const A=byId[a],B=byId[b]; return `<path class="edge" d="M${A.x+w/2} ${A.y+h} C ${A.x+w/2} ${(A.y+h+B.y)/2}, ${B.x+w/2} ${(A.y+h+B.y)/2}, ${B.x+w/2} ${B.y}"/>`; }).join("");
+  s += `<rect class="scope" x="40" y="160" width="480" height="250" rx="16"/><text x="52" y="152" fill="#5aa9ff" font-size="12">E2 declared files</text>`;
+  s += N.map(n=>`<g class="mapnode" tabindex="0"><title>${n.nm}: ${n.sub}</title>
+     <rect x="${n.x}" y="${n.y}" width="${w}" height="${h}" rx="12" ${n.planned?'stroke-dasharray="5 5"':''} ${n.outside?'style="stroke:#ff5a5f"':''}/>
+     <circle class="heat" cx="${n.x+w-18}" cy="${n.y+18}" r="${4+n.heat*7}" fill="${n.outside?'#ff5a5f':'#5aa9ff'}" opacity="${n.heat?0.25+n.heat*0.6:0}"/>
+     <text class="nm" x="${n.x+16}" y="${n.y+28}">${n.nm}</text><text class="sub" x="${n.x+16}" y="${n.y+47}">${n.sub}</text></g>`).join("");
+  $("#mapsvg").innerHTML = s;
+  $("#files").innerHTML = FILES.map(f=>`<li><code>${f[0]}</code><span>${f[2]==="out"?'<span class="st flag">outside scope</span> ':''}<span class="num" style="color:var(--mist)">${f[1]}</span></span></li>`).join("");
+}
+
+function renderTiming(){
+  const max = Math.max(...TIMING.map(r=>r.fresh+r.cache));
+  $("#bars").innerHTML = TIMING.map(r=>{ const tot=r.fresh+r.cache;
+    return `<div class="bar" data-tip="${r.id} ${esc(r.name)}: ${r.fresh}k new tokens, ${r.cache}k from cache, about $${r.cost.toFixed(2)}, ${r.time}">
+      <span class="lbl"><b>${r.id}</b> <span style="color:var(--fog)">${esc(r.name)}</span></span>
+      <span class="track"><span class="fill" style="width:${r.fresh/max*100}%"></span><span class="fill cache" style="left:calc(${r.fresh/max*100}% + 2px);width:calc(${r.cache/max*100}% - 2px);border-radius:0 4px 4px 0"></span></span>
+      <span class="val num">${(tot/1000).toFixed(2)}M · $${r.cost.toFixed(2)}</span></div>`; }).join("");
+  $("#sessions").innerHTML = SESSIONS.map(s=>`<tr><td class="num" style="font-family:var(--mono);font-size:12.5px">${s[0]}</td><td>${s[1]}</td><td>${s[2]}</td><td class="r num">${s[3]}</td></tr>`).join("");
+  $("#pertask").innerHTML = PERTASK.map(r=>`<tr><td style="color:var(--fog)">${r[0]}</td><td>${r[1]}</td><td class="r num">${r[2]}</td><td class="r num">${r[3]}</td><td class="r num">${r[4]}</td></tr>`).join("");
+  const tt=$("#tt");
+  $("#bars").onmousemove = e=>{ const b=e.target.closest(".bar"); if(!b){tt.style.display="none";return;} tt.textContent=b.dataset.tip; tt.style.display="block"; tt.style.left=(e.clientX+14)+"px"; tt.style.top=(e.clientY+14)+"px"; };
+  $("#bars").onmouseleave = ()=> tt.style.display="none";
+}
+
+function renderGarage(q=""){
+  q=q.trim().toLowerCase();
+  $("#shelves").innerHTML = Object.entries(DOCS).map(([shelf,docs])=>{ const f=docs.filter(d=>!q || (d[0]+d[1]).toLowerCase().includes(q));
+    return `<div class="panel"><div class="pb shelf"><h2>${shelf}</h2>${f.length? f.map(d=>`<a class="doc" href="#" data-open=".boxbox/… ${esc(d[0])}"><div class="dt">${esc(d[0])}</div><div class="dd">${esc(d[1])}</div></a>`).join("") : `<div class="dd" style="color:var(--fog)">Nothing matches.</div>`}</div></div>`; }).join("");
+}
+$("#search").addEventListener("input", e=>renderGarage(e.target.value));
+
+/* ================= the "now" state ================= */
+const big = makeOrb($("#bigorb"), 260), radio = makeOrb($("#radioorb"), 20), brand = makeOrb($("#brandorb"), 28);
+brand.mode="orbits";
+function setNow(e){
+  const kd = KINDS[e.k], plain = e.what.replace(/<[^>]+>/g,"");
+  big.mode = radio.mode = kd.mode; big.ink = radio.ink = "#e9f1fb";
+  $("#halo").style.background = `radial-gradient(circle, ${kd.hue}, transparent 65%)`;
+  $("#n-kind").innerHTML = `<span style="color:${kd.hue}">${kd.label}</span>&nbsp;· ${KIND_DESC[e.k]}`;
+  $("#n-what").textContent = (e.k==="edit"?"Editing ":e.k==="read"?"Reading ":e.k==="test"?"Running ":e.k==="run"?"Running ":"") + plain;
+  $("#n-why").innerHTML = `<b>Why:</b> ${esc(e.why)}.`;
+  $("#r-what").textContent = $("#n-what").textContent; $("#r-why").textContent = e.why;
+}
+
+/* ================= pause, as it would really work ================= */
+/* Real build: the button asks the local server to create .boxbox/PAUSE.
+   A Claude Code PreToolUse hook (and the same check in the Boxbox skills for Codex)
+   refuses the next tool call while that file exists, so the agent stops before its next action. */
+let state = "running", step = 0;
+$("#pause").addEventListener("click", ()=>{
+  const btn=$("#pause");
+  if(state==="running"){ state="pending"; btn.dataset.state="pending"; $("#pauselbl").textContent="Pausing after this action"; toast("Pause requested. The agent stops before its next action."); }
+  else { state="running"; btn.dataset.state="running"; $("#pauselbl").textContent="Pause"; big.paused=radio.paused=false; setNow(events[events.length-1]); toast("Resumed. Say \"continue\" in the chat if the agent asked."); }
+});
+
+function tick(){
+  if(state==="pending"){ state="paused"; $("#pause").dataset.state="paused"; $("#pauselbl").textContent="Paused · resume";
+    big.paused = radio.paused = true; $("#n-kind").innerHTML = `<span style="color:var(--amber)">Paused</span>&nbsp;· by you`;
+    $("#n-what").textContent="Holding before the next action"; $("#n-why").innerHTML="<b>Next:</b> "+esc(SCRIPT[step%SCRIPT.length].why)+"."; $("#r-what").textContent="Paused by you"; $("#r-why").textContent="Holding before the next action"; return; }
+  if(state!=="running") return;
+  const s = SCRIPT[step % SCRIPT.length]; step++;
+  const m = 10 + step; const e = {...s, t:`${14+Math.floor(m/60)}:${String(m%60).padStart(2,"0")}`, fresh:true}; // sample clock, follows HISTORY
+  events.push(e); if(events.length>40) events.shift();
+  if(e.k==="test" && /passed/.test(e.res)){ $("#ro-tests").innerHTML = `${parseInt(e.res)} <small>of ${parseInt(e.res)} pass</small>`; }
+  if(e.k==="commit"){ const t=MILESTONES[0].epics[1].tasks.find(x=>x[2]==="prog"); if(t){ t[2]="ver"; const nx=MILESTONES[0].epics[1].tasks.find(x=>x[2]==="todo"); if(nx) nx[2]="prog"; lapbar(); renderBoard(); } }
+  const spend = 1.84 + step*0.013; $("#ro-spend").innerHTML = `${spend.toFixed(2)}M <small>tokens</small>`; $("#ro-cost").textContent = `about $${(4.10+step*0.03).toFixed(2)}, 71% from cache`;
+  setNow(e); renderFeeds(); renderLanes(e);
+}
+
+/* ================= routing ================= */
+function route(){
+  const v = (location.hash||"#pitwall").slice(1);
+  document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on", s.id==="v-"+v));
+  document.querySelectorAll("nav.views a").forEach(a=>{ if(a.dataset.v===v) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current"); });
+  if(!document.querySelector(".view.on")) $("#v-pitwall").classList.add("on");
+}
+addEventListener("hashchange", route);
+
+renderBoard(); lapbar(); renderFilters(); renderMap(); renderTiming(); renderGarage();
+setNow(SCRIPT[5]); renderFeeds(); renderLanes(null); route();
+requestAnimationFrame(frame);
+if(!reduce) setInterval(tick, 3200); else { requestAnimationFrame(frame); }
+</script>
+</body>
+</html>
