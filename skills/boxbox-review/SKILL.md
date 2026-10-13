@@ -11,7 +11,7 @@ Read `.boxbox/GUIDE.md`, `config.md` and `lessons.md` first.
 
 ## 1. Find the work
 
-1. If `.boxbox/` is missing, run **boxbox-setup** first.
+1. If `.boxbox/` is missing, run **boxbox-setup** first. Then tell the pit wall: `sh .boxbox/pitwall/say stage review --why "<the branch or pull request>"`.
 2. Work out what is under review. Default: the current branch against the main branch. Accept a branch name, a pull request number or a pull request URL (`gh pr view <n> --json headRefName,baseRefName,title,body,url`).
 3. Read what already describes it before the diff: the pull request body, plans or specs in `docs/`, decision records, earlier Boxbox pages (`context`, `plan`, `report`, `explained`). If you cannot tell which work is meant, ask one question.
 
@@ -38,7 +38,7 @@ Run the test, lint and type commands from `config.md` now (**boxbox-verify**) an
 
 ## 5. Write the review notes
 
-Write `.boxbox/reviews/<name>.md` for agents (`<name>` is the branch or pull request, lowercase-with-dashes):
+Say `stage review-notes`. Write `.boxbox/reviews/<name>.md` for agents (`<name>` is the branch or pull request, lowercase-with-dashes):
 
 ```
 # Review notes: <name>
@@ -84,7 +84,7 @@ Add a "Review" link for this work on the board: on its milestone if the work has
 
 Open the page and print its path. Open the code on GitHub: `gh pr view --web` if a pull request exists, otherwise `gh browse --branch <branch>`. If `gh` is missing, print the URL.
 
-Then stop. Offer, in one line each:
+Then run `sh .boxbox/pitwall/say ask "Review notes for <name> are ready" --kind unit` and stop. Offer, in one line each:
 
 - explain any part (**boxbox-explain**)
 - dig into the history of a choice (**boxbox-why**)

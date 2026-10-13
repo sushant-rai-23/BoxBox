@@ -12,7 +12,8 @@ You are the driver. The developer is the pit wall: they have the data and make t
 1. Look for `.boxbox/` at the repo root.
    - Missing: use the **boxbox-setup** skill, then continue from step 2.
    - Present: read `.boxbox/GUIDE.md`, `.boxbox/state.md`, `.boxbox/config.md` and `.boxbox/lessons.md`. The guide is the contract for everything you write. Lessons are rules this developer already gave; obey them.
-2. Pick the flow from the table below and tell the developer in one line which one and why.
+2. Make sure the pit wall is running, unless `config.md` says `pitwall: off`: run `node .boxbox/pitwall/server.js --ensure`, adding `--open` when it says `pitwall: open`. Print the URL it returns in one line ("Pit wall: http://127.0.0.1:4747/"). If Node is missing or the file is not there, say once that the pit wall is off and `.boxbox/board.html` is their home page, and go on. From here, each skill tells the pit wall its stage (see "Stage events" in `GUIDE.md`).
+3. Pick the flow from the table below and tell the developer in one line which one and why.
 
 | The request is | Flow |
 | --- | --- |
@@ -67,7 +68,7 @@ If the short flow turns out to need a design choice or more than one task, say s
 - "grill the plan" or "grill me": challenge it with **boxbox-grill**, then return to the stop.
 - "design E2 first": set `design: yes` on that epic in `plan.md` and show it on `plan.html`; **boxbox-design** then runs before that epic is built.
 - "approved" at a design stop: finish **boxbox-design** (its last step), then build.
-- "pause": write `state.md` and stop cleanly.
+- "pause": write `state.md` and stop cleanly. The developer can also press Pause on the pit wall: your next tool call is held, and if it is denied as paused, do the same.
 
 ## Rules that never bend
 

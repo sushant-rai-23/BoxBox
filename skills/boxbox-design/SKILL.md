@@ -9,7 +9,7 @@ Tasks say what will change. A design says what shape it will have. Getting the d
 
 This skill writes no feature code.
 
-Read `.boxbox/GUIDE.md`, `config.md`, and the feature's `context.md`, `plan.md` and decisions first.
+Read `.boxbox/GUIDE.md`, `config.md`, and the feature's `context.md`, `plan.md` and decisions first. Tell the pit wall: `sh .boxbox/pitwall/say stage design --unit <E2>`.
 
 ## 1. Find the shape
 
@@ -41,7 +41,7 @@ In the unit's folder, `.boxbox/<feature>/e1-<slug>/`:
 - `state.md`: `phase: design-review`, `unit: <id> todo`, `waiting_for_developer: yes`.
 - Open `design.html` and print its path.
 
-Ask: approve, or tell me what to change. Offer **boxbox-grill** if they want it challenged; after a grill, change the design here and stop again.
+Run `sh .boxbox/pitwall/say ask "Approve the design for <E2>" --kind design --stage design-review --unit <E2>`. Ask: approve, or tell me what to change. Offer **boxbox-grill** if they want it challenged; after a grill, change the design here and stop again.
 
 When approved:
 

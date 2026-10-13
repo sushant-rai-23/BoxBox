@@ -11,7 +11,7 @@ Read `.boxbox/GUIDE.md`, `config.md`, `glossary.md` and `lessons.md` first.
 
 ## 1. Name the feature
 
-Pick a short folder name, lowercase with dashes (`password-reset`), and a plain title ("Password reset"). Create `.boxbox/<feature>/`. Set `state.md`: `feature`, `phase: discover`, `branch: not created yet`.
+Pick a short folder name, lowercase with dashes (`password-reset`), and a plain title ("Password reset"). Create `.boxbox/<feature>/`. Set `state.md`: `feature`, `phase: discover`, `branch: not created yet`. Tell the pit wall: `sh .boxbox/pitwall/say stage discover --why "<the request in one line>"`.
 
 ## 2. Read the code
 
@@ -34,7 +34,7 @@ Code does not hold history, team rules, deadlines or who else is affected. Ask t
 
 List the technical ideas this feature needs (a library, a protocol, a pattern). Mark each `known` or `new` using `developer.known` and `developer.new` in `config.md`. When unsure, ask.
 
-Group the `new` concepts the developer must understand to decide or review into topics, and use the **boxbox-primer** skill to write one knowledge page per topic now, before any decision is asked. Related concepts share a page. Three pages at most for one feature; if it needs more, write the three that the decisions depend on and list the rest under "Go deeper".
+Group the `new` concepts the developer must understand to decide or review into topics, say `stage knowledge`, and use the **boxbox-primer** skill to write one knowledge page per topic now, before any decision is asked. Related concepts share a page. Three pages at most for one feature; if it needs more, write the three that the decisions depend on and list the rest under "Go deeper".
 
 ## 5. Check you have the skills for this feature
 
@@ -89,7 +89,7 @@ Add new project terms to `glossary.md`.
 
 ## 8. Update and continue
 
-- `board-data.js`: set `goal`, and add the milestone (id `M1` for the first, the feature title, status `in_progress`) with a link to the context page. Its epics come from the plan.
+- `board-data.js`: set `goal`, and add the milestone (id `M1` for the first, the feature title, status `in_progress`) with a link to the context page. Its epics come from the plan. Fill `modules` from what you read (format in `GUIDE.md` under "Board data"): the parts of the codebase, each with a name, its file globs and a one-line role, covering the whole repo and not only what this feature touches. Keep the modules already there; add or correct, do not rename.
 - `state.md`: `phase: decisions`.
 - Open `context.html` for the developer and print its path. Tell them in two lines what you found and that decisions come next.
 

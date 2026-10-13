@@ -9,6 +9,8 @@ The agent that wrote the code is the worst placed to judge it. A second pair of 
 
 ## 1. Get a separate reviewer
 
+For a Boxbox unit, tell the pit wall: `sh .boxbox/pitwall/say stage inspect --unit <E1>`. The reviewer subagent then shows in the Steward lane.
+
 **If your agent can run subagents:** start a fresh one as the reviewer. It must not see the build conversation. Give it only:
 
 - the diff: `git diff <base>...HEAD` (base is the feature branch for an epic, or the previous commit for a task)

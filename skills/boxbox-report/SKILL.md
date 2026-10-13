@@ -7,7 +7,9 @@ description: Write the report for a finished unit, open the code for the develop
 
 The developer must be able to read this page, understand the code, and decide with confidence. "If you cannot explain it, do not merge it" is the bar; this page is how they get there.
 
-Read `.boxbox/GUIDE.md` and `config.md` first. Create `.boxbox/<feature>/<unit>/`, named `e1-<slug>` with the same slug as the unit's branch.
+Read `.boxbox/GUIDE.md` and `config.md` first. Create `.boxbox/<feature>/<unit>/`, named `e1-<slug>` with the same slug as the unit's branch. Tell the pit wall: `sh .boxbox/pitwall/say stage report --unit <E1>`.
+
+Get the unit's cost and scope from the pit wall, if `.boxbox/pitwall/server.js` exists and Node is installed: `node .boxbox/pitwall/server.js --summary <E1>` prints a "Cost:" line (tokens, new versus cache, and an approximate cost from `prices.json`) and an "Edited outside scope:" line. It reads the session logs directly, so the server need not be running. Without it, leave both out; never estimate tokens or cost yourself.
 
 ## 1. Write report.md (for agents)
 
@@ -36,6 +38,12 @@ pr: <url or none>
 ## Not verified
 - <what could not be confirmed, and why>
 
+## Cost
+<the "Cost:" line from --summary, as printed>
+
+## Outside scope
+- <file edited outside the epic's files, and why>, or "none"
+
 ## Gotchas
 - <problem met>: <cause> -> <fix>
 
@@ -54,6 +62,8 @@ Copy `.boxbox/templates/report.html` and fill it following the page rules in `GU
 - **Gotchas are real ones** you hit, with cause and fix. No invented ones.
 - **Review note** comes from the separate reviewer's findings: what was checked, what was fixed, what was left alone and why. If the review was not independent, say so.
 - **Not verified** is honest. "Nothing" only if true.
+- **Cost**: the "Cost:" line, in the fact grid near the top. Say it is approximate.
+- **Outside scope**: every file from "Edited outside scope", each with why it had to change. Leave the section out when there are none.
 - **Check yourself**: two or three questions that test understanding of this unit, each with its answer folded. Ask about why and what-if, not trivia.
 - **Try it yourself**: the commands to run it by hand and the output to expect.
 - **Pending**: the next units and what each needs from the developer.
@@ -95,12 +105,13 @@ If a pull request URL only exists after pushing, add it to `board-data.js` and `
 
 Open `report.html` and print its path.
 
-Then stop. Say in three lines what was built, where the report and the code are, and what you need: approve, or tell me what to change.
+Then run `sh .boxbox/pitwall/say ask "Stop 2: review <unit id>" --kind unit --stage unit-review --unit <unit id>` and stop. Say in three lines what was built, where the report and the code are, and what you need: approve, or tell me what to change.
 
 ## 6. When the developer replies
 
 **They approve.**
 
+0. Tell the pit wall: `sh .boxbox/pitwall/say stage approved --unit <E1>`, and after the merge in step 1, `stage merged --unit <E1>`.
 1. Unit = epic: squash-merge the epic branch into the feature branch with the message `<E1> <title>` followed by the task list. Use the host's merge if a pull request is open (`gh pr merge --squash`), otherwise `git merge --squash`. Do not delete branches unless asked.
 2. Record the approval everywhere it shows:
    - `plan.md` and `plan.html`: the unit to `done`.

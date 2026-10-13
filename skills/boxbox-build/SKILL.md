@@ -30,11 +30,12 @@ From here until the review stop, `.boxbox/` changes stay uncommitted. Task commi
 
 ## For each task, in order
 
+0. **Check for a pause, then say the stage.** If `.boxbox/live/PAUSE` exists, the developer paused from the pit wall: update `state.md` (`next: continue <task id>`), say you are paused, and wait for "continue". Do not start the task. Otherwise run `sh .boxbox/pitwall/say stage build --unit <E1.2> --why "<the task's first test>"`.
 1. **Fresh context if you can.** If your agent can run subagents, give each task to a fresh one. Hand it only: the task line from `plan.md`, the epic's acceptance criteria and failure modes, the conventions and commands from `context.md`, the decisions that apply, and the rules of **boxbox-tdd**. Do not hand it this conversation. If you cannot run subagents, do the task yourself and re-read the task line before starting.
 2. **Test first.** Follow **boxbox-tdd**: write the test, watch it fail for the right reason, write the least code that passes.
 3. **Run every check.** The full test suite, the linter and the type checker from `config.md`. All green before you go on.
 4. **Commit.** One commit per task, holding that task's code and tests and nothing from `.boxbox/`: `E1.2: tokens expire after 15 minutes`. Never commit with a failing check.
-5. **Tick it off.** Mark the task done in `plan.md` and `plan.html` (`class="box done"`), and set its status and commit hash in `board-data.js`. Keep the epic's status tag on `plan.html` current. Leave these uncommitted.
+5. **Tick it off.** Mark the task done in `plan.md` and `plan.html` (`class="box done"`), and set its status and commit hash in `board-data.js`. Keep the epic's status tag on `plan.html` current. Leave these uncommitted. Set it to `done`, never "verified": the pit wall marks it verified only if it saw the passing test run itself after the task's last edit.
 
 A task with no cheap test: do it, verify it the way the plan says, and record exactly what you observed.
 
@@ -45,6 +46,7 @@ A task with no cheap test: do it, verify it the way the plan says, and record ex
 - A task is much bigger than planned, an acceptance criterion cannot be met, or tasks need adding or removing: stop. Tell the developer what you found and re-plan that epic with **boxbox-plan**. Do not push through.
 - You need to do something on the "Ask first, always" list in `GUIDE.md`: stop and ask.
 - You see something worth doing outside the task: add it under "Later" in `plan.md` and move on.
+- You must edit a file outside the epic's `files`: do it only if the task needs it, and say so in the report. The pit wall flags it for the developer either way.
 - A new decision comes up: if it is easy to change, choose, and record it as a default the same way. Otherwise stop and ask it like any other decision, and add its card to `decisions.html`.
 
 ## When all tasks in the unit are done

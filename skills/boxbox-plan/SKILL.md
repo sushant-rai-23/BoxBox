@@ -17,7 +17,7 @@ Read `.boxbox/GUIDE.md`, `config.md`, `lessons.md`, and `.boxbox/<feature>/conte
 - A larger feature usually splits into two to four epics along what a person does ("ask for a reset email", "set a new password with the link"), never along layers ("the model", "the API").
 - Order epics so each can ship without the next.
 - Give each a short slug; its branch is `<feature>-e1-<slug>` and its report folder is `e1-<slug>`.
-- Each epic has a one-line outcome, acceptance criteria that can be checked, what it depends on, and the failure modes from the context that it must handle.
+- Each epic has a one-line outcome, acceptance criteria that can be checked, what it depends on, the failure modes from the context that it must handle, and the files it expects to touch, as globs, tests included. The pit wall flags any edit outside them, so list what the epic really needs, not every file in the module.
 
 If the request holds several groups of features with different outcomes, make several milestones, each with its own epics. Plan the first milestone in detail and the later ones as one line each.
 
@@ -37,6 +37,8 @@ If the request holds several groups of features with different outcomes, make se
 The request may come with a suggested list. Treat it as input. Regroup it if the code shows a better split, and say why.
 
 ## 2. Collect the decisions
+
+Tell the pit wall: `sh .boxbox/pitwall/say stage decisions`.
 
 List every choice the code and the request do not settle. For each, judge how hard it is to change later: `easy`, `costly`, or `cannot be undone`.
 
@@ -67,7 +69,7 @@ Open the page and tell the developer: "N decisions need you. The page has the re
 
 ## 4. Ask one at a time
 
-Ask each decision as a single question with the options and your recommendation first. Use your agent's question tool if it has one. Never ask two in one message.
+Ask each decision as a single question with the options and your recommendation first. Use your agent's question tool if it has one. Never ask two in one message. Right before each one, run `sh .boxbox/pitwall/say ask "D3: <the question>" --kind decision`, so the pit wall shows it as "your move".
 
 The developer can:
 
@@ -85,6 +87,8 @@ If an answer changes the split, change it and say what moved.
 Record the defaults that stand in `decisions.md` too, with their A ids and `agent (default)`.
 
 ## 5. Write the plan
+
+Tell the pit wall: `sh .boxbox/pitwall/say stage plan`.
 
 **`.boxbox/<feature>/plan.md`** (for agents):
 
@@ -104,6 +108,7 @@ outcome: <what a person can use or verify>
 branch: <feature>-e1-<slug>
 depends: <none | E0>
 design: no | yes, because <reason>
+files: <globs this epic expects to touch, tests included: src/resets.js, test/resets.test.js>
 accept:
 - <checkable criterion>
 fails:
@@ -123,11 +128,11 @@ tasks:
 
 ## 6. Update and stop
 
-- `board-data.js`: every epic and task with status `todo`, links to context, decisions and plan, and `waiting` set to "Approve the plan" with a link to `plan.html`.
+- `board-data.js`: every epic and task with status `todo`, each epic's `files` from `plan.md`, links to context, decisions and plan, and `waiting` set to "Approve the plan" with a link to `plan.html`. If `modules` is empty (discover was skipped), fill it now.
 - `state.md`: `phase: plan-review`, `waiting_for_developer: yes`, `next: build E1 after approval`.
 - Open `plan.html` and print its path.
 
-Then stop. Say what the plan is in three lines, name the first unit, and ask for "go" or changes. Remind them they can change the unit of control, reorder epics, or add or remove a design stop now. If the plan holds a decision that is costly or cannot be undone, offer to challenge it first: "say 'grill the plan' if you want me to try to break it".
+Then run `sh .boxbox/pitwall/say ask "Stop 1: approve the plan" --kind plan --stage plan-review` and stop. Say what the plan is in three lines, name the first unit, and ask for "go" or changes. Remind them they can change the unit of control, reorder epics, or add or remove a design stop now. If the plan holds a decision that is costly or cannot be undone, offer to challenge it first: "say 'grill the plan' if you want me to try to break it".
 
 **Do not write feature code until the developer approves.** When they do: set `approved: yes, <date>` in `plan.md`, update `state.md` (`last_approved`, `phase: build`, `unit: E1 todo`, `waiting_for_developer: no`), change the pill and the approval note on `plan.html` as its comments describe, clear `waiting` on the board, and continue with the **boxbox-build** skill for the first unit.
 

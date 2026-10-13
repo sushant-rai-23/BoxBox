@@ -9,6 +9,8 @@ Find the cause, tell the developer, then fix it. A fix without a known cause is 
 
 ## 1. Reproduce
 
+If the repo has `.boxbox/`, tell the pit wall: `sh .boxbox/pitwall/say stage debug --why "<the symptom in one line>"`.
+
 Get the failure to happen on demand with one command, and write that command down. If you cannot reproduce it, say so and gather more facts: exact error, logs, inputs, what changed recently (`git log`, `git diff`).
 
 ## 2. Read before you theorise

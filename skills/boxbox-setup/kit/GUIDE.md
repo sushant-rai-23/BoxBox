@@ -13,7 +13,7 @@ This file is the contract for the `.boxbox/` folder. Every Boxbox skill reads it
 5. **Small tested slices.** Every task names its first test before any code is written.
 6. **Update the board.** After each task and at the end of each skill, rewrite `board-data.js` and `state.md` so they are true.
 7. **Stay inside the task.** Anything else worth doing goes under "Later" in the plan.
-8. **Never claim what you did not check.** Say what was verified and what was not.
+8. **Never claim what you did not check.** Say what was verified and what was not. The pit wall marks a task "verified" only from a test run it saw itself (see "Observed and claimed").
 
 ## Ask first, always
 
@@ -40,6 +40,8 @@ Whatever the decision level, ask before any of these:
   lessons.md          corrections from the developer and the rule each became
   assets/             style.css and page.js. Fixed; never edit them
   templates/          page skeletons to copy. Fixed; refreshed from the kit by boxbox-setup
+  pitwall/            the live pit wall: server.js, index.html, orbs.js, prices.json, say. Fixed, except prices.json
+  live/               written by the hooks and the pit wall while you work. Local only; never committed
   knowledge/<topic>.html
   explained/<feature>.html    how an existing feature works, written on request
   reviews/<name>.md  reviews/<name>.html    notes for a person reviewing work they did not build
@@ -87,6 +89,8 @@ window.BOXBOX_BOARD = {
   "waiting": { "what": "Review E1", "detail": "Report and pull request are open.",
                "label": "Open report", "href": "password-reset/e1-request-reset/report.html" },
   "knowledge": [ { "title": "Job queues", "href": "knowledge/job-queues.html" } ],
+  "modules": [ { "name": "Reset tokens", "files": ["src/resets.js"], "role": "Creates and checks one-time reset tokens." },
+               { "name": "Tests", "files": ["test/**"], "role": "Node test runner suites." } ],
   "milestones": [ {
     "id": "M1", "title": "Password reset", "goal": "Users can reset a password by email.",
     "status": "in_progress",
@@ -96,6 +100,7 @@ window.BOXBOX_BOARD = {
     "epics": [ {
       "id": "E1", "title": "Request a reset email", "outcome": "A known email gets a reset email with a one-time token.",
       "status": "review", "branch": "password-reset-e1-request-reset",
+      "files": ["src/resets.js", "src/server.js", "test/resets.test.js"],
       "pr": "https://github.com/org/repo/pull/12",
       "links": [ { "label": "Report", "href": "password-reset/e1-request-reset/report.html" } ],
       "tasks": [ { "id": "E1.1", "title": "Create and store a hashed token",
@@ -111,6 +116,48 @@ window.BOXBOX_BOARD = {
 - Links are relative to `.boxbox/`. Only link a page that exists.
 - `href` values are relative paths or `http(s)://` URLs. Nothing else.
 - Keep the comment lines at the top of the file. Fill `goal` when the first feature is discovered.
+- `modules`: the parts of the codebase, each with a plain `name`, the `files` globs it covers, and a one-line `role`. boxbox-discover fills it; the pit wall's Map draws it. Five to twelve modules for most repos.
+- `files` on an epic: the globs it expects to touch, tests included (`src/resets.js`, `test/**`). boxbox-plan fills it. The pit wall flags any edit outside the current epic's `files`, marks an approved epic "changed after approval" when one of its files is edited later, and shows the plan as behind when edited files match no epic.
+
+## The pit wall and the live folder
+
+The pit wall is a local page (`node .boxbox/pitwall/server.js`, on `127.0.0.1` only) that shows the developer what the agent is doing, where the work stands, what waits on them, and what it costs. Hooks feed it every tool call; the skills feed it the stage they are in. Nothing leaves the machine.
+
+`.boxbox/live/` holds its data: `events.jsonl` (one line per action or stage, never file contents, prompt text or command output), `sessions.jsonl`, `stage.json`, `waiting.json`, and `PAUSE` while the developer has paused. It is listed in the repo's `.gitignore` and is never committed.
+
+**Pause.** While `.boxbox/live/PAUSE` exists, the hook holds your next tool call. If the developer resumes, the call runs and you notice nothing. If they do not, after about nine minutes the call is denied with the message "The developer paused Boxbox from the pit wall...": then stop, update `state.md`, say you are paused, and wait for "continue". boxbox-build also checks for `PAUSE` before each task.
+
+## Stage events
+
+At the start of each skill and at each step below, tell the pit wall where you are with one short command. Run it as it is, on its own: no `&&`, no pipes, no redirects, and the relative path as shown, so it runs without a permission prompt. The same goes for `node .boxbox/pitwall/server.js`. Say nothing about it in the chat, and if `.boxbox/pitwall/say` does not exist (Cursor, an older repo), skip it.
+
+```
+sh .boxbox/pitwall/say stage <stage> [--unit E2.3] [--why "<one line>"]
+sh .boxbox/pitwall/say ask "<what you need>" [--kind decision|plan|design|unit|setup] [--stage <stage>]
+```
+
+Use `ask` whenever you stop for the developer: each decision card (`"D3: how strict should rate limiting be?"`), stop 1, a design stop, stop 2, a setup question. It shows a full-width "Your move: answer in chat" bar until their next message.
+
+| Stage | When |
+| --- | --- |
+| `setup`, `learn-repo`, `install-skills` | boxbox-setup, steps 1, 2 and 4 |
+| `discover`, `knowledge` | boxbox-discover; `knowledge` while writing knowledge pages |
+| `decisions`, `plan`, `plan-review` | boxbox-plan: asking decisions, writing the plan, stop 1 |
+| `design`, `design-review` | boxbox-design and its stop, with `--unit` |
+| `build` | boxbox-build, once per task, with `--unit E1.2 --why "<the task's first test>"` |
+| `verify`, `inspect`, `report`, `unit-review` | the end of a unit, with `--unit`; `unit-review` is stop 2 |
+| `approved`, `merged` | after the developer approves, and after the squash-merge |
+| `debug` | boxbox-debug |
+| `explain`, `explain-check`, `explain-board` | boxbox-explain for finished work: reading, checking, the board |
+| `review`, `review-notes` | boxbox-review |
+
+Tokens are counted per unit by these stages: everything between `build --unit E2.3` and the next stage belongs to E2.3.
+
+If a skill forgets to say its stage, the hook infers one from the Boxbox page being written (context, decisions, plan, design, report) and marks it "inferred". It only moves the flow forward or to a new unit. Say the stage anyway: an inferred stage comes late, so tokens before it land in the previous unit.
+
+## Observed and claimed
+
+When you run the test command from `config.md`, the hook records the result it saw. A task shows as **verified** on the pit wall only when a passing run it observed came after the task's last edit. A task you marked done without such a run shows as **claimed**. Do not write "verified" on the board yourself; set the task to `done` and let the pit wall decide. If the pit wall shows "claimed" for a task you believe is tested, run the test command again.
 
 ## Pages
 
@@ -183,6 +230,7 @@ models:            # optional; only if the agent lets you choose
   plan: <model>
   build: <model>
   report: <model>
+pitwall: open | start | off   # open the pit wall in the browser at session start, start it without opening, or no pit wall
 skills:            # stack skills in use for this repo, or "none"
   - <name>: installed from <source> | written for this repo, at <path>
 ```
@@ -226,5 +274,6 @@ notes: <anything a fresh session must know>
 - `push: no` or no remote: do not push. Show `git diff <feature>...<epic branch> --stat -- . ':!.boxbox'` and tell the developer how to view the full diff.
 - The pull request from the feature branch into main is the developer's to open.
 - **`.boxbox/` files are committed separately from code, at these moments only.** (1) When the feature branch is created: one commit, `Boxbox: plan for <feature>`, with the whole `.boxbox/` folder and the agent instruction file setup touched. (2) At each review stop: one commit on the unit's branch, `<E1>: report and board`, with the report and every board, plan and state change made during the unit. (3) After an approval: one commit on the feature branch, `<E1>: approved`. (4) After work outside a unit build changed the records (a design approved, a decision changed by a grill or a prototype, a lesson added): one commit on the feature branch, `Boxbox: <what changed>`. Between those moments `.boxbox/` changes stay uncommitted; that is expected and is not a dirty tree. The squash-merge of an approved epic naturally folds its code and its report into one commit on the feature branch; that is intended.
+- **`.boxbox/live/` is never committed.** It is in the repo's `.gitignore` (setup adds it). If it ever shows in `git status`, add the line back; never stage it.
 - When showing a diff to the developer, leave the bookkeeping out: `git diff <base>...<branch> -- . ':!.boxbox'`.
 - Pull request descriptions say the unit was built by an agent with Boxbox, and link the report.

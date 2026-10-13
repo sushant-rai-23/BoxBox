@@ -9,6 +9,8 @@ description: Prove that work is done by running it, before saying so. Use before
 
 ## For a unit
 
+Tell the pit wall: `sh .boxbox/pitwall/say stage verify --unit <E1>`. Run the test command exactly as `config.md` writes it, so the pit wall sees the run and can mark the tasks verified.
+
 Go through the epic's `accept` and `fails` lists in `plan.md`. For each line, produce evidence:
 
 | Claim | Evidence that counts | Evidence that does not |
