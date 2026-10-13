@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Boxbox live hook, one script for every live event (Claude Code and Codex).
+#   bash boxbox-event <HookEventName>   (hook JSON on stdin)
+# No .boxbox/ in this repo: exit at once, log nothing.
+# PreToolUse while .boxbox/live/PAUSE exists: hold the call, polling every second.
+#   PAUSE removed (Resume)      -> allow, the agent never notices
+#   limit reached, or any error -> deny (exit 2, reason on stderr). Fails closed.
+# Everything else is logged by boxbox-event.js in the background, so the agent never waits on it.
+set -u
+event="${1:-}"
+
+d="${CLAUDE_PROJECT_DIR:-$PWD}"
+while [ ! -d "$d/.boxbox" ]; do
+  if [ -e "$d/.git" ] || [ -z "$d" ] || [ "$d" = "/" ]; then exit 0; fi
+  d="${d%/*}"
+done
+root="$d"
+live="$root/.boxbox/live"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+input="$(cat)"
+
+if [ "$event" = "PreToolUse" ] && [ -e "$live/PAUSE" ]; then
+  limit="${BOXBOX_PAUSE_LIMIT:-540}"
+  deny() {
+    printf '%s\n' "The developer paused Boxbox from the pit wall. Stop here, update state.md, say you are paused, and wait for them to say continue." >&2
+    rm -f "$live/held" 2>/dev/null
+    exit 2
+  }
+  trap deny ERR INT TERM HUP
+  date +%s > "$live/held" || deny
+  i=0
+  while :; do
+    if [ ! -e "$live/PAUSE" ]; then break; fi   # the only way out that allows the call
+    if [ "$i" -ge "$limit" ]; then deny; fi
+    sleep 1 || deny
+    i=$((i + 1))
+  done
+  trap - ERR INT TERM HUP
+  rm -f "$live/held"
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+  if [ "$event" = "SessionStart" ]; then
+    printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"Boxbox pit wall is off: Node.js 18+ was not found. Tell the developer once, and use .boxbox/board.html as their home page."}}'
+  fi
+  exit 0
+fi
+
+# SessionStart prints context; a pit wall command from Claude Code may be pre-approved. Both wait for node.
+if [ "$event" = "SessionStart" ] || { [ "$event" = "PreToolUse" ] && [[ "$input" == *'.boxbox/pitwall/'* ]] && [[ "$input" != *'"turn_id"'* ]]; }; then
+  printf '%s' "$input" | BOXBOX_ROOT="$root" node "$here/boxbox-event.js" "$event"
+else
+  ( printf '%s' "$input" | BOXBOX_ROOT="$root" node "$here/boxbox-event.js" "$event" >/dev/null 2>&1 & )
+fi
+exit 0

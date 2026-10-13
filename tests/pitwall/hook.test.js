@@ -1,0 +1,211 @@
+// Tests for hooks/boxbox-event.js: the pure parts of the live hook.
+// Run: node --test tests/pitwall/
+"use strict";
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const h = require("../../hooks/boxbox-event.js");
+
+test("masks secrets in commands", () => {
+  assert.equal(h.maskSecrets("curl -H 'Authorization: Bearer abc.def.ghi' x"), "curl -H 'Authorization: Bearer ***' x");
+  assert.equal(h.maskSecrets("API_KEY=sk-1234567890abcdefXYZ npm start"), "API_KEY=*** npm start");
+  assert.equal(h.maskSecrets("git push https://me:hunter2@github.com/a/b"), "git push https://***@github.com/a/b");
+  assert.equal(h.maskSecrets("export GITHUB_TOKEN=ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), "export GITHUB_TOKEN=***");
+  assert.equal(h.maskSecrets("mysql --password=secret -u root"), "mysql --password=*** -u root");
+  assert.equal(h.maskSecrets("npm test"), "npm test");
+});
+
+test("parses test runner summaries", () => {
+  assert.deepEqual(h.parseTestSummary("Tests:       1 failed, 14 passed, 15 total"), { passed: 14, failed: 1 });
+  assert.deepEqual(h.parseTestSummary("===== 5 passed, 2 failed in 0.3s ====="), { passed: 5, failed: 2 });
+  assert.deepEqual(h.parseTestSummary("  14 passing (32ms)\n  1 failing"), { passed: 14, failed: 1 });
+  assert.deepEqual(h.parseTestSummary("# tests 9\n# pass 9\n# fail 0"), { passed: 9, failed: 0 });
+  assert.deepEqual(h.parseTestSummary("ℹ tests 1\nℹ pass 0\nℹ fail 1\nℹ cancelled 0"), { passed: 0, failed: 1 }, "node --test spec reporter");
+  assert.deepEqual(h.parseTestSummary("test result: ok. 12 passed; 0 failed; 0 ignored"), { passed: 12, failed: 0 });
+  assert.deepEqual(h.parseTestSummary("===== 3 passed in 0.1s ====="), { passed: 3, failed: 0 });
+  assert.equal(h.parseTestSummary("everything is fine"), null);
+});
+
+test("finds edited paths in an apply_patch body", () => {
+  const patch = [
+    "*** Begin Patch",
+    "*** Update File: src/resets.js",
+    "@@", "-a", "+b",
+    "*** Add File: test/resets.test.js",
+    "+x",
+    "*** Delete File: old.js",
+    "*** Update File: src/a.js",
+    "*** Move to: src/b.js",
+    "*** End Patch"
+  ].join("\n");
+  assert.deepEqual(h.patchPaths(patch), ["src/resets.js", "test/resets.test.js", "old.js", "src/a.js", "src/b.js"]);
+});
+
+test("classifies Claude Code tools", () => {
+  const root = "/r";
+  assert.deepEqual(h.classify("Read", { file_path: "/r/src/a.js" }, { root }), { kind: "read", target: "src/a.js" });
+  assert.deepEqual(h.classify("Grep", { pattern: "scryptSync" }, { root }), { kind: "search", target: "scryptSync" });
+  assert.deepEqual(h.classify("Edit", { file_path: "/r/src/a.js" }, { root }), { kind: "edit", target: "src/a.js" });
+  assert.deepEqual(h.classify("Write", { file_path: "/r/.boxbox/f/plan.html" }, { root }), { kind: "page", target: ".boxbox/f/plan.html" });
+  assert.deepEqual(h.classify("WebSearch", { query: "timingSafeEqual" }, { root }), { kind: "web", target: "timingSafeEqual" });
+  assert.deepEqual(h.classify("Skill", { skill: "boxbox-plan" }, { root }), { kind: "skill", target: "boxbox-plan" });
+  assert.deepEqual(h.classify("Agent", { description: "Implement E1.2" }, { root }), { kind: "crew", target: "Implement E1.2" });
+  assert.deepEqual(h.classify("TodoWrite", {}, { root }), { kind: "think", target: "updating the to-do list" });
+  assert.deepEqual(h.classify("AskUserQuestion", { questions: [{ question: "Pick one?" }] }, { root }), { kind: "wait", target: "Pick one?" });
+});
+
+test("classifies shell commands, including Codex's Bash", () => {
+  const o = { root: "/r", testCommand: "npm test" };
+  assert.equal(h.classify("Bash", { command: "npm test" }, o).kind, "test");
+  assert.equal(h.classify("Bash", { command: "npm test -- resets" }, o).kind, "test");
+  assert.equal(h.classify("Bash", { command: "git commit -m 'E1.2: x'" }, o).kind, "commit");
+  assert.equal(h.classify("Bash", { command: "rg scrypt src" }, o).kind, "search");
+  assert.equal(h.classify("Bash", { command: "sed -n 1,80p src/a.js" }, o).kind, "read");
+  assert.equal(h.classify("Bash", { command: "git diff --stat" }, o).kind, "run");
+  assert.equal(h.classify("apply_patch", { command: "*** Begin Patch\n*** Update File: src/a.js\n" }, o).kind, "edit");
+  assert.equal(h.classify("apply_patch", { command: "*** Begin Patch\n*** Update File: src/a.js\n" }, o).target, "src/a.js");
+  assert.equal(h.classify("spawn_agent", { message: "review" }, o).kind, "crew");
+});
+
+test("says and skill installs are recognised", () => {
+  assert.equal(h.isSayCommand("sh .boxbox/pitwall/say stage plan --why x"), true);
+  assert.equal(h.isSayCommand("npm test"), false);
+});
+
+test("edited paths come from Edit, Write and apply_patch, relative and outside .boxbox", () => {
+  const root = "/r";
+  assert.deepEqual(h.editedPaths("Edit", { file_path: "/r/src/a.js" }, root), ["src/a.js"]);
+  assert.deepEqual(h.editedPaths("Write", { file_path: "/r/.boxbox/state.md" }, root), []);
+  assert.deepEqual(h.editedPaths("Write", { file_path: "/elsewhere/x.js" }, root), []);
+  assert.deepEqual(h.editedPaths("apply_patch", { command: "*** Update File: src/a.js\n*** Add File: /r/src/c.js\n" }, root), ["src/a.js", "src/c.js"]);
+  assert.deepEqual(h.editedPaths("Read", { file_path: "/r/src/a.js" }, root), []);
+});
+
+test("Claude Code test outcomes: PostToolUse is a pass, PostToolUseFailure a fail", () => {
+  const pass = h.testOutcome("PostToolUse", { tool_response: { stdout: "Tests: 14 passed, 14 total", stderr: "" } }, "claude-code");
+  assert.deepEqual(pass, { status: "pass", observed: true, passed: 14, failed: 0, exit: 0 });
+  const passNoCounts = h.testOutcome("PostToolUse", { tool_response: { stdout: "ok", stderr: "" } }, "claude-code");
+  assert.deepEqual(passNoCounts, { status: "pass", observed: true, exit: 0 });
+  const fail = h.testOutcome("PostToolUseFailure", { error: "Exit code 1\nTests: 1 failed, 14 passed, 15 total" }, "claude-code");
+  assert.deepEqual(fail, { status: "fail", observed: true, passed: 14, failed: 1, exit: 1 });
+});
+
+test("Codex test outcomes are observed only when a summary parses", () => {
+  assert.deepEqual(h.testOutcome("PostToolUse", { tool_response: "  14 passing\n" }, "codex"), { status: "pass", observed: true, passed: 14, failed: 0 });
+  assert.deepEqual(h.testOutcome("PostToolUse", { tool_response: { output: "Tests: 2 failed, 3 passed" } }, "codex"), { status: "fail", observed: true, passed: 3, failed: 2 });
+  assert.deepEqual(h.testOutcome("PostToolUse", { tool_response: "done" }, "codex"), { status: "unknown", observed: false });
+});
+
+test("result lines never carry output, only sizes", () => {
+  assert.equal(h.resultLine("Read", { tool_response: { file: { numLines: 84, content: "secret" } } }), "84 lines");
+  assert.equal(h.resultLine("Edit", { tool_response: { structuredPatch: [{ lines: ["-a", "+b", "+c", " d"] }] } }), "+2 −1");
+  assert.equal(h.resultLine("Bash", { tool_response: { stdout: "hello secret", stderr: "" } }), "ok");
+});
+
+test("detects the agent and the lane", () => {
+  assert.equal(h.detectAgent({ turn_id: "t1" }), "codex");
+  assert.equal(h.detectAgent({ transcript_path: "/Users/x/.codex/sessions/2026/10/13/rollout-a.jsonl" }), "codex");
+  assert.equal(h.detectAgent({ transcript_path: "/Users/x/.claude/projects/p/s.jsonl" }), "claude-code");
+  assert.equal(h.laneFor({}, ""), "driver");
+  assert.equal(h.laneFor({ agent_id: "a1", agent_type: "general-purpose" }, "build"), "crew");
+  assert.equal(h.laneFor({ agent_id: "a1", agent_type: "code-reviewer" }, "build"), "steward");
+  assert.equal(h.laneFor({ agent_id: "a1", agent_type: "general-purpose" }, "inspect"), "steward");
+});
+
+test("reads the test command and pitwall setting from config.md", () => {
+  const cfg = "# Boxbox config\nproject: x\ncommands:\n  test: npm test\n  lint: none\npitwall: start\n";
+  assert.deepEqual(h.parseConfig(cfg), { testCommand: "npm test", pitwall: "start" });
+  assert.deepEqual(h.parseConfig("commands:\n  test: none\n"), { testCommand: "", pitwall: "open" });
+});
+
+test("pit wall commands are pre-approved only when the repo's script is the plugin's own copy", () => {
+  const fs = require("fs"), os = require("os"), path = require("path");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbapprove-"));
+  const kit = fs.mkdtempSync(path.join(os.tmpdir(), "bbkit-"));
+  fs.mkdirSync(path.join(root, ".boxbox", "pitwall"), { recursive: true });
+  for (const f of ["say", "server.js"]) {
+    fs.writeFileSync(path.join(kit, f), "trusted " + f);
+    fs.writeFileSync(path.join(root, ".boxbox", "pitwall", f), "trusted " + f);
+  }
+  const ok = c => h.approvalFor(c, root, kit);
+
+  // allowed: the plain forms only
+  assert.equal(ok('sh .boxbox/pitwall/say stage build --unit E1.2 --why "a token older than 30 minutes is refused"'), true);
+  assert.equal(ok("sh .boxbox/pitwall/say ask 'D3: how strict?' --kind decision"), true);
+  assert.equal(ok(`sh ${root}/.boxbox/pitwall/say stage setup --why "x"`), true, "absolute path to this repo");
+  assert.equal(ok("node .boxbox/pitwall/server.js --ensure"), true);
+  assert.equal(ok("node .boxbox/pitwall/server.js --ensure --open"), true);
+  assert.equal(ok("node .boxbox/pitwall/server.js --summary E2.3"), true);
+
+  // rejected: each operator, anywhere in the command, quoted or not
+  const rejected = {
+    "&&": "sh .boxbox/pitwall/say stage plan && rm -rf ~",
+    "||": "sh .boxbox/pitwall/say stage plan || rm -rf ~",
+    ";": "sh .boxbox/pitwall/say stage plan; rm -rf ~",
+    "|": "sh .boxbox/pitwall/say stage plan | sh",
+    "$( )": 'sh .boxbox/pitwall/say stage plan --why "$(whoami)"',
+    "backticks": "sh .boxbox/pitwall/say stage plan --why `whoami`",
+    "> redirect": "node .boxbox/pitwall/server.js --ensure > /tmp/x",
+    "< redirect": "node .boxbox/pitwall/server.js --ensure < /tmp/x",
+    "2>&1": "node .boxbox/pitwall/server.js --summary E1 2>&1",
+    "newline": "sh .boxbox/pitwall/say stage plan\nrm -rf ~",
+    "; inside quotes": 'sh .boxbox/pitwall/say stage plan --why "a; b"',
+    "$VAR": "sh .boxbox/pitwall/say stage plan --why $HOME",
+    "background &": "node .boxbox/pitwall/server.js --ensure &"
+  };
+  for (const [name, cmd] of Object.entries(rejected)) assert.equal(ok(cmd), false, name);
+
+  // rejected: anything but the plain forms
+  assert.equal(ok("sh .boxbox/pitwall/say"), false, "say needs stage or ask");
+  assert.equal(ok("sh .boxbox/pitwall/say rm x"), false, "unknown verb");
+  assert.equal(ok("node .boxbox/pitwall/server.js"), false, "bare server.js runs a server: not pre-approved");
+  assert.equal(ok("node .boxbox/pitwall/server.js --box /etc --ensure"), false, "no other flags");
+  assert.equal(ok("node .boxbox/pitwall/server.js --summary E1 --open"), false);
+  assert.equal(ok("sh /elsewhere/.boxbox/pitwall/say stage x"), false, "another repo's script");
+  assert.equal(ok("sh ../.boxbox/pitwall/say stage x"), false, "relative prefix");
+  assert.equal(ok("env X=1 sh .boxbox/pitwall/say stage x"), false);
+
+  // rejected: a script the repo changed
+  fs.writeFileSync(path.join(root, ".boxbox", "pitwall", "say"), "changed by the repo");
+  assert.equal(ok("sh .boxbox/pitwall/say stage build"), false, "a modified script is never pre-approved");
+});
+
+test("stage is inferred from the Boxbox page being written when say was never called", () => {
+  const fs = require("fs"), os = require("os"), path = require("path");
+  const server = require("../../skills/boxbox-setup/kit/pitwall/server.js");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbinfer-"));
+  fs.mkdirSync(path.join(root, ".boxbox", "live"), { recursive: true });
+  const live = path.join(root, ".boxbox", "live");
+  const write = (rel, event = "PostToolUse") => h.main(event, JSON.stringify({
+    session_id: "s1", transcript_path: "/x/.claude/p.jsonl", tool_name: "Write",
+    tool_input: { file_path: path.join(root, rel), content: "x" }, tool_use_id: "t" + rel, tool_response: {}
+  }), root);
+  const events = () => fs.readFileSync(path.join(live, "events.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+  const stage = () => JSON.parse(fs.readFileSync(path.join(live, "stage.json"), "utf8"));
+
+  write(".boxbox/password-reset/plan.md");
+  assert.equal(stage().stage, "plan");
+  assert.equal(stage().inferred, true);
+  const ev = events().filter(e => e.type === "stage");
+  assert.equal(ev.length, 1);
+  assert.equal(ev[0].target, "plan");
+  assert.equal(ev[0].inferred, true);
+  assert.equal(server.currentStage(stage(), events()).stage, "plan", "the pit wall shows the plan stage");
+
+  // a report for a unit carries the unit from its folder
+  write(".boxbox/password-reset/e2-set-password/report.html");
+  assert.deepEqual([stage().stage, stage().unit], ["report", "E2"]);
+  write(".boxbox/password-reset/e1-2-expiry/design.md");
+  assert.deepEqual([stage().stage, stage().unit], ["design", "E1.2"], "task-level unit folder");
+});
+
+test("an inferred stage never moves the flow backwards within the same unit", () => {
+  const fs = require("fs"), os = require("os"), path = require("path");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbinfer2-"));
+  const live = path.join(root, ".boxbox", "live");
+  fs.mkdirSync(live, { recursive: true });
+  fs.writeFileSync(path.join(live, "stage.json"), JSON.stringify({ stage: "build", unit: "E1.1", why: "", ts: new Date(Date.now() - 1000).toISOString() }));
+  h.main("PostToolUse", JSON.stringify({ session_id: "s1", tool_name: "Edit", tool_input: { file_path: path.join(root, ".boxbox/f/plan.md") }, tool_use_id: "a", tool_response: {} }), root);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(live, "stage.json"), "utf8")).stage, "build", "ticking a task in plan.md mid-build is not the plan stage");
+  h.main("PostToolUse", JSON.stringify({ session_id: "s1", tool_name: "Write", tool_input: { file_path: path.join(root, ".boxbox/f/e1-x/report.md"), content: "x" }, tool_use_id: "b", tool_response: {} }), root);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(live, "stage.json"), "utf8")).stage, "report", "forward is fine");
+});
