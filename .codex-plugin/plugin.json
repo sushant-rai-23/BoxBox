@@ -1,12 +1,12 @@
 {
   "name": "boxbox",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Developer-in-control agentic coding: plan, decide with context, build one tested unit at a time, review each with a teaching report.",
   "author": { "name": "Sushant Rai" },
   "license": "MIT",
   "keywords": ["skills", "planning", "tdd", "code-review", "workflow"],
   "skills": "./skills/",
-  "hooks": {},
+  "hooks": "./hooks/hooks-codex.json",
   "interface": {
     "displayName": "Boxbox",
     "shortDescription": "Plan, decide, build and review with the developer in control",

@@ -69,6 +69,7 @@ Without the session-start hook, start the flow by naming it: "use boxbox to add 
 
 ## What you get
 
+- **The pit wall**: a live page on your machine showing what the agent is doing right now, where the work stands, what is waiting on you, and what it costs. With a pause button.
 - **A board** (`.boxbox/board.html`): the whole project as a tree of milestones, epics and tasks, with status and links to every page.
 - **A context page** before any decision: what exists, what the feature touches, which concepts are new to you, how it can fail.
 - **A decisions page**: one card per decision, with options, trade-offs and a recommendation. You answer one at a time.
@@ -89,7 +90,7 @@ In your repo, tell the agent what you want:
 Let users reset their password by email.
 ```
 
-The first time, Boxbox sets itself up: it reads the repo and asks you four short questions (what you know, where to stop for review, how many decisions you want to make, whether it may push). Then:
+The first time, Boxbox sets itself up: it reads the repo and asks you five short questions (what you know, where to stop for review, how many decisions you want to make, whether it may push, whether to open the pit wall). Then:
 
 1. It opens the **context page**.
 2. It opens the **decisions page** and asks you each decision.
@@ -99,7 +100,32 @@ The first time, Boxbox sets itself up: it reads the repo and asks you four short
 
 Things you can say at any stop: `go`, `change ...`, `switch to task-level`, `ask me everything`, `decide and show`, `park D3`, `explain ...`, `why ...`, `review ...`, `grill the plan`, `design E2 first`, `prototype ...`, `pause`.
 
-Open `.boxbox/board.html` in a browser at any time to see where things stand.
+The pit wall opens in your browser while setup runs and shows every step from then on. Without Node, open `.boxbox/board.html` instead.
+
+## The pit wall
+
+![The pit wall, in demo mode](docs/pitwall.png)
+
+A local page, served by a small Node script inside `.boxbox/pitwall/` (Node 18+, no dependencies) on `127.0.0.1`. Each new session starts it and prints its address, `http://127.0.0.1:4747/` unless that port is busy. Six views, each named the racing way with the plain name in brackets:
+
+| View | What it is for |
+| --- | --- |
+| **Pit wall** (Home) | Where the work is in the Boxbox flow (setup, discover, decisions, plan, build E2.3, verify, review...), what the agent is doing this second, what needs you, tests, spend, and plan freshness |
+| **Board** (Plan) | Milestones, epics and tasks. A task turns purple, **verified**, only when a passing test run was seen after its last edit; done without one, it says **claimed** |
+| **Telemetry** (Live) | Every tool call as it happens, by kind: reading, searching, editing, terminal, testing, web, pages, commits, skills, subagents. Lanes for the main agent, its subagents and the reviewer |
+| **Map** (Codebase) | The repo's modules, which ones are being edited, and the current epic's declared files. An edit outside them shows in red and lands in "Needs you" |
+| **Timing** (Cost) | Tokens per epic and per task, new versus cache, and the sessions behind them, read from the agent's own session logs. Cost shows as "about $X" from `.boxbox/pitwall/prices.json`, which you can edit; a model missing from it shows tokens only |
+| **Garage** (Docs) | Every page Boxbox wrote for this repo, searchable |
+
+**Your move.** Whenever the agent needs you (a decision, a plan or design to approve, a unit to review, a permission prompt, or it has simply finished its turn), a full-width amber bar says what, with "Answer in chat", and the tab title changes to "Your move · Boxbox". It clears when you reply.
+
+**Pause.** Press Pause and the agent's next tool call is held. Resume and it runs, as if nothing happened. Leave it paused for about nine minutes and the agent stops, writes down where it was, and waits for you to say `continue`. Pause holds the next action; it cannot stop text the agent is already writing. Esc in the chat does that.
+
+**Nothing leaves your machine.** The page binds to `127.0.0.1` only, and the pause buttons need a token that only the served page has. Live data sits in `.boxbox/live/`, which setup adds to `.gitignore`: tool names, file paths and one-line results, never file contents, your prompts or command output, and anything that looks like a secret in a command is masked. Repos without a `.boxbox/` folder are not logged at all. Pages that Boxbox wrote open from the pit wall in a sandbox, so a page in the repo cannot press Pause for you; the cost is that the "mark as done" boxes on knowledge pages and on review checklists do not stay ticked when opened from the pit wall. Open the file directly (`.boxbox/knowledge/<topic>.html`) to keep them.
+
+**Per agent.** Claude Code: everything above. Codex: the same, built from Codex's source and documentation but **unverified**, not yet run end to end; run `/hooks` in Codex once to trust Boxbox's hooks, and again after each Boxbox update. Codex web searches run on OpenAI's side and do not show. Cursor: the pages and the board, no live feed yet.
+
+Try it without an agent: `node .boxbox/pitwall/server.js --ensure`, then open the printed address with `?demo` on the end for sample data.
 
 ## How much control
 
@@ -120,7 +146,7 @@ Nineteen skills. Most run on their own as part of the flow. Each can also be cal
 | Skill | What it does | Runs on its own | Call it directly | Produces |
 | --- | --- | --- | --- | --- |
 | `boxbox` | Entry point: picks the flow for the request | On any feature, bug or planning request, via the session-start hook | `/boxbox:boxbox let users reset their password by email` | The flow: context, decisions, plan, then one unit at a time |
-| `boxbox-setup` | One-time setup: reads the stack, asks four questions | When `.boxbox/` is missing | `/boxbox:boxbox-setup change the unit to task` | `.boxbox/` with `config.md`, the board and the templates |
+| `boxbox-setup` | One-time setup: reads the stack, asks five questions, starts the pit wall | When `.boxbox/` is missing | `/boxbox:boxbox-setup change the unit to task` | `.boxbox/` with `config.md`, the board, the templates and the pit wall |
 | `boxbox-discover` | Reads the code a feature will touch, writes the context page | First step of the full flow | `/boxbox:boxbox-discover what would a password reset touch?` | `context.md` and `context.html`; knowledge pages for what is new to you |
 | `boxbox-plan` | Splits the work, asks decisions one at a time, writes the plan | After discover | `/boxbox:boxbox-plan re-plan E2 with magic links` | `decisions.html`, `plan.md` and `plan.html`; stops for `go` |
 | `boxbox-design` | Data shapes and interfaces for a large epic, for approval before code | When the plan marks an epic `design: yes` | `/boxbox:boxbox-design design E2 first` | `design.md` and `design.html`; stops for approval |
@@ -146,7 +172,7 @@ Nineteen skills. Most run on their own as part of the flow. Each can also be cal
 
 ## Status
 
-Version 0.4.0. Built and tried with Claude Code. The Codex, Cursor and skills-CLI paths follow what other skill packs ship and have not been run end to end on those agents yet.
+Version 0.5.0. Built and tried with Claude Code, including the pit wall's hooks, pause and token counts. The Codex pit wall (hooks, pause, token counts) is built from Codex's source and is unverified until it has been run end to end. The Cursor and skills-CLI paths follow what other skill packs ship and have not been run end to end on those agents yet.
 
 ## License
 

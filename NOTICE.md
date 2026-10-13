@@ -8,3 +8,5 @@ Boxbox's skills are written fresh, but several ideas come from these MIT-license
 | [mattpocock/skills](https://github.com/mattpocock/skills) | Matt Pocock | Per-repo setup, thin end-to-end slices with blockers, a project glossary, teaching pages with shared assets |
 | [pstack](https://github.com/cursor/plugins/tree/main/pstack) | Lauren Tan | Playbooks chosen by request type, `how` explanations, a decision log, session pickup, a model per role |
 | [gstack](https://github.com/garrytan/gstack) | Garry Tan | A learnings log that changes future behaviour |
+| [thinking-orbs](https://github.com/Jakubantalik/thinking-orbs) | Jakub Antalík | The pit wall's animated dotted orbs, one per kind of action. Rewritten as a small vanilla canvas engine (`orbs.js`); no React, no code copied |
+| [agent-trail](https://github.com/camtrik/agent-trail) | camtrik | Reading token usage from Claude Code and Codex session logs, counting each message once. Rewritten from the idea; no code copied, not a dependency |
