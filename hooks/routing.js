@@ -46,7 +46,9 @@ function parsePlanTasks(planText) {
       if (kv) fields[kv[1].toLowerCase()] = kv[2];
     }
     const size = /^[SML]$/i.test(fields.size || "") ? fields.size.toUpperCase() : "M";
-    tasks.set(t[1], { epic: epic || t[1].split(".")[0], size, risk: /^yes$/i.test(fields.risk || ""), epicModel });
+    const dm = t[2].match(/\|\s*deps:\s*([^|]*)/i);
+    const deps = dm ? (dm[1].match(/E\d+\.\d+/g) || []) : [];
+    tasks.set(t[1], { epic: epic || t[1].split(".")[0], size, risk: /^yes$/i.test(fields.risk || ""), epicModel, deps });
   }
   return tasks;
 }
@@ -70,6 +72,34 @@ function parseBrief(text) {
   const goal = g >= 0 ? (rest.slice(g + 1).find(l => l.trim()) || "").trim() : "";
   return { task: field("task"), size, risk: /^yes$/i.test(field("risk")), expectedDiff: n > 0 ? n : SIZE_LINES[size],
            files, base: field("base"), goal };
+}
+
+// Parallel mode: the tasks of one epic that may build at the same time, in plan order. A task joins
+// when every task it depends on is done, its brief is written (so its files are known), and it shares
+// no file with a task already in the batch. At most three.
+function parallelBatch(tasks, epic, done, briefFiles) {
+  const batch = [], taken = new Set();
+  for (const [id, t] of tasks) {
+    if (batch.length >= 3) break;
+    if (t.epic !== epic || done.has(id) || !t.deps.every(d => done.has(d))) continue;
+    const files = briefFiles[id];
+    if (!files || !files.length || files.some(f => taken.has(f))) continue;
+    files.forEach(f => taken.add(f));
+    batch.push(id);
+  }
+  return batch;
+}
+
+// May builders run in worktrees? Only with `parallel: on` and worktree.baseRef "head" in a project
+// settings file (decision D3): otherwise Claude Code branches worktrees from the default branch,
+// and the epic's earlier commits would be missing (docs/routing-spike.md, section 7).
+function parallelReady({ parallel, settings = [] }) {
+  if (!parallel) return { ok: false, reason: "parallel: off in config.md" };
+  for (const text of settings) {
+    let s; try { s = JSON.parse(text); } catch { continue; }
+    if (s && s.worktree && s.worktree.baseRef === "head") return { ok: true, reason: "" };
+  }
+  return { ok: false, reason: 'worktree.baseRef is not "head": set "worktree": {"baseRef": "head"} in .claude/settings.json, or worktrees start from the default branch without the epic\'s commits' };
 }
 
 // Tasks that were escalated to the session model: every `say escalated` event names one.
@@ -143,6 +173,7 @@ function gateDecision(q) {
   const known = q.tasks && q.tasks.size > 0;
   if (agent === "builder" && !known) return { decision: "allow", reason: "not checked: no tasks in plan.md for the current feature", task, expected: null };
   if (agent === "builder" && !q.tasks.get(task)) return deny(`${task} is not a task in plan.md: start the description with the task's id from the plan`);
+  if (input.isolation === "worktree" && q.parallel && !q.parallel.ok) return deny(`${task} asks for a worktree, but parallel builds are not ready: ${q.parallel.reason}. Build it without isolation`);
   const t = (known && q.tasks.get(task)) || { size: "M", risk: false, epicModel: null };
   const session = q.session || null;
   const h = agent === "builder" ? (q.history && q.history.get(task)) || null : null;
@@ -175,4 +206,4 @@ function agentOf(subagentType) {
   return m ? m[1] : null;
 }
 
-module.exports = { MODES, SIZE_LINES, parseModels, parsePlanTasks, parseBrief, escalatedTasks, taskOfDescription, builderHistory, gateDecision, expectedModel, familyOf, agentOf };
+module.exports = { MODES, SIZE_LINES, parseModels, parsePlanTasks, parseBrief, parallelBatch, parallelReady, escalatedTasks, taskOfDescription, builderHistory, gateDecision, expectedModel, familyOf, agentOf };

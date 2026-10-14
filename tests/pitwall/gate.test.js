@@ -207,3 +207,14 @@ test("the end of a turn records the session model for the gate", () => {
   spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), "Stop"], { input: payload, encoding: "utf8", env: { ...process.env, BOXBOX_ROOT: d } });
   assert.deepEqual(JSON.parse(fs.readFileSync(path.join(d, ".boxbox/live/session-model.json"), "utf8")), { session: "s1", family: "opus" });
 });
+
+test("gate: a worktree builder needs parallel: on and worktree.baseRef head", () => {
+  const d = routedRepo();
+  const wt = { subagent_type: "boxbox:boxbox-builder", description: "E2.1 accept the link", model: "sonnet", prompt: "p", isolation: "worktree" };
+  assert.match(agentCall(d, wt).stdout, /parallel builds are not ready: parallel: off in config\.md/);
+  fs.writeFileSync(path.join(d, ".boxbox/config.md"), "commands:\n  test: npm test\nmodels: balanced\nparallel: on\npitwall: off\n");
+  assert.match(JSON.parse(agentCall(d, wt).stdout).hookSpecificOutput.permissionDecisionReason, /worktree\.baseRef is not "head"/);
+  fs.mkdirSync(path.join(d, ".claude"), { recursive: true });
+  fs.writeFileSync(path.join(d, ".claude/settings.json"), JSON.stringify({ worktree: { baseRef: "head" } }));
+  assert.equal(agentCall(d, wt, {}, "tu-wt").stdout, "");
+});

@@ -408,7 +408,11 @@ function runGate(p, box, live, cfg, base) {
     const env = process.env, forced = env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE && !/^(0|false)$/i.test(env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE);
     const force = forced ? (env.CLAUDE_CODE_SUBAGENT_MODEL && env.CLAUDE_CODE_SUBAGENT_MODEL !== "inherit" ? env.CLAUDE_CODE_SUBAGENT_MODEL : "inherit") : "";
     const history = routing.builderHistory(readEvents(live, /"kind":"(crew|stage|escalated|escalate-needed)"/));
-    d = routing.gateDecision({ input, mode: cfg.models, force, tasks: routing.parsePlanTasks(plan), history, session: sessionModel(p, live) });
+    const root = path.dirname(box);
+    const parallel = input.isolation === "worktree"
+      ? routing.parallelReady({ parallel: cfg.parallel, settings: ["settings.local.json", "settings.json"].map(f => readText(path.join(root, ".claude", f))) })
+      : null;
+    d = routing.gateDecision({ input, mode: cfg.models, force, tasks: routing.parsePlanTasks(plan), history, parallel, session: sessionModel(p, live) });
   } catch (err) {
     append(live, "events.jsonl", { ...base, type: "gate-error", kind: "gate-error", target: short(String(err && err.message), 200), why: "", result: "allowed" });
     return;
