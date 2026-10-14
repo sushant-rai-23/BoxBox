@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="decisions">
+<title>Decisions: Boxbox 0.7.0 model routing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/boxbox.css">
+<script src="../assets/boxbox.js"></script>
+</head>
+<body>
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="../board.html">Board</a><a href="context.html">Boxbox 0.7.0 model routing</a><span aria-current="page">Decisions</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article">
+    <header class="doc-head">
+      <h1>Decisions for Boxbox 0.7.0 model routing</h1>
+      <p class="lede">All five decisions are answered. One went against the recommendation: D5, shipping 0.7.0 on tests alone. Below them are the eleven small defaults I picked; any of them can still be changed.</p>
+      <div class="marks"><span class="status" data-st="move">0 to decide</span><span class="status" data-st="done">5 answered</span><span class="status">0 parked</span></div>
+    </header>
+
+    <section class="decision" data-section="decision" data-required="yes" data-min-words="120" data-repeat id="d1">
+      <h2 data-short="D1: how models are set"><data>D1</data>How should Boxbox tell Claude Code which model a subagent uses?</h2>
+      <span class="status" data-st="done">answered</span>
+      <p>An agent file in a plugin has one fixed <code>model:</code> line, but your spec has four modes (<code>best</code>, <code>balanced</code>, <code>save</code>, <code>auto</code>) plus per-task risk, per-epic overrides and escalation. One agent file cannot express all of that. Step 0 confirmed that a <code>model</code> passed on the Agent call wins over the agent file (see <a href="../knowledge/subagent-model-routing.html">Subagents and model routing</a>). Whatever is chosen here sets what the gate checks and how every build skill calls a builder.</p>
+      <div class="table"><table>
+        <thead><tr><th>Option</th><th>What it means here</th><th>Gains</th><th>Costs</th></tr></thead>
+        <tbody>
+          <tr class="chosen"><td>Always pass <code>model</code></td><td>Agent files carry the <code>balanced</code> models as a fallback. In every mode except <code>auto</code>, the skills compute the model and pass it on each call, and the gate checks that the passed model equals the expected one.</td><td>One rule, one place. The gate's job is a plain comparison. Modes, risk and escalation all work the same way, and the pit wall shows the requested model before the subagent even runs.</td><td>Every call carries one more field. A main agent that forgets it gets denied once and retries.</td></tr>
+          <tr><td>Agent files only, pass <code>model</code> for exceptions</td><td>The agent files decide normally. <code>model</code> is passed only for risky tasks, epic overrides and escalation.</td><td>Fewer fields on ordinary calls.</td><td><code>best</code> and <code>save</code> change the model of every agent, so they would need different agent files, which a plugin cannot switch per repo. The gate must also resolve "no model passed" the way Claude Code does, and that order already changed once (v2.1.251).</td></tr>
+          <tr><td>Agent files set to <code>inherit</code>, always pass</td><td>Like the first option, but the files fall back to the session model.</td><td>A forgotten field costs quality rather than money.</td><td>Under <code>auto</code>, every agent would silently run on Opus, which defeats the point of <code>auto</code>.</td></tr>
+        </tbody>
+      </table></div>
+      <p><strong>Recommendation:</strong> always pass <code>model</code>. It is the only option where all four modes work from one plugin, and it keeps the gate independent of Claude Code's resolution order (Step 0, section 2 of <code>docs/routing-spike.md</code>).</p>
+      <dl><dt>Cost to change later</dt><dd>Costly: the gate, the build skill and the agent files are all written around it.</dd><dt>Decided by</dt><dd>Sushant Rai, 2026-10-14</dd></dl>
+    </section>
+
+    <section class="decision" data-section="decision" data-required="yes" data-min-words="120" data-repeat id="d2">
+      <h2 data-short="D2: skill model"><data>D2</data>How should template-filling work run cheaper: skill <code>model:</code> lines, or the writer subagent?</h2>
+      <span class="status" data-st="done">answered</span>
+      <p>Part 4 of your spec asks for <code>model: sonnet</code> in some skills' frontmatter, "only in balanced and save". Step 0 found two limits. A skill's frontmatter is fixed text in the plugin, so it cannot change with a repo's mode, and <code>best</code> would still get Sonnet. The override also covers the whole turn, not one part of a skill. The spec's own fallback is to hand page-filling to <code>boxbox-writer</code>.</p>
+      <div class="table"><table>
+        <thead><tr><th>Option</th><th>What it means here</th><th>Gains</th><th>Costs</th></tr></thead>
+        <tbody>
+          <tr class="chosen"><td>Writer subagent only</td><td>No skill gets a <code>model:</code> line. The report's page-filling, the lessons pages and the setup refresh steps go to <code>boxbox-writer</code>, which takes its model from the mode like every other agent (D1).</td><td>All four modes are honoured. One mechanism for everything. The pit wall counts the writer exactly, as a subagent.</td><td>The writer must be handed its facts explicitly, so the prompt to it is longer than a skill turn.</td></tr>
+          <tr><td>Skill <code>model: sonnet</code> as the spec says</td><td>Split <code>boxbox-report</code>'s page filling into a new small skill with <code>model: sonnet</code>, and add the same line to <code>boxbox-lessons</code>.</td><td>No hand-off. It uses a native Claude Code feature.</td><td><code>best</code> mode is broken for these skills: they always run on Sonnet. Codex ignores the line, which is harmless.</td></tr>
+          <tr><td>Both</td><td>Skill lines for <code>boxbox-lessons</code>, the writer for pages.</td><td>The cheapest turns.</td><td>Two mechanisms to explain, and <code>best</code> is still broken for lessons.</td></tr>
+        </tbody>
+      </table></div>
+      <p><strong>Recommendation:</strong> writer subagent only. Your spec says "only in balanced and save", and only a subagent can follow the mode (Step 0, section 4).</p>
+      <dl><dt>Cost to change later</dt><dd>Easy to add skill lines later. Removing a skill split later is costlier.</dd><dt>Decided by</dt><dd>Sushant Rai, 2026-10-14</dd></dl>
+    </section>
+
+    <section class="decision" data-section="decision" data-required="yes" data-min-words="120" data-repeat id="d3">
+      <h2 data-short="D3: worktree base"><data>D3</data>Parallel mode: how should worktree builders start from the epic branch?</h2>
+      <span class="status" data-st="done">answered</span>
+      <p>Step 0 found that a subagent with <code>isolation: worktree</code> branches from the remote's default branch (<code>main</code>), not from the epic branch the session is on. A parallel builder would not see the epic's earlier tasks, and its merge back would be wrong. Read <a href="../knowledge/git-worktrees-and-merging.html">Git worktrees and merging</a> first. Parallel mode stays off by default either way.</p>
+      <div class="table"><table>
+        <thead><tr><th>Option</th><th>What it means here</th><th>Gains</th><th>Costs</th></tr></thead>
+        <tbody>
+          <tr class="chosen"><td>Require <code>worktree.baseRef: "head"</code></td><td>When the developer turns <code>parallel: on</code>, setup asks to add <code>"worktree": {"baseRef": "head"}</code> to the project's <code>.claude/settings.json</code>. Parallel mode refuses to start without it and says why.</td><td>Uses the documented setting. Step 0 showed it works. Nothing clever happens inside the builder.</td><td>It changes a project settings file, which also affects the developer's own <code>--worktree</code> sessions in this repo.</td></tr>
+          <tr><td>Builder rebases itself</td><td>No settings change. The builder's first step in its worktree is <code>git reset --hard &lt;epic commit&gt;</code>, with the commit given in its brief.</td><td>Works with any settings.</td><td>Destructive git commands inside an agent. A builder that skips the step builds on the wrong base silently.</td></tr>
+          <tr><td>Leave parallel mode out of 0.7</td><td>Ship everything else and plan parallel mode for 0.8.</td><td>A smaller, safer release.</td><td>One of your spec's seven parts is missing.</td></tr>
+        </tbody>
+      </table></div>
+      <p><strong>Recommendation:</strong> require <code>worktree.baseRef: "head"</code>. It is the documented fix, it can be checked before starting, and it fails loudly rather than silently (Step 0, section 7).</p>
+      <dl><dt>Cost to change later</dt><dd>Easy: it is contained in the parallel epic, which is built last.</dd><dt>Decided by</dt><dd>Sushant Rai, 2026-10-14</dd></dl>
+    </section>
+
+    <section class="decision" data-section="decision" data-required="yes" data-min-words="120" data-repeat id="d4">
+      <h2 data-short="D4: gate on error"><data>D4</data>When the routing gate itself breaks, should it allow the call or deny it?</h2>
+      <span class="status" data-st="done">answered</span>
+      <p>The gate runs on every Agent call. It can hit an error: plan.md cannot be parsed, node crashes, or a task id is missing. The pause gate in 0.6 fails closed: any error denies, because pausing is about your control (<code>hooks/boxbox-event:24</code>). The routing gate is about cost, not control.</p>
+      <div class="table"><table>
+        <thead><tr><th>Option</th><th>What it means here</th><th>Gains</th><th>Costs</th></tr></thead>
+        <tbody>
+          <tr class="chosen"><td>Fail open, and say so</td><td>On an internal error the call is allowed, and a <code>gate-error</code> event shows on the pit wall with the reason.</td><td>A Boxbox bug never blocks your work. The worst case is one call on the wrong model, which you can see.</td><td>A persistent bug silently stops enforcing until you notice the pit wall notice.</td></tr>
+          <tr><td>Fail closed</td><td>Any error denies with the error as the reason.</td><td>Routing is never skipped.</td><td>A plan.md typo stops every subagent call until it is fixed.</td></tr>
+        </tbody>
+      </table></div>
+      <p><strong>Recommendation:</strong> fail open, and say so. The routing gate protects money, not safety or your control, and the context lists "the gate wrongly blocks real work" as the highest risk.</p>
+      <dl><dt>Cost to change later</dt><dd>Easy: one branch in the gate.</dd><dt>Decided by</dt><dd>Sushant Rai, 2026-10-14</dd></dl>
+    </section>
+
+    <section class="decision" data-section="decision" data-required="yes" data-min-words="120" data-repeat id="d5">
+      <h2 data-short="D5: deferred live runs"><data>D5</data>With demo runs deferred, what should "done" mean for 0.7.0?</h2>
+      <span class="status" data-st="done">answered</span>
+      <p>You said "no demo for now". Six of the spec's "done means" items need real Claude Code sessions: a balanced-mode run, a live gate denial, a forced double failure, a hand count of real transcripts, a parallel run with a forced conflict, and the status line in a live session. Unit tests can cover the logic of each, using fixtures copied from the real Step 0 transcripts. The release version and the README claims depend on what was actually verified.</p>
+      <div class="table"><table>
+        <thead><tr><th>Option</th><th>What it means here</th><th>Gains</th><th>Costs</th></tr></thead>
+        <tbody>
+          <tr><td>Build and test now, live checks before tagging</td><td>All epics are built with unit tests and real-transcript fixtures. The live checks become the last epic, run on a scratch repo when you say so. The version moves to 0.7.0 only after that.</td><td>Nothing is claimed that was not seen. The live epic can wait as long as you like.</td><td>The release is not taggable until the live epic runs.</td></tr>
+          <tr class="chosen override"><td>Ship 0.7.0 on tests alone</td><td>Version 0.7.0 when the tests pass. The README marks the live-only items "not yet verified in a live session".</td><td>Ships sooner.</td><td>Users meet any live-only bug first.</td></tr>
+        </tbody>
+      </table></div>
+      <p><strong>Recommendation:</strong> build and test now, with live checks before tagging. It keeps the guide's rule "never claim what you did not check", at no cost until you choose to run them.</p>
+      <p><strong>Override:</strong> ship 0.7.0 when the tests pass. The README marks the live-only items "not yet verified in a live session". No reason was given beyond "no demo for now".</p>
+      <dl><dt>Cost to change later</dt><dd>Easy: it only moves when the version bump and README claims happen.</dd><dt>Decided by</dt><dd>Sushant Rai, 2026-10-14</dd></dl>
+    </section>
+
+    <section data-section="defaults" data-required="no" data-min-words="0" id="defaults">
+      <h2 data-short="Defaults">Defaults I chose</h2>
+      <div class="table"><table>
+        <thead><tr><th>Choice</th><th>Why</th><th>Change later</th></tr></thead>
+        <tbody>
+          <tr><td>A1: Every <code>boxbox-builder</code> and <code>boxbox-runner</code> call's description starts with the task id ("E2.3 ..."). The gate denies one without it, with a reason that says so.</td><td>The pit wall tracks one current unit, so parallel builders need the task named on the call itself.</td><td>Easy: one regex.</td></tr>
+          <tr><td>A2: Size and risk sit on the task line in plan.md (<code>| size: M | risk: yes</code>), and a per-epic override is a <code>model: opus</code> line under the epic.</td><td>plan.md is already the source of truth the agents read. No second file to keep in sync.</td><td>Easy.</td></tr>
+          <tr><td>A3: The skills record an escalation with <code>say escalated --unit E2.3 --why "..."</code>. It lands in events.jsonl as kind <code>escalated</code>, and the gate reads it.</td><td>It reuses the existing <code>say</code> channel. One escalation per task, then stop and ask you.</td><td>Easy.</td></tr>
+          <tr><td>A4: A subagent's transcript is registered at SubagentStart from a derived path, and its task comes from <code>agent-&lt;id&gt;.meta.json</code>'s <code>toolUseId</code>, joined to the Agent call.</td><td>Step 0 showed SubagentStart gives no transcript path, but the path is predictable and the meta file links back to the call.</td><td>Easy.</td></tr>
+          <tr><td>A5: "Saved versus all on the session model" re-prices subagent tokens at the session model's rates, labelled "estimate".</td><td>It is the simplest honest counterfactual. It ignores that Opus might use fewer tokens.</td><td>Easy.</td></tr>
+          <tr><td>A6: The status line is <code>kit/pitwall/statusline</code> (node), installed as <code>node .boxbox/pitwall/statusline</code> in the project's <code>.claude/settings.json</code> after asking, and pre-approved like <code>say</code>.</td><td>A plugin cannot ship it (Step 0, section 9). Node is already required by the pit wall.</td><td>Easy.</td></tr>
+          <tr><td>A7: When parallel mode is on, setup adds <code>.claude/worktrees/</code> to <code>.gitignore</code>.</td><td>Step 0 saw the worktree folder show up untracked.</td><td>Easy.</td></tr>
+          <tr><td>A8: Test fixtures are trimmed copies of the Step 0 transcripts, with prompts reduced to "ping".</td><td>Real data, with no private content.</td><td>Easy.</td></tr>
+          <tr><td>A9: <code>hooks-codex.json</code> is unchanged. Codex gets task briefs only.</td><td>Your spec: Codex behaves exactly as in 0.6.</td><td>Easy.</td></tr>
+          <tr><td>A10: The model chip shows the family (<code>opus</code>, <code>sonnet</code>, <code>haiku</code>) with the full id on hover.</td><td>Short enough for a feed row. The full id is still there.</td><td>Easy.</td></tr>
+          <tr><td>A11: GUIDE's unused <code>models: plan/build/report</code> block is replaced by <code>models: best | balanced | save | auto</code> and <code>parallel: off | on</code>.</td><td>Nothing reads the old block (<code>hooks/boxbox-event.js:236</code> reads only <code>test:</code> and <code>pitwall:</code>).</td><td>Easy.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <footer class="pagefoot">
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="context.html">Context</a><a class="pagelink" href="../knowledge/subagent-model-routing.html">Subagents and model routing</a></nav>
+      <p>Recorded in decisions.md. Decision level is set in config.md.</p>
+    </footer>
+  </article>
+</div>
+</body>
+</html>

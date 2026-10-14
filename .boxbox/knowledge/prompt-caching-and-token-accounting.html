@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="knowledge">
+<title>Knowledge: Prompt caching and token accounting</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/boxbox.css">
+<script src="../assets/boxbox.js"></script>
+</head>
+<body>
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="../board.html">Board</a><span aria-current="page">Prompt caching and token accounting</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article" data-commit="3825189">
+    <header class="doc-head">
+      <h1>Prompt caching and token accounting</h1>
+      <p class="lede">For a developer new to Claude's billing. It covers what a token is, what prompt caching does to the price of a call, why the order of a prompt matters, and how the pit wall turns Claude Code's transcript files into tokens and dollars per model. Afterwards you can read the token code in <code>skills/boxbox-setup/kit/pitwall/server.js</code>, check a cost by hand, and see why Boxbox 0.7 sends each subagent "the fixed part, then the brief".</p>
+      <div class="marks"><span class="level" data-level="new">new</span></div>
+    </header>
+
+    <section data-section="idea" data-required="yes" data-min-words="120" id="idea">
+      <h2 data-short="The idea">The idea in plain words</h2>
+      <aside class="side"><p><b>Where you'll meet it</b></p><ul><li><code>skills/boxbox-setup/kit/pitwall/server.js</code></li><li><code>skills/boxbox-setup/kit/pitwall/prices.json</code></li><li>Claude Code transcripts in <code>~/.claude/projects/</code></li></ul></aside>
+      <p data-evidence="source">A model does not read characters. It reads <span class="term" tabindex="0">tokens<span class="term-def" role="tooltip">The small pieces text is cut into before the model reads it: a word, part of a word, or a character.</span></span>: small pieces of text, each a word, part of a word, or a single character. For recent Claude models one token is a few English characters (<a href="https://platform.claude.com/docs/en/about-claude/glossary">Anthropic glossary, "Tokens"</a>). Everything is billed per token: the tokens you send in (the <b>input</b>: instructions, files, the conversation so far) and the tokens the model writes back (the <b>output</b>), at different prices per million tokens (<a href="https://platform.claude.com/docs/en/about-claude/pricing">pricing</a>).</p>
+      <p data-evidence="source"><b>Prompt caching</b> means the API remembers the start of a prompt it has just seen. If your next call begins with exactly the same text, the API reuses its work on that start instead of reading it again, and charges you far less for it. Storing the start is a <b>cache write</b>; reusing it is a <b>cache read</b> (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching docs</a>).</p>
+      <p>An analogy: a photocopy shop that keeps your cover pages on the glass for a few minutes. If your next job starts with the same cover pages, they only charge you for the new pages and a small fee for the cover. Change one letter on the first cover page, or come back too late, and you pay full price for everything again. Where it stops being true: the shop charges extra the first time it keeps your pages, and it only matches from the very first page onward, never a page in the middle.</p>
+      <p><b>Token accounting</b> is the other half: adding up, per model, how many tokens of each kind were used and what they cost. Boxbox's pit wall does this by reading the transcript files Claude Code writes, not by asking the API.</p>
+    </section>
+
+    <section data-section="why" data-required="yes" data-min-words="100" id="why">
+      <h2>Why it exists</h2>
+      <p data-evidence="source">An agent like Claude Code sends the whole conversation again on every call: the tool definitions, the system instructions, every earlier message, then the new part. Without caching, a long session pays the full input price for the same opening text on every single turn. With caching, the repeated part is charged at a cache-read price, which the docs set at 0.1 times the base input price, and 0.05 times on Claude Opus 5.5 and Claude Sonnet 5.5 (<a href="https://platform.claude.com/docs/en/about-claude/pricing">pricing</a>).</p>
+      <p data-evidence="observed">A concrete case from this repo's routing spike: the main Opus session in the worked example below sent 188,555 input tokens over four calls, and 161,881 of them (85.9%) were cache reads. Run through the pit wall's own cost function, those four calls cost $0.254876. Charging every input token at the normal Opus input price instead gives $0.763360, three times as much.</p>
+      <p data-evidence="code">Token accounting exists because Boxbox 0.7 routes work to cheaper models (Sonnet, Haiku) and needs to show what that saved. The pit wall's cost code (<code>skills/boxbox-setup/kit/pitwall/server.js:133</code>) prices each kind of token separately, because a cache read and a fresh input token of the same model differ in price by a factor of 20.</p>
+    </section>
+
+    <section data-section="how" data-required="yes" data-min-words="150" data-needs="svg" id="how">
+      <h2 data-short="How it works">How it works, step by step</h2>
+<figure class="diagram wide">
+<svg viewBox="0 0 760 290" role="img" aria-label="Three calls drawn as two stacked blocks each: a fixed part followed by a changing brief. Call 1 writes the fixed part to the cache. Call 2 starts with the same fixed part, so it is read from the cache and only the new brief is fresh input. Call 3 puts a timestamp at the top of the fixed part, so nothing matches and the fixed part is written again.">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0 0L10 5L0 10z"/></marker></defs>
+  <text class="d-label" x="20" y="58">Call 1</text>
+  <rect class="d-box" x="100" y="26" width="420" height="56"/><text class="d-label" x="116" y="50">Fixed part: tools, system, instructions</text><text class="d-sub" x="116" y="70">not in the cache yet: cache WRITE</text>
+  <rect class="d-box" x="530" y="26" width="210" height="56"/><text class="d-label" x="546" y="50">Brief A</text><text class="d-sub" x="546" y="70">fresh input</text>
+  <text class="d-label" x="20" y="152">Call 2</text>
+  <rect class="d-box hot" x="100" y="120" width="420" height="56"/><text class="d-label" x="116" y="144">Same fixed part, byte for byte</text><text class="d-sub" x="116" y="164">found in the cache: cache READ</text>
+  <rect class="d-box" x="530" y="120" width="210" height="56"/><text class="d-label" x="546" y="144">Brief B</text><text class="d-sub" x="546" y="164">fresh input</text>
+  <path class="d-edge hot" d="M310 82 V116" marker-end="url(#arrow)"/><text class="d-note" x="320" y="104">reused within the cache lifetime</text>
+  <text class="d-label" x="20" y="246">Call 3</text>
+  <rect class="d-box out" x="100" y="214" width="420" height="56"/><text class="d-label" x="116" y="238">Timestamp first, then the fixed part</text><text class="d-sub" x="116" y="258">first bytes differ: no match, WRITE again</text>
+  <rect class="d-box" x="530" y="214" width="210" height="56"/><text class="d-label" x="546" y="238">Brief C</text><text class="d-sub" x="546" y="258">fresh input</text>
+</svg>
+<figcaption>The same fixed part, sent first, is written once and then read cheaply. Anything that changes the start of the prompt (call 3, dashed) breaks the match for everything after it.</figcaption>
+</figure>
+      <ol data-evidence="source">
+        <li><b>The prompt has a fixed order.</b> The API treats a request as <code>tools</code>, then <code>system</code>, then <code>messages</code>, in that order, and caching covers the prompt from the very start up to a marked point (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching</a>).</li>
+        <li><b>First call: cache write.</b> The start of the prompt is not cached yet, so the API reads it in full and stores it. Those tokens are billed as cache writes: 1.25 times the base input price for the default 5-minute lifetime, 2 times for a 1-hour lifetime (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching</a>).</li>
+        <li><b>Next call, same start: cache read.</b> A hit needs the cached part to be 100% identical, every character. The matched tokens are billed as cache reads, and each read refreshes the lifetime at no extra cost (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching</a>).</li>
+        <li><b>The rest is plain input.</b> Whatever comes after the cached part (the new brief, the newest message) is ordinary input at the base price, and the model's reply is output (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching, usage fields</a>).</li>
+        <li><b>A change early breaks everything after it.</b> Changing tool definitions invalidates the whole cache; changing the system part invalidates the system and messages; and the docs warn that timestamps or per-request text inside the cached part mean the prefix "never matches" (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching</a>). So the rule is: fixed part first, changing part last, no timestamps in the fixed part. That is why Boxbox 0.7 will give each subagent the same fixed part followed by its brief.</li>
+        <li><b>Too short is never cached.</b> Below a minimum length (512 tokens for Opus 5.5, Sonnet 5.5 and Haiku 5.5) the prompt is simply not cached, with no error (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching, minimum length</a>).</li>
+      </ol>
+      <p data-evidence="source">The API reports the split in each response's <code>usage</code>: <code>cache_creation_input_tokens</code> (written), <code>cache_read_input_tokens</code> (read) and <code>input_tokens</code> (only what came after the last cache point), so all the input of a call is the sum of the three (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching, usage fields</a>). The cost is each count times its price per million tokens, divided by one million. The rates for this repo's models, from the <a href="https://platform.claude.com/docs/en/about-claude/pricing">pricing page</a>, in dollars per million tokens:</p>
+<div class="table" data-evidence="source"><table>
+  <thead><tr><th>Model</th><th>Input</th><th>5m write</th><th>1h write</th><th>Cache read</th><th>Output</th></tr></thead>
+  <tbody>
+    <tr><td>Claude Opus 5.5</td><td>4</td><td>5</td><td>8</td><td>0.20</td><td>20 (<a href="https://platform.claude.com/docs/en/about-claude/pricing">pricing</a>)</td></tr>
+    <tr><td>Claude Sonnet 5.5</td><td>2</td><td>2.50</td><td>4</td><td>0.10</td><td>10 (<a href="https://platform.claude.com/docs/en/about-claude/pricing">pricing</a>)</td></tr>
+    <tr><td>Claude Haiku 5.5, prompts up to 100,000 tokens</td><td>0.10</td><td>0.125</td><td>0.20</td><td>0.01</td><td>0.50 (<a href="https://platform.claude.com/docs/en/about-claude/pricing">pricing</a>)</td></tr>
+  </tbody>
+</table></div>
+      <p data-evidence="code">The <b>cache-read share</b> is how much of all input came from the cache: cache reads divided by (input + cache writes + cache reads). It is the one number that tells you whether prompt order is working. The pit wall's <code>add</code> keeps the same split, <code>fresh</code> and <code>cache</code>, at <code>skills/boxbox-setup/kit/pitwall/server.js:147</code>.</p>
+      <p data-evidence="observed">A runnable demonstration of the next idea, streaming. Claude Code can write one assistant message on several lines while the reply streams in, each line carrying the usage so far. Adding every line would count the message twice. Fed two lines for the same message id, the pit wall keeps one entry, the larger:</p>
+<figure class="code" data-evidence="observed">
+<figcaption><span>dedupe.js, run from the scratchpad with node</span></figcaption>
+<pre><code>// One message streamed on two lines: the pit wall keeps one entry, the larger.
+const { ingestClaudeLines } = require("/Users/sush/Downloads/boxbox/skills/boxbox-setup/kit/pitwall/server.js");
+const line = out =&gt; JSON.stringify({ type: "assistant", timestamp: "2026-10-14T10:00:00Z",
+  message: { id: "msg_1", model: "claude-haiku-5-5", usage: { input_tokens: 2, output_tokens: out, cache_read_input_tokens: 4460 } } });
+const byId = new Map();
+ingestClaudeLines(byId, [line(1), line(4)], { session: "demo" });
+console.log("entries:", byId.size, " output kept:", byId.get("msg_1").output);</code></pre>
+<pre class="output"><code>entries: 1  output kept: 4</code></pre>
+</figure>
+    </section>
+
+    <section data-section="here" data-required="yes" data-min-words="100" id="here">
+      <h2 data-short="In this repo">How this repo uses it</h2>
+      <p data-evidence="code">Boxbox never calls the API to learn token counts. The pit wall follows the transcript files Claude Code and Codex already write, one JSON object per line (the format called JSON Lines), and turns each assistant message into one entry with five counts: <code>input</code>, <code>output</code>, <code>cacheWrite5m</code>, <code>cacheWrite1h</code> and <code>cacheRead</code>. If these functions were removed, the pit wall's token and cost numbers, and the cost on every report page, would disappear.</p>
+      <ul data-evidence="code">
+        <li><code>skills/boxbox-setup/kit/pitwall/server.js:75</code>: <code>usageTotal</code> adds the five counts. It is only used to compare two lines of the same message.</li>
+        <li><code>skills/boxbox-setup/kit/pitwall/server.js:79</code>: <code>ingestClaudeLines</code> reads Claude Code lines. It keeps only <code>type: "assistant"</code> lines with <code>message.usage</code> (line 85), reads <code>message.model</code> and the usage fields (lines 86 to 92), prefers the 5-minute and 1-hour split under <code>cache_creation</code> and falls back to <code>cache_creation_input_tokens</code> when the split is missing (lines 90 and 91), and keeps one entry per <code>message.id</code>, the line with the highest total (lines 94 to 96).</li>
+        <li><code>skills/boxbox-setup/kit/pitwall/server.js:101</code>: <code>ingestCodexLines</code>. Codex writes running totals for the whole session, so each turn is the new total minus the previous one (lines 111 to 118). Codex reports cached input inside its input count, so the code subtracts it (line 118). Codex has no cache-write field, so those stay 0.</li>
+        <li><code>skills/boxbox-setup/kit/pitwall/server.js:124</code>: <code>priceFor</code> finds a model's rates in <code>prices.json</code>: the exact id, or the id plus a date suffix, longest key first so one model never takes a shorter id's price (line 127).</li>
+        <li><code>skills/boxbox-setup/kit/pitwall/server.js:133</code>: <code>costOf</code> multiplies each count by its rate and divides by one million. It returns <code>null</code>, never a guess, when a needed rate is missing (line 139).</li>
+        <li><code>skills/boxbox-setup/kit/pitwall/server.js:146</code>: <code>add</code> splits an entry into <code>fresh</code> (input, output, both writes) and <code>cache</code> (reads), and <code>aggregate</code> at line 198 sums entries per epic, per task and per session.</li>
+        <li><code>skills/boxbox-setup/kit/pitwall/server.js:336</code>: <code>readPrices</code> loads <code>.boxbox/pitwall/prices.json</code> if the developer has one, otherwise the copy next to the server.</li>
+        <li><code>skills/boxbox-setup/kit/pitwall/server.js:390</code>: <code>refreshTokens</code> runs each transcript the session log lists through the right reader, Claude or Codex.</li>
+      </ul>
+<figure class="code" data-evidence="code">
+<figcaption><code>skills/boxbox-setup/kit/pitwall/server.js</code><span>lines 79 to 98</span></figcaption>
+<pre data-quote="skills/boxbox-setup/kit/pitwall/server.js:79-98"><code>function ingestClaudeLines(byId, lines, meta) {
+  for (const line of lines) {
+    if (!line || line.indexOf('"usage"') &lt; 0) continue;<b class="pin">1</b>
+    let d;
+    try { d = JSON.parse(line); } catch { continue; }
+    const m = d.message;
+    if (d.type !== "assistant" || !m || !m.usage) continue;
+    const u = m.usage, cc = u.cache_creation;
+    const e = {
+      ts: d.timestamp || "", model: m.model || "", session: meta.session || "", agent: "claude-code", sub: meta.sub || "",
+      input: u.input_tokens || 0, output: u.output_tokens || 0,
+      cacheWrite5m: cc ? cc.ephemeral_5m_input_tokens || 0 : u.cache_creation_input_tokens || 0,<b class="pin">2</b>
+      cacheWrite1h: cc ? cc.ephemeral_1h_input_tokens || 0 : 0,
+      cacheRead: u.cache_read_input_tokens || 0
+    };
+    const id = m.id || d.uuid;
+    const old = byId.get(id);
+    if (!old || usageTotal(e) &gt;= usageTotal(old)) byId.set(id, old ? { ...e, ts: old.ts } : e);<b class="pin">3</b>
+  }
+}</code></pre>
+<ol class="code-notes">
+  <li>A cheap text test before parsing: lines without usage are skipped without the cost of <code>JSON.parse</code>.</li>
+  <li>Writes are priced by lifetime, so the code needs the 5-minute and 1-hour split. An older line with only the total is treated as all 5-minute.</li>
+  <li>One entry per message id. A later, larger line replaces the earlier one but keeps the first timestamp, so the message stays in the unit where it started.</li>
+</ol>
+</figure>
+<figure class="code" data-evidence="code">
+<figcaption><code>skills/boxbox-setup/kit/pitwall/server.js</code><span>lines 133 to 143</span></figcaption>
+<pre data-quote="skills/boxbox-setup/kit/pitwall/server.js:133-143"><code>function costOf(e, p) {
+  if (!p) return null;
+  const parts = [[e.input, p.input], [e.output, p.output], [e.cacheWrite5m, p.cache_write_5m], [e.cacheWrite1h, p.cache_write_1h], [e.cacheRead, p.cache_read]];
+  let sum = 0;
+  for (const [n, rate] of parts) {
+    if (!n) continue;
+    if (typeof rate !== "number") return null;
+    sum += n * rate;
+  }
+  return sum / 1e6;
+}</code></pre>
+</figure>
+      <p data-evidence="observed">Subagents do not write into the main transcript. The routing spike found each subagent's transcript at <code>~/.claude/projects/&lt;project&gt;/&lt;session&gt;/subagents/agent-&lt;agent_id&gt;.jsonl</code>, and the main transcript held no subagent lines, so exact per-model totals are the main transcript plus every file under <code>subagents/</code>, with no double counting (<code>docs/routing-spike.md</code>, section 5). The spike also saw that the totals Claude Code itself reports include small Haiku calls (such as the session title) that appear in no transcript, so transcript totals run slightly low on Haiku (<code>docs/routing-spike.md</code>, "Other observations").</p>
+    </section>
+
+    <section data-section="example" data-required="yes" data-min-words="120" id="example">
+      <h2>A worked example</h2>
+      <p data-evidence="observed">The routing spike session <code>3bb023ed</code> ran one Opus 5.5 main session and three subagents: one on Sonnet 5.5 and two on Haiku 5.5. This script feeds its four real transcripts through the repo's own <code>ingestClaudeLines</code>, <code>priceFor</code> and <code>costOf</code>, with the repo's <code>prices.json</code>, and prints tokens, cost and cache-read share per model. It also prints what the same tokens would cost with no cache, every input token at the base input price.</p>
+<figure class="code wide" data-evidence="observed">
+<figcaption><span>tally.js, run from the scratchpad with node</span></figcaption>
+<pre><code>// Feed real Claude Code transcripts through the pit wall's own functions.
+const fs = require("fs");
+const kit = "/Users/sush/Downloads/boxbox/skills/boxbox-setup/kit/pitwall/";
+const { ingestClaudeLines, priceFor, costOf } = require(kit + "server.js");
+const prices = JSON.parse(fs.readFileSync(kit + "prices.json", "utf8"));
+const session = "3bb023ed-1a8a-453f-8274-6c50c0344cb4";
+const dir = process.env.HOME + "/.claude/projects/-private-tmp-claude-501--Users-sush-Downloads-boxbox-649219ee-f34a-49d3-bad8-66ca12d863ad-scratchpad-spike-repo/";
+const files = [
+  session + ".jsonl",                                  // main session (Opus)
+  session + "/subagents/agent-a4bdf961c0c93ede3.jsonl", // sonnet subagent
+  session + "/subagents/agent-aba355d9c0f1e08b1.jsonl", // first haiku subagent
+  session + "/subagents/agent-af6a4b96d0cc87e7f.jsonl", // second haiku subagent
+];
+const byId = new Map();
+for (const f of files) {
+  const before = byId.size;
+  ingestClaudeLines(byId, fs.readFileSync(dir + f, "utf8").split("\n"), { session });
+  console.log(f.split("/").pop().padEnd(32), "messages:", byId.size - before);
+}
+const per = {};
+for (const e of byId.values()) {
+  const t = per[e.model] ||= { input: 0, output: 0, cacheWrite5m: 0, cacheWrite1h: 0, cacheRead: 0, cost: 0 };
+  for (const k of ["input", "output", "cacheWrite5m", "cacheWrite1h", "cacheRead"]) t[k] += e[k];
+  t.cost += costOf(e, priceFor(e.model, prices));
+}
+for (const [model, t] of Object.entries(per)) {
+  const p = priceFor(model, prices);
+  const allInput = t.input + t.cacheWrite5m + t.cacheWrite1h + t.cacheRead;
+  const noCache = (allInput * p.input + t.output * p.output) / 1e6;
+  console.log(`\n${model}`);
+  console.log(`  input ${t.input}  output ${t.output}  write5m ${t.cacheWrite5m}  write1h ${t.cacheWrite1h}  read ${t.cacheRead}`);
+  console.log(`  cost $${t.cost.toFixed(6)}  (same tokens with no cache: $${noCache.toFixed(6)})`);
+  console.log(`  cache-read share ${(100 * t.cacheRead / allInput).toFixed(1)}%`);
+}</code></pre>
+<pre class="output"><code>3bb023ed-1a8a-453f-8274-6c50c0344cb4.jsonl messages: 4
+agent-a4bdf961c0c93ede3.jsonl    messages: 1
+agent-aba355d9c0f1e08b1.jsonl    messages: 1
+agent-af6a4b96d0cc87e7f.jsonl    messages: 1
+
+claude-opus-5-5
+  input 8  output 457  write5m 0  write1h 26666  read 161881
+  cost $0.254876  (same tokens with no cache: $0.763360)
+  cache-read share 85.9%
+
+claude-sonnet-5-5
+  input 2  output 4  write5m 4462  write1h 0  read 0
+  cost $0.011199  (same tokens with no cache: $0.008968)
+  cache-read share 0.0%
+
+claude-haiku-5-5
+  input 4  output 8  write5m 4460  write1h 0  read 4460
+  cost $0.000607  (same tokens with no cache: $0.000896)
+  cache-read share 50.0%</code></pre>
+</figure>
+      <ol class="path" data-evidence="observed">
+        <li><b>Each line becomes at most one entry per message</b><span class="at">skills/boxbox-setup/kit/pitwall/server.js:94</span><p>The four Opus messages each sat on one line in this session, so nothing was merged; on a longer, streamed reply the same code would keep only the largest line. Seven messages in total, from four files.</p></li>
+        <li><b>The Opus main session reads what the previous call wrote</b><span class="at">skills/boxbox-setup/kit/pitwall/server.js:92</span><p>The raw <code>cache_read_input_tokens</code> of the four Opus calls were 21,856, then 44,320, 47,621 and 48,084. Each read is the previous read plus the previous write: 21,856 + 22,464 = 44,320; 44,320 + 3,301 = 47,621; 47,621 + 463 = 48,084. The conversation grows at the end, so its start keeps matching. Claude Code wrote these with the 1-hour lifetime (<code>ephemeral_1h_input_tokens</code>), which is why <code>write1h</code> is 26,666 (22,464 + 3,301 + 463 + 438).</p></li>
+        <li><b>Opus cost, field by field</b><span class="at">skills/boxbox-setup/kit/pitwall/server.js:135</span><p>8 input × $4 = 32; 457 output × $20 = 9,140; 26,666 1-hour writes × $8 = 213,328; 161,881 reads × $0.20 = 32,376.2. The sum is 254,876.2, divided by one million: $0.254876. The writes are most of it; the reads, 86% of the input, are about an eighth of the cost.</p></li>
+        <li><b>Sonnet: a write with no read costs more than no cache</b><span class="at">skills/boxbox-setup/kit/pitwall/server.js:135</span><p>The Sonnet subagent ran once: 4,462 tokens written at $2.50 = 11,155, plus 2 × $2 and 4 × $10, gives $0.011199. With no cache it would have been $0.008968. A cache write only pays off if something reads it.</p></li>
+        <li><b>Haiku: the second subagent read what the first wrote</b><span class="at">skills/boxbox-setup/kit/pitwall/server.js:92</span><p>The first Haiku subagent (<code>aba355d9</code>) wrote 4,460 tokens for 5 minutes; the second (<code>af6a4b96</code>) started with the same 4,460 tokens and read all of them. Same model, same fixed start, close together in time: that is the pattern Boxbox 0.7 is built for. The read cost 4,460 × $0.01 instead of 4,460 × $0.10.</p></li>
+        <li><b>Cache-read share per model</b><span class="at">skills/boxbox-setup/kit/pitwall/server.js:148</span><p>Opus: 161,881 / (8 + 26,666 + 161,881) = 85.9%. Sonnet: 0%, nothing to reuse. Haiku: 4,460 / (4 + 4,460 + 4,460) = 50.0%; a third Haiku call with the same start would push it toward 67%.</p></li>
+      </ol>
+    </section>
+
+    <section data-section="mistakes" data-required="yes" data-min-words="80" data-min-items="2" id="mistakes">
+      <h2>Common mistakes</h2>
+      <ul class="findings">
+        <li data-st="flag" data-evidence="source"><span class="status" data-st="flag">trap</span><b>Something that changes at the top of the prompt</b><p>A date, a run id, a random order of tools or files placed before the stable text makes every call a cache miss, and every call then pays the write premium (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching</a>). You notice it as a cache-read share near zero across many calls with the same model. Fix: fixed part first, changing part last.</p></li>
+        <li data-st="flag" data-evidence="code"><span class="status" data-st="flag">trap</span><b>Adding every transcript line</b><p>One message can be written on several lines while it streams, and summing them counts it more than once. Keep one entry per <code>message.id</code>, as <code>skills/boxbox-setup/kit/pitwall/server.js:96</code> does.</p></li>
+        <li data-st="move" data-evidence="observed"><span class="status" data-st="move">trap</span><b>Counting only the main transcript</b><p>Subagent tokens live in their own files under <code>&lt;session&gt;/subagents/</code>; the main transcript has none of them (<code>docs/routing-spike.md</code>, section 5). Reading only the main file makes Sonnet and Haiku work invisible.</p></li>
+        <li data-st="move" data-evidence="source"><span class="status" data-st="move">trap</span><b>Pricing a cache write as plain input, or every cache read at 0.1</b><p>Writes cost 1.25 or 2 times input; reads cost 0.1 times on most models but 0.05 on Opus 5.5 and Sonnet 5.5 (<a href="https://platform.claude.com/docs/en/about-claude/pricing">pricing</a>). The repo's <code>skills/boxbox-setup/kit/pitwall/prices.json:70</code> has 0.2 for Sonnet 5.5 cache reads, while the pricing page lists $0.10, so Sonnet cache reads are over-counted by 2× until that line is corrected.</p></li>
+        <li data-evidence="source"><span class="status">trap</span><b>Expecting a short prompt to be cached</b><p>Below 512 tokens on the 5.5 models nothing is cached and there is no error; both cache fields are just 0 (<a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">prompt caching</a>).</p></li>
+      </ul>
+    </section>
+
+    <section data-section="not" data-required="yes" data-min-words="60" id="not">
+      <h2 data-short="When not to">When not to use it</h2>
+      <p data-evidence="observed">Caching pays only when the same start is read again before it expires. A one-off call costs more with a cache write than without: the Sonnet subagent in the worked example paid $0.011199 against $0.008968. A Codex session gives no cache-write field at all, so its cost can only be the fresh input, the cached input and the output (<code>skills/boxbox-setup/kit/pitwall/server.js:118</code>).</p>
+      <p data-evidence="source">The docs put the break-even at one read for a 5-minute write and two reads for a 1-hour write (<a href="https://platform.claude.com/docs/en/about-claude/pricing">pricing</a>). So the 1-hour lifetime is the wrong choice for calls that come in quick bursts, and caching at all is the wrong choice for text that changes every call. For exact billing, the transcript count is also the wrong tool: Claude Code's own small Haiku calls appear in no transcript, so use the provider's billing report.</p>
+    </section>
+
+    <section data-section="check" data-required="yes" data-min-words="40" data-min-items="3" id="check">
+      <h2>Check yourself</h2>
+      <ol class="checks">
+        <li><details><summary>Why will Boxbox 0.7 send each subagent "the fixed part, then the brief", and not the brief first?</summary><div>The cache matches from the very first token. With the fixed part first, every subagent on the same model starts identically and reads that part from the cache; the brief, which differs each time, is plain input at the end. Brief first would make each prompt differ from the start, so nothing would ever be read.</div></details></li>
+        <li><details><summary>What happens if someone adds "Started at 10:42:13" to the top of the shared fixed part?</summary><div>Every call's prompt now differs in its first line, so every call is a cache miss and pays the write price (1.25× input for 5 minutes) on the whole fixed part. The pit wall would show the cache-read share for that model falling to about 0%.</div></details></li>
+        <li><details><summary>What would happen if <code>ingestClaudeLines</code> summed every line instead of keeping one per <code>message.id</code>?</summary><div>A message streamed on several lines would be counted once per line, so tokens and cost would be too high. The <code>byId</code> map at <code>skills/boxbox-setup/kit/pitwall/server.js:94</code> to 96 keeps only the line with the highest total.</div></details></li>
+        <li><details><summary>The Haiku numbers were write 4,460 and read 4,460. Compute the cache-read share and the cost of those two fields.</summary><div>Share: 4,460 / (4 + 4,460 + 4,460) = 50%. Cost: 4,460 × $0.125 + 4,460 × $0.01 = 602.1 per million, so about $0.000602; with input and output it prints $0.000607.</div></details></li>
+        <li><details><summary>Why is reading only the main transcript not enough for per-model totals?</summary><div>Subagents write their own files under <code>&lt;session&gt;/subagents/agent-&lt;id&gt;.jsonl</code> and the main transcript has none of their lines, so Sonnet and Haiku work would be missing. Main plus subagent files is exact and never double counts.</div></details></li>
+      </ol>
+    </section>
+
+    <section data-section="reading" data-required="yes" data-min-words="10" data-min-items="2" id="reading">
+      <h2 data-short="Reading">Further reading</h2>
+      <ul>
+        <li><a href="https://platform.claude.com/docs/en/build-with-claude/prompt-caching">Prompt caching</a>: read "How prompt caching works", pricing, what invalidates the cache, and the usage fields.</li>
+        <li><a href="https://platform.claude.com/docs/en/about-claude/pricing">Pricing</a>: the model table and the "Prompt caching" multipliers, including the Opus and Sonnet 5.5 exceptions.</li>
+        <li><a href="https://platform.claude.com/docs/en/about-claude/glossary">Glossary</a>: "Tokens", for what a token is and why counts differ between models.</li>
+      </ul>
+    </section>
+
+    <footer class="pagefoot">
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="../board.html">Board</a><a class="pagelink" href="../model-routing/context.html">Context: model routing</a></nav>
+      <p>Ask the agent about anything here that is unclear.</p>
+    </footer>
+  </article>
+</div>
+</body>
+</html>

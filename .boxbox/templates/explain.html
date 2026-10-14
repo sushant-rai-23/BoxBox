@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="explain">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ROOT}}assets/boxbox.css">
+<script src="{{ROOT}}assets/boxbox.js"></script>
+</head>
+<body>
+<!-- TEMPLATE: explain page. Copy to .boxbox/explained/<name>.html. {{ROOT}} is "../".
+     HOW TO FILL THIS PAGE (the full rules are under "Pages" in .boxbox/GUIDE.md)
+     1. Copy it with cp. Never write the page from scratch or from memory.
+     2. Replace the {{...}} placeholders and the sample markup inside each <section>. Keep the head, the
+        bar, the contents column, the footer shell and the script exactly as they are.
+     3. Each section says what goes in it and how deep. data-required="yes" sections must stay;
+        data-min-words is the least prose they need (code blocks and diagrams do not count).
+        Delete a data-required="no" section that has nothing true to say. Copy a data-repeat section
+        once per item. To add a section, build it only from templates/_components.html.
+     4. Never write <style>, style= or a class that is not in templates/_components.html.
+     5. Label where every claim comes from: replace each data-evidence="{{...}}" with observed (the pit
+        wall or you saw it run), code (read in the repo), inferred (your reasoning), unknown (nobody
+        knows yet) or source (a link to the source in the same block). "unknown" is allowed; guessing
+        is not. Facts with data-source (tests, diff counts, commits, tokens) are what git and the pit
+        wall say, never your estimate; with no pit wall data, write "not recorded". Quote repo code
+        exactly with data-quote, and cite lines as path:line.
+     6. Run: node .boxbox/pitwall/check-page.js <this page>. Fix every problem it lists, run it again.
+        Then run the fact-check (boxbox-inspect, page mode), fix what it finds, and only then show the
+        page. Delete these instruction comments once the page is filled. -->
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="{{ROOT}}board.html">Board</a><span aria-current="page">How {{FEATURE TITLE}} works</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article" data-commit="{{the commit this page explains}}">
+    <header class="doc-head">
+      <h1>How {{FEATURE TITLE}} works</h1>
+      <p class="lede">{{What the feature does for a user, in two sentences, and what you will understand after this page.}}</p>
+      <div class="marks"><span class="status">as of commit {{short hash}}</span></div>
+    </header>
+
+    <section data-section="overview" data-required="yes" data-min-words="100" id="overview">
+      <!-- What this feature does in the product, who uses it, what it depends on. For finished work, say the page was written after the build from the code and its history. -->
+      <h2 data-short="Overview">What it is and who uses it</h2>
+      <p data-evidence="{{observed | code | inferred | unknown}}">{{The feature in the product.}}</p>
+      <dl class="facts" data-evidence="{{observed | code | inferred | unknown}}"><dt>Where it lives</dt><dd>{{files, with <code>paths</code>}}</dd><dt>Entry points</dt><dd>{{routes, commands, screens}}</dd><dt>Data it owns</dt><dd>{{tables, stores}}</dd></dl>
+    </section>
+    <section data-section="map" data-required="yes" data-min-words="80" data-needs="svg" id="map">
+      <!-- A diagram of the pieces and an annotated file tree, so the reader knows where everything is before the details. -->
+      <h2 data-short="Map">Map of the pieces</h2>
+<figure class="diagram wide">
+<svg viewBox="0 0 760 210" role="img" aria-label="{{One sentence: what the diagram shows, naming the boxes and arrows}}">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0 0L10 5L0 10z"/></marker></defs>
+  <rect class="d-box" x="20" y="74" width="170" height="62"/><text class="d-label" x="36" y="100">{{Module}}</text><text class="d-sub" x="36" y="120">{{src/file.js}}</text>
+  <rect class="d-box hot" x="300" y="74" width="170" height="62"/><text class="d-label" x="316" y="100">{{Module}}</text><text class="d-sub" x="316" y="120">{{src/file.js}}</text>
+  <path class="d-edge hot" d="M190 105 H296" marker-end="url(#arrow)"/>
+</svg>
+<figcaption>{{What to notice in the diagram.}}</figcaption>
+</figure>
+      <ul class="tree" data-evidence="{{observed | code | inferred | unknown}}"><li><code>{{src/}}</code><ul><li><code>{{file}}</code><span>{{its job}}</span></li></ul></li></ul>
+    </section>
+    <section data-section="path" data-required="yes" data-min-words="100" id="path">
+      <!-- The path a real request takes, in order, with file:line. -->
+      <h2 data-short="Request path">How one request travels</h2>
+      <!-- One li per step. span.at is file:line; for code not written yet, the file and "(new)". -->
+      <ol class="path" data-evidence="{{observed | code | inferred | unknown}}">
+        <li><b>{{What happens at this step, in plain words}}</b><span class="at">{{path/to/file.js:42}}</span><p>{{What this step does, what it hands on, and what happens when it fails.}}</p></li>
+        <li><b>{{Next step}}</b><span class="at">{{path:line}}</span><p>{{...}}</p></li>
+      </ol>
+    </section>
+    <section data-section="files" data-required="yes" data-min-words="120" id="files">
+      <!-- Per file or piece: what it does and why it is written this way, with annotated real code. For a milestone or branch, one subsection per piece in build order with its commits and diff link. -->
+      <h2 data-short="Pieces">Piece by piece</h2>
+      <ul class="changes" data-evidence="{{observed | code | inferred | unknown}}">
+        <li class="change"><code>{{path/to/file}}</code><span class="delta" data-source="git:diff" data-file="{{path/to/file}}"><ins>+{{N}}</ins><del>−{{N}}</del></span><p><b>What:</b> {{what changed}}</p><p><b>Why:</b> {{why it changed this way}}</p></li>
+      </ul>
+<figure class="code" data-evidence="code">
+<figcaption><code>{{path/to/file}}</code><span>lines {{N}} to {{N}}</span></figcaption>
+<pre data-quote="{{path/to/file}}:{{first line}}-{{last line}}"><code>{{those lines exactly as they are in the repo}}<b class="pin">1</b></code></pre>
+<ol class="code-notes">
+  <li>{{What this line does and why it is written this way.}}</li>
+</ol>
+</figure>
+      <!-- Repeat per file that matters: an h3 with the file name, a paragraph of why, then its figure.
+           Use figure.diff (before and after) where the change is clearer than the result. -->
+    </section>
+    <section data-section="tests" data-required="yes" data-min-words="40" id="tests">
+      <!-- The tests that cover this feature, run NOW, with what each proves. -->
+      <h2 data-short="Tests">Tests and what they prove</h2>
+      <div class="table" data-evidence="{{observed | code | inferred | unknown}}"><table>
+        <thead><tr><th>Test</th><th>What it proves</th></tr></thead>
+        <tbody>
+          <tr><td><code data-test>{{test function name, exactly as in the test file}}</code></td><td>{{the behaviour it pins down, in plain words}}</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+    <section data-section="history" data-required="no" data-min-words="30" id="history">
+      <!-- For finished work: the commits, approvals and decisions, in order. -->
+      <h2 data-short="History">How it was built</h2>
+      <ol class="timeline"><li><time>{{date}}</time><b>{{event}}</b><p>{{what it changed}}</p></li></ol>
+    </section>
+    <section data-section="decisions" data-required="no" data-min-words="40" id="decisions">
+      <!-- Each choice with its reason and how sure we are: recorded (in a commit, PR or decisions.md), inferred, or unknown. -->
+      <h2 data-short="Why">Why it is built this way</h2>
+      <div class="table"><table>
+        <thead><tr><th>Choice</th><th>Reason</th><th>How sure</th></tr></thead>
+        <tbody><tr><td>{{choice}}</td><td>{{reason, with its source}}</td><td>{{recorded / inferred / unknown}}</td></tr></tbody>
+      </table></div>
+    </section>
+    <section data-section="tradeoffs" data-required="yes" data-min-words="50" id="tradeoffs">
+      <!-- What this design gives up, and what it would take to change. -->
+      <h2>Trade-offs</h2>
+      <ul data-evidence="{{observed | code | inferred | unknown}}"><li><strong>{{trade-off}}</strong>: {{what it costs and when it would matter}}</li></ul>
+    </section>
+    <section data-section="risks" data-required="yes" data-min-words="50" id="risks">
+      <!-- How it fails today, handled or not. -->
+      <h2 data-short="Failure">Edge cases and failure</h2>
+      <ul class="findings" data-evidence="{{observed | code | inferred | unknown}}">
+        <li data-st="flag"><span class="status" data-st="flag">high</span><b>{{The risk or edge case, in one line}}</b><p>{{What would happen, how likely, and what limits it today.}}</p></li>
+        <li data-st="move"><span class="status" data-st="move">medium</span><b>{{...}}</b><p>{{...}}</p></li>
+        <li><span class="status">low</span><b>{{...}}</b><p>{{...}}</p></li>
+      </ul>
+    </section>
+    <section data-section="unclear" data-required="yes" data-min-words="60" id="unclear">
+      <!-- Honest notes on the existing code, each tied to a path:line: missing tests, surprising coupling, dead code, facts kept in two places. Runtime failure goes in the section above, not here. Fix nothing. -->
+      <h2 data-short="Unclear">What is unclear or looks risky</h2>
+      <ul class="findings" data-evidence="{{observed | code | inferred | unknown}}"><li data-st="move"><span class="status" data-st="move">unclear</span><b><code>{{path:line}}</code> {{what}}</b><p>{{why it matters, and what would tell you more}}</p></li></ul>
+    </section>
+    <section data-section="check" data-required="yes" data-min-words="40" id="check">
+      <!-- Questions to check understanding, answers hidden. -->
+      <h2>Check yourself</h2>
+      <ol class="checks">
+        <li><details><summary>{{A why question about a choice in this work}}</summary><div>{{The answer, in two or three sentences, pointing at the code.}}</div></details></li>
+        <li><details><summary>{{A "what happens if" question about a failure}}</summary><div>{{The answer.}}</div></details></li>
+        <li><details><summary>{{A question about the trickiest line}}</summary><div>{{The answer.}}</div></details></li>
+      </ol>
+    </section>
+
+    <footer class="pagefoot">
+      <!-- Related pages. Keep only links to pages that exist; the checker fails on a missing one. -->
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="{{ROOT}}board.html">Board</a><a class="pagelink" href="{{ROOT}}knowledge/{{slug}}.html">{{Knowledge page}}</a></nav>
+      <p>Explains the code as of the commit named at the top. Ask the agent to refresh it after large changes.</p>
+    </footer>
+  </article>
+</div>
+</body>
+</html>

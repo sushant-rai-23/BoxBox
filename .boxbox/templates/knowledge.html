@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="knowledge">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ROOT}}assets/boxbox.css">
+<script src="{{ROOT}}assets/boxbox.js"></script>
+</head>
+<body>
+<!-- TEMPLATE: knowledge page. Copy to .boxbox/knowledge/<slug>.html. {{ROOT}} is "../".
+     HOW TO FILL THIS PAGE (the full rules are under "Pages" in .boxbox/GUIDE.md)
+     1. Copy it with cp. Never write the page from scratch or from memory.
+     2. Replace the {{...}} placeholders and the sample markup inside each <section>. Keep the head, the
+        bar, the contents column, the footer shell and the script exactly as they are.
+     3. Each section says what goes in it and how deep. data-required="yes" sections must stay;
+        data-min-words is the least prose they need (code blocks and diagrams do not count).
+        Delete a data-required="no" section that has nothing true to say. Copy a data-repeat section
+        once per item. To add a section, build it only from templates/_components.html.
+     4. Never write <style>, style= or a class that is not in templates/_components.html.
+     5. Label where every claim comes from: replace each data-evidence="{{...}}" with observed (the pit
+        wall or you saw it run), code (read in the repo), inferred (your reasoning), unknown (nobody
+        knows yet) or source (a link to the source in the same block). "unknown" is allowed; guessing
+        is not. Facts with data-source (tests, diff counts, commits, tokens) are what git and the pit
+        wall say, never your estimate; with no pit wall data, write "not recorded". Quote repo code
+        exactly with data-quote, and cite lines as path:line.
+     6. Run: node .boxbox/pitwall/check-page.js <this page>. Fix every problem it lists, run it again.
+        Then run the fact-check (boxbox-inspect, page mode), fix what it finds, and only then show the
+        page. Delete these instruction comments once the page is filled. -->
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="{{ROOT}}board.html">Board</a><span aria-current="page">{{TOPIC}}</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article" data-commit="{{the commit the repo examples come from}}">
+    <header class="doc-head">
+      <h1>{{TOPIC}}</h1>
+      <p class="lede">{{Who this is for, how far it goes (only what this project needs), and what they can read or decide afterwards.}}</p>
+    </header>
+
+    <section data-section="unchecked" data-required="no" data-min-words="0" id="unchecked">
+      <!-- If something here could not be run or checked against the docs, say so. Delete the section otherwise. -->
+      <h2>Not checked</h2>
+      <aside class="callout" data-kind="warning"><p><b>Not checked.</b> {{what could not be run or verified, and why}}</p></aside>
+    </section>
+    <section data-section="idea" data-required="yes" data-min-words="120" id="idea">
+      <!-- The concept with no jargon, and ONE analogy from everyday life. Define every term on first use with a glossary term. -->
+      <h2 data-short="The idea">The idea in plain words</h2>
+      <aside class="side"><p><b>Where you'll meet it</b></p><ul><li><code>{{path}}</code></li></ul></aside>
+      <p>{{The idea in two or three plain sentences.}}</p>
+      <p>{{One analogy, and where it stops being true.}}</p>
+    </section>
+    <section data-section="why" data-required="yes" data-min-words="100" id="why">
+      <!-- The problem it solves: what goes wrong without it, concretely. -->
+      <h2>Why it exists</h2>
+      <p data-evidence="{{source | code | observed}}">{{The problem, with a concrete failure.}}</p>
+    </section>
+    <section data-section="how" data-required="yes" data-min-words="150" data-needs="svg" id="how">
+      <!-- The mechanism in order, with a diagram. Code that runs, then exactly what it prints (run it; never invent output). -->
+      <h2 data-short="How it works">How it works, step by step</h2>
+<figure class="diagram wide">
+<svg viewBox="0 0 760 210" role="img" aria-label="{{One sentence: what the diagram shows, naming the boxes and arrows}}">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0 0L10 5L0 10z"/></marker></defs>
+  <rect class="d-box" x="20" y="74" width="170" height="62"/><text class="d-label" x="36" y="100">{{Module}}</text><text class="d-sub" x="36" y="120">{{src/file.js}}</text>
+  <rect class="d-box hot" x="300" y="74" width="170" height="62"/><text class="d-label" x="316" y="100">{{Module}}</text><text class="d-sub" x="316" y="120">{{src/file.js}}</text>
+  <path class="d-edge hot" d="M190 105 H296" marker-end="url(#arrow)"/>
+</svg>
+<figcaption>{{What to notice in the diagram.}}</figcaption>
+</figure>
+      <p data-evidence="{{source | code | observed}}">{{Step by step, referring to the diagram.}}</p>
+<figure class="code">
+<figcaption><span>{{what this shows}}</span></figcaption>
+<pre><code>{{small runnable code}}</code></pre>
+<pre class="output"><code>{{exactly what it prints}}</code></pre>
+</figure>
+    </section>
+    <section data-section="here" data-required="yes" data-min-words="100" id="here">
+      <!-- Where it appears in THIS codebase, with file and line references, and what would break if it were removed. -->
+      <h2 data-short="In this repo">How this repo uses it</h2>
+      <ul data-evidence="{{source | code | observed}}"><li><code>{{path:line}}</code>: {{what it does there}}</li></ul>
+    </section>
+    <section data-section="example" data-required="yes" data-min-words="120" id="example">
+      <!-- Trace one real input through the real code, step by step, showing the values at each step. -->
+      <h2>A worked example</h2>
+      <!-- One li per step. span.at is file:line; for code not written yet, the file and "(new)". -->
+      <ol class="path" data-evidence="{{source | code | observed}}">
+        <li><b>{{What happens at this step, in plain words}}</b><span class="at">{{path/to/file.js:42}}</span><p>{{What this step does, what it hands on, and what happens when it fails.}}</p></li>
+        <li><b>{{Next step}}</b><span class="at">{{path:line}}</span><p>{{...}}</p></li>
+      </ol>
+    </section>
+    <section data-section="mistakes" data-required="yes" data-min-words="80" data-min-items="2" id="mistakes">
+      <!-- The traps people fall into with this idea, how to notice each one, and the fix. -->
+      <h2>Common mistakes</h2>
+      <!-- Colour each trap by how much damage it does: flag (serious), move (costly), none (minor). -->
+      <ul class="findings" data-evidence="{{source | code | observed}}">
+        <li data-st="move"><span class="status" data-st="move">trap</span><b>{{the mistake}}</b><p>{{how to notice it, and the fix}}</p></li>
+      </ul>
+    </section>
+    <section data-section="not" data-required="yes" data-min-words="60" id="not">
+      <!-- Where this idea is the wrong tool, and what to use instead. -->
+      <h2 data-short="When not to">When not to use it</h2>
+      <p data-evidence="{{source | code | observed}}">{{Cases where it does not fit, and the alternative.}}</p>
+    </section>
+    <section data-section="check" data-required="yes" data-min-words="40" data-min-items="3" id="check">
+      <!-- Three to five questions with hidden answers. At least one 'what happens if'. -->
+      <h2>Check yourself</h2>
+      <ol class="checks">
+        <li><details><summary>{{A why question about a choice in this work}}</summary><div>{{The answer, in two or three sentences, pointing at the code.}}</div></details></li>
+        <li><details><summary>{{A "what happens if" question about a failure}}</summary><div>{{The answer.}}</div></details></li>
+        <li><details><summary>{{A question about the trickiest line}}</summary><div>{{The answer.}}</div></details></li>
+      </ol>
+    </section>
+    <section data-section="reading" data-required="yes" data-min-words="10" data-min-items="2" id="reading">
+      <!-- Two to four trusted sources: official docs, specs, well-known references. Say what to read there. -->
+      <h2 data-short="Reading">Further reading</h2>
+      <ul><li><a href="{{https://official docs URL}}">{{Primary source}}</a>: {{what to read there}}</li></ul>
+    </section>
+
+    <footer class="pagefoot">
+      <!-- Related pages. Keep only links to pages that exist; the checker fails on a missing one. -->
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="{{ROOT}}board.html">Board</a><a class="pagelink" href="{{ROOT}}{{feature}}/context.html">{{Context page that sent you here}}</a></nav>
+      <p>Ask the agent about anything here that is unclear.</p>
+    </footer>
+  </article>
+</div>
+</body>
+</html>

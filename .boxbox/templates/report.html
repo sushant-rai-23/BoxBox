@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="report">
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="{{ROOT}}assets/boxbox.css">
+<script src="{{ROOT}}assets/boxbox.js"></script>
+</head>
+<body>
+<!-- TEMPLATE: report page. Copy to .boxbox/<feature>/<unit>/report.html. {{ROOT}} is "../../".
+     HOW TO FILL THIS PAGE (the full rules are under "Pages" in .boxbox/GUIDE.md)
+     1. Copy it with cp. Never write the page from scratch or from memory.
+     2. Replace the {{...}} placeholders and the sample markup inside each <section>. Keep the head, the
+        bar, the contents column, the footer shell and the script exactly as they are.
+     3. Each section says what goes in it and how deep. data-required="yes" sections must stay;
+        data-min-words is the least prose they need (code blocks and diagrams do not count).
+        Delete a data-required="no" section that has nothing true to say. Copy a data-repeat section
+        once per item. To add a section, build it only from templates/_components.html.
+     4. Never write <style>, style= or a class that is not in templates/_components.html.
+     5. Label where every claim comes from: replace each data-evidence="{{...}}" with observed (the pit
+        wall or you saw it run), code (read in the repo), inferred (your reasoning), unknown (nobody
+        knows yet) or source (a link to the source in the same block). "unknown" is allowed; guessing
+        is not. Facts with data-source (tests, diff counts, commits, tokens) are what git and the pit
+        wall say, never your estimate; with no pit wall data, write "not recorded". Quote repo code
+        exactly with data-quote, and cite lines as path:line.
+     6. Run: node .boxbox/pitwall/check-page.js <this page>. Fix every problem it lists, run it again.
+        Then run the fact-check (boxbox-inspect, page mode), fix what it finds, and only then show the
+        page. Delete these instruction comments once the page is filled. -->
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="{{ROOT}}board.html">Board</a><a href="../plan.html">{{FEATURE TITLE}}</a><span aria-current="page">{{UNIT ID}} report</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article" data-commit="{{last commit of the unit}}" data-range="{{commit before the unit}}..{{last commit of the unit}}" data-unit="{{UNIT ID}}">
+    <header class="doc-head">
+      <h1>{{UNIT ID}} is done: {{what now exists, as a plain statement}}</h1>
+      <p class="lede">{{Two or three sentences a teammate could read cold: what was built and how to tell it works.}}</p>
+      <!-- These come from data: the pit wall's last observed test run, git's commit count for data-range,
+           and the pit wall's tokens. Write what the data says; the checker compares. -->
+      <dl class="metrics">
+        <div><dt>tests passed in the last run the pit wall saw</dt><dd class="metric" data-source="pitwall:tests">{{N}}<small>/{{N}}</small></dd></div>
+        <div><dt>commits</dt><dd class="metric" data-source="git:commits">{{N}}</dd></div>
+        <div><dt>tokens</dt><dd class="metric" data-source="pitwall:tokens">{{as recorded}}</dd></div>
+      </dl>
+    </header>
+    <!-- With no pull request, give the branch and the diff command: git diff <base>...<branch> -- . ':!.boxbox'
+         After approval, change it to data-kind="note", keep the link, and say:
+         <p><b>Approved {{date}}.</b> Merged as {{pull request}}. Changes after review: {{none / the section below}}.</p> -->
+    <aside class="callout" data-kind="move"><p><b>Your move.</b> The code is in <a href="{{pull request or commit URL}}">{{pull request / commit}}</a>. Approve it in chat, or say what to change.</p></aside>
+
+    <section data-section="exists" data-required="yes" data-min-words="120" id="exists">
+      <!-- Lead with the behaviour a teammate could see, then the exact steps to see it (real commands, real output). -->
+      <h2 data-short="What exists">What now exists, and how to see it working</h2>
+      <p data-evidence="{{observed | code | inferred | unknown}}">{{What a person can now do that they could not before.}}</p>
+<figure class="code wide" data-evidence="observed">
+<figcaption><span>Run in the repo root</span></figcaption>
+<pre><code>{{the command to run by hand}}</code></pre>
+<pre class="output"><code>{{the real output}}</code></pre>
+</figure>
+    </section>
+    <section data-section="path" data-required="yes" data-min-words="80" id="path">
+      <!-- The order a request meets the NEW code, not the order it was written. -->
+      <h2 data-short="Request path">The request path</h2>
+      <!-- One li per step. span.at is file:line; for code not written yet, the file and "(new)". -->
+      <ol class="path" data-evidence="{{observed | code | inferred | unknown}}">
+        <li><b>{{What happens at this step, in plain words}}</b><span class="at">{{path/to/file.js:42}}</span><p>{{What this step does, what it hands on, and what happens when it fails.}}</p></li>
+        <li><b>{{Next step}}</b><span class="at">{{path:line}}</span><p>{{...}}</p></li>
+      </ol>
+    </section>
+    <section data-section="files" data-required="yes" data-min-words="120" id="files">
+      <!-- Per file: what changed and why. Annotated code for the parts that matter. Teach what config.md marks new. -->
+      <h2>File by file</h2>
+      <ul class="changes" data-evidence="{{observed | code | inferred | unknown}}">
+        <li class="change"><code>{{path/to/file}}</code><span class="delta" data-source="git:diff" data-file="{{path/to/file}}"><ins>+{{N}}</ins><del>−{{N}}</del></span><p><b>What:</b> {{what changed}}</p><p><b>Why:</b> {{why it changed this way}}</p></li>
+      </ul>
+<figure class="code" data-evidence="code">
+<figcaption><code>{{path/to/file}}</code><span>lines {{N}} to {{N}}</span></figcaption>
+<pre data-quote="{{path/to/file}}:{{first line}}-{{last line}}"><code>{{those lines exactly as they are in the repo}}<b class="pin">1</b></code></pre>
+<ol class="code-notes">
+  <li>{{What this line does and why it is written this way.}}</li>
+</ol>
+</figure>
+      <!-- Repeat per file that matters: an h3 with the file name, a paragraph of why, then its figure.
+           Use figure.diff (before and after) where the change is clearer than the result. -->
+    </section>
+    <section data-section="tests" data-required="yes" data-min-words="60" id="tests">
+      <!-- Every test this unit added and what it proves (names exactly as in the test files). Then each task's state from the pit wall: verified when it saw a passing run after the task's last edit, claimed when it did not. -->
+      <h2 data-short="Tests">Tests and what they prove</h2>
+      <div class="table" data-evidence="{{observed | code | inferred | unknown}}"><table>
+        <thead><tr><th>Test</th><th>What it proves</th></tr></thead>
+        <tbody>
+          <tr><td><code data-test>{{test function name, exactly as in the test file}}</code></td><td>{{the behaviour it pins down, in plain words}}</td></tr>
+        </tbody>
+      </table></div>
+      <p data-evidence="{{observed | code | inferred | unknown}}">{{One sentence on what the tests do not prove.}}</p>
+      <ol class="tasks" data-evidence="{{observed | code | inferred | unknown}}">
+        <li><b>{{E1.1}}</b>{{task title}} <span class="status" data-st="verified" data-source="pitwall:task" data-task="{{E1.1}}">{{verified / claimed, as the pit wall says}}</span></li>
+      </ol>
+    </section>
+    <section data-section="decisions" data-required="yes" data-min-words="40" id="decisions">
+      <!-- Choices not on the decisions page: what was chosen, the alternative, and the trade-off. Say 'None' if none, and why. -->
+      <h2 data-short="Decisions">Decisions made while building</h2>
+      <ul data-evidence="{{observed | code | inferred | unknown}}"><li><strong>{{choice}}</strong> over {{alternative}}: {{trade-off}}</li></ul>
+    </section>
+    <section data-section="tradeoffs" data-required="yes" data-min-words="60" id="tradeoffs">
+      <!-- What this unit gave up to get what it has, and the options that were rejected with why. -->
+      <h2 data-short="Trade-offs">Trade-offs and rejected alternatives</h2>
+      <div class="table" data-evidence="{{observed | code | inferred | unknown}}"><table>
+        <thead><tr><th>Option</th><th>Gains</th><th>Costs</th></tr></thead>
+        <tbody><tr class="chosen"><td>{{what was built}}</td><td>{{gain}}</td><td>{{cost}}</td></tr><tr><td>{{rejected}}</td><td>{{gain}}</td><td>{{why rejected}}</td></tr></tbody>
+      </table></div>
+    </section>
+    <section data-section="risks" data-required="yes" data-min-words="50" id="risks">
+      <!-- What this unit does NOT handle, how likely it is, and what limits the damage. 'Nothing' only if true. -->
+      <h2 data-short="Risks">Risks and edge cases not covered</h2>
+      <ul class="findings" data-evidence="{{observed | code | inferred | unknown}}">
+        <li data-st="flag"><span class="status" data-st="flag">high</span><b>{{The risk or edge case, in one line}}</b><p>{{What would happen, how likely, and what limits it today.}}</p></li>
+        <li data-st="move"><span class="status" data-st="move">medium</span><b>{{...}}</b><p>{{...}}</p></li>
+        <li><span class="status">low</span><b>{{...}}</b><p>{{...}}</p></li>
+      </ul>
+    </section>
+    <section data-section="manual" data-required="yes" data-min-words="30" id="manual">
+      <!-- Steps the reviewer can tick off, each with what they should see. -->
+      <h2 data-short="By hand">Test it by hand</h2>
+      <ul class="checklist">
+        <li><label><input type="checkbox"><div>{{step}}<span>{{what you should see}}</span></div></label></li>
+      </ul>
+    </section>
+    <section data-section="rollback" data-required="yes" data-min-words="30" id="rollback">
+      <!-- The exact commands to undo this unit, and anything that does not roll back with them (migrations, sent emails, data). -->
+      <h2 data-short="Roll back">How to roll back</h2>
+      <p data-evidence="{{observed | code | inferred | unknown}}">{{What rolling back involves.}}</p>
+<figure class="code"><pre><code>{{git revert ...}}</code></pre></figure>
+    </section>
+    <section data-section="cost" data-required="yes" data-min-words="10" id="cost">
+      <!-- Tokens, approximate cost and time exactly as the pit wall recorded them for this unit (node .boxbox/pitwall/server.js --summary <unit>). The checker compares them. Time is wall-clock from the unit's first stage to the next unit, waits included: say so. -->
+      <h2>Cost</h2>
+      <dl class="metrics" data-evidence="{{observed | code | inferred | unknown}}">
+        <div><dt>tokens</dt><dd class="metric" data-source="pitwall:tokens">{{as recorded, e.g. 950k}}</dd></div>
+        <div><dt>approximate cost</dt><dd class="metric" data-source="pitwall:cost">{{as recorded, e.g. $1.62}}</dd></div>
+        <div><dt>wall-clock time</dt><dd class="metric" data-source="pitwall:time">{{as recorded, e.g. 52 min}}</dd></div>
+      </dl>
+      <p data-evidence="{{observed | code | inferred | unknown}}">{{One sentence: where the tokens went.}}</p>
+    </section>
+    <section data-section="outside" data-required="no" data-min-words="20" id="outside">
+      <!-- Only if the pit wall saw edits outside the epic's files: which, and why. -->
+      <h2 data-short="Outside scope">Files edited outside this unit's scope</h2>
+      <ul class="tree"><li data-st="outside"><code>{{path}}</code><span>{{why}}</span></li></ul>
+    </section>
+    <section data-section="check" data-required="yes" data-min-words="40" data-min-items="2" id="check">
+      <!-- Questions for the reviewer, answers hidden. If one is unclear, they should ask before approving. -->
+      <h2>Check yourself</h2>
+      <ol class="checks">
+        <li><details><summary>{{A why question about a choice in this work}}</summary><div>{{The answer, in two or three sentences, pointing at the code.}}</div></details></li>
+        <li><details><summary>{{A "what happens if" question about a failure}}</summary><div>{{The answer.}}</div></details></li>
+        <li><details><summary>{{A question about the trickiest line}}</summary><div>{{The answer.}}</div></details></li>
+      </ol>
+    </section>
+    <section data-section="verify" data-required="yes" data-min-words="20" data-min-items="3" data-max-items="3" id="verify">
+      <!-- Last, always: the three claims in this report that matter most if they are wrong, each with how to check it in a minute (a file:line to read, a test to run, a command). Exactly three. -->
+      <h2 data-short="Verify yourself">Verify these yourself</h2>
+      <aside class="callout" data-kind="verify" data-evidence="{{observed | code | inferred | unknown}}">
+        <ol>
+          <li><b>{{The claim, in one sentence}}</b><span>{{How to check it: open path:line, run a test, or a command}}</span></li>
+          <li><b>{{...}}</b><span>{{...}}</span></li>
+          <li><b>{{...}}</b><span>{{...}}</span></li>
+        </ol>
+      </aside>
+    </section>
+
+    <footer class="pagefoot">
+      <!-- Related pages. Keep only links to pages that exist; the checker fails on a missing one. -->
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="../plan.html">Plan</a><a class="pagelink" href="../context.html">Context</a><a class="pagelink" href="../decisions.html">Decisions</a><a class="pagelink" href="{{ROOT}}knowledge/{{slug}}.html">{{Knowledge page}}</a></nav>
+      <p>Source for the agent: report.md</p>
+    </footer>
+  </article>
+</div>
+</body>
+</html>

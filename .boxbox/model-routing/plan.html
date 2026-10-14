@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="plan">
+<title>Plan: Boxbox 0.7.0 model routing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/boxbox.css">
+<script src="../assets/boxbox.js"></script>
+</head>
+<body>
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="../board.html">Board</a><span aria-current="page">Boxbox 0.7.0 model routing: plan</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article">
+    <header class="doc-head">
+      <h1>Plan: Boxbox 0.7.0 model routing</h1>
+      <p class="lede">Cheaper models do routine work through fixed-model subagents, every task gets a brief, a gate enforces the routing, and the pit wall and a status line show exact cost per model, with Codex unchanged apart from briefs.</p>
+      <div class="marks"><span class="status" data-st="done">approved</span><span class="status">8 epics, 31 tasks</span></div>
+    </header>
+    <aside class="callout" data-kind="note"><p>Approved 2026-10-14. Building E1, starting with its design stop.</p></aside>
+
+    <section data-section="goal" data-required="yes" data-min-words="60" id="goal">
+      <h2 data-short="Goal">Goal and non-goals</h2>
+      <p>Cheaper models do routine work through fixed-model subagents, every task gets a brief, a gate enforces the routing, and the pit wall and a status line show exact cost per model. Codex is unchanged apart from briefs. The work is eight epics on the branch <code>model-routing</code>, built one epic at a time with a stop for your review after each.</p>
+      <h3>Not in this plan</h3>
+      <ul>
+        <li>Live demo runs on a demo repo. You deferred them; the tests use fixtures trimmed from the real Step 0 transcripts instead.</li>
+        <li>Claude Code's own routing. None exists yet, and <code>models: auto</code> already steps aside if one ships.</li>
+        <li>An opusplan-style mode. Spike 8 found it exists but follows plan mode, not Boxbox stages.</li>
+        <li>A <code>subagentStatusLine</code> for subagent rows. A plugin can ship that one, but it is not needed for this release.</li>
+        <li>Codex prices in <code>prices.json</code>. Codex sessions keep showing their model per session with empty prices.</li>
+      </ul>
+    </section>
+    <section data-section="decisions" data-required="no" data-min-words="0" id="decisions">
+      <h2 data-short="Decisions">Decisions behind the plan</h2>
+      <div class="table"><table>
+        <thead><tr><th>Decision</th><th>Choice</th><th>What it means for the plan</th></tr></thead>
+        <tbody>
+          <tr><td>D1: How models are set</td><td>Always pass <code>model</code> on every Agent call except under <code>models: auto</code>; agent files hold the balanced models as a fallback; the gate checks equality</td><td>E1 computes the expected model and the skills pass it; E3 compares it and never resolves a default itself.</td></tr>
+          <tr><td>D2: Cheaper template work</td><td>Writer subagent only, no skill <code>model:</code> lines</td><td>Report page-filling, lessons pages and setup refresh go to <code>boxbox-writer</code> (E1.6).</td></tr>
+          <tr><td>D3: Parallel base branch</td><td>Require <code>worktree.baseRef: "head"</code> in project settings; refuse otherwise</td><td>E7 refuses to start parallel builds without the setting and setup asks to add it (E7.2).</td></tr>
+          <tr><td>D4: Gate on internal error</td><td>Fail open and log <code>gate-error</code></td><td>E3.4 allows the call and logs the error instead of blocking work.</td></tr>
+          <tr class="override"><td>D5: What done means for 0.7.0</td><td>Ship 0.7.0 on tests; the README marks live-only items "not yet verified in a live session". You chose this against the recommendation.</td><td>E8 releases on tests and fixtures, and the README says which behaviour has not been seen live.</td></tr>
+          <tr><td>A1: Task id on calls</td><td>Builder and runner call descriptions start with the task id (default)</td><td>The gate denies a call without it (E3.2).</td></tr>
+          <tr><td>A2: Size, risk and epic override</td><td><code>| size: S|M|L | risk: yes|no</code> on task lines; a <code>model: opus</code> line on an epic (default)</td><td>E1.4 teaches the plan parser to read them.</td></tr>
+          <tr><td>A3: Logging escalation</td><td><code>say escalated --unit &lt;id&gt; --why</code> writes an event of kind <code>escalated</code> (default)</td><td>E1.5 adds it to the build skill.</td></tr>
+          <tr><td>A4: Subagent transcripts</td><td>Registered at SubagentStart from a derived path; the task comes from <code>meta.json</code> toolUseId (default)</td><td>E4.2 counts running and killed subagents and puts parallel ones on the right task.</td></tr>
+          <tr><td>A5: Savings estimate</td><td>Subagent tokens re-priced at session-model rates, labelled estimate (default)</td><td>E4.4 serves it and E5.3 shows it.</td></tr>
+          <tr><td>A6: Status line</td><td>At <code>kit/pitwall/statusline</code>, installed in project settings after asking (default)</td><td>E6 ships the script and the setup question.</td></tr>
+          <tr><td>A7: Worktree folder</td><td><code>.claude/worktrees/</code> added to <code>.gitignore</code> when parallel is on (default)</td><td>Part of the E7.2 setup step.</td></tr>
+          <tr><td>A8: Test fixtures</td><td>Trimmed Step 0 transcripts (default)</td><td>E4 and E5 tests use them instead of live runs.</td></tr>
+          <tr><td>A9: Codex hooks</td><td><code>hooks-codex.json</code> unchanged (default)</td><td>E8.1 checks a Codex payload never reaches the gate.</td></tr>
+          <tr><td>A10: Model chip</td><td>Shows the family, full id on hover (default)</td><td>E5.1 builds the chip.</td></tr>
+          <tr><td>A11: GUIDE config</td><td><code>models:</code> and <code>parallel:</code> replace the old block (default)</td><td>E1.3 rewrites the GUIDE config format.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+    <section data-section="milestones" data-required="yes" data-min-words="150" id="milestones">
+      <h2 data-short="Epics and tasks">Milestones, epics and tasks</h2>
+      <h3>M1: Boxbox 0.7.0 model routing</h3>
+      <p>Cheaper models do the routine work, every task gets a brief, a gate enforces the routing, and the pit wall and a status line show exact cost per model.</p>
+      <article class="epic" id="e1">
+        <span class="status">to do</span>
+        <h3><data>E1</data>Routing config and fixed-model agents</h3>
+        <p>In a Claude Code session, Boxbox builds tasks through boxbox-builder, searches through boxbox-scout, runs checks through boxbox-runner and fills pages through boxbox-writer, each on the model the repo's <code>models:</code> mode and the task's size and risk call for; escalation retries on the session model and is logged.</p>
+        <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e1-agents</code></dd><dt>Depends on</dt><dd>none</dd><dt>Design stop</dt><dd>yes, because it adds the public config (<code>models:</code>, <code>parallel:</code>), four agent definitions and the routing rule every later epic checks against</dd></dl>
+        <h4>Done when</h4>
+        <ul class="accept"><li><code>agents/</code> holds boxbox-builder (sonnet), boxbox-scout (haiku), boxbox-runner (haiku), boxbox-writer (sonnet), each with a short strict prompt and only the tools it needs; <code>claude plugin validate .</code> passes</li><li>One pure function gives the expected model for (agent, task size, risk, epic override, escalation, mode, session model), matching the spec table for best, balanced, save and auto; table-tested</li><li><code>config.md</code> parses <code>models:</code> and <code>parallel:</code>; setup asks <code>models:</code> recommending balanced and mentions <code>parallel:</code> without asking</li><li>boxbox-plan tags tasks with size and risk and records per-epic <code>model: opus</code>; boxbox-build passes <code>model</code> and the task id on every builder/runner call and never routes discover, plan, design, briefs, inspect, fact-check or approvals down</li><li>Escalation rules (two failures, diff over 3x, edits outside the brief, 5 edits without green) are in boxbox-build; <code>say escalated</code> writes an <code>escalated</code> event; a failure on the session model stops and asks the developer</li><li>Report page-filling, lessons pages and setup refresh go to boxbox-writer (D2)</li></ul>
+        <ol class="tasks">
+          <li data-st="todo"><b>E1.1</b>Ship the four agent files with strict prompts and minimal tools
+            <dl><dt>First test</dt><dd><code>agents: four boxbox agents with expected models and tools` reads agents/*.md frontmatter</code></dd><dt>Fails when</dt><dd>an agent file lacks the expected model or carries tools it does not need; <code>claude plugin validate .</code> fails</dd><dt>Files</dt><dd><code>agents/**</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>skills/boxbox-setup/kit/pitwall/say</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>skills/boxbox-plan/SKILL.md</code>, <code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-tdd/SKILL.md</code>, <code>skills/boxbox-inspect/SKILL.md</code>, <code>skills/boxbox-report/SKILL.md</code>, <code>skills/boxbox-lessons/SKILL.md</code>, <code>tests/pitwall/routing.test.js</code>, <code>tests/pitwall/hook.test.js</code></dd></dl></li>
+          <li data-st="todo"><b>E1.2</b>Parse <code>models:</code> and <code>parallel:</code> and compute a call's expected model from mode, size, risk, epic override and escalation
+            <dl><dt>First test</dt><dd><code>routing: balanced sends an M builder task to sonnet and a risky one to the session model</code></dd><dt>Fails when</dt><dd>Unknown or misspelt mode in config.md: treated as <code>balanced</code> with a warning event</dd><dt>Files</dt><dd><code>agents/**</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>skills/boxbox-setup/kit/pitwall/say</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>skills/boxbox-plan/SKILL.md</code>, <code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-tdd/SKILL.md</code>, <code>skills/boxbox-inspect/SKILL.md</code>, <code>skills/boxbox-report/SKILL.md</code>, <code>skills/boxbox-lessons/SKILL.md</code>, <code>tests/pitwall/routing.test.js</code>, <code>tests/pitwall/hook.test.js</code></dd></dl></li>
+          <li data-st="todo"><b>E1.3</b>GUIDE config format and setup question for <code>models:</code>; <code>parallel:</code> mentioned, default off
+            <dl><dt>First test</dt><dd>No cheap test. Verify: GUIDE config block and setup step read correctly; parseConfig test on the GUIDE example</dd><dt>Fails when</dt><dd>the GUIDE example for <code>models:</code> and <code>parallel:</code> does not parse, or setup asks about <code>parallel:</code> instead of only mentioning it</dd><dt>Files</dt><dd><code>agents/**</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>skills/boxbox-setup/kit/pitwall/say</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>skills/boxbox-plan/SKILL.md</code>, <code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-tdd/SKILL.md</code>, <code>skills/boxbox-inspect/SKILL.md</code>, <code>skills/boxbox-report/SKILL.md</code>, <code>skills/boxbox-lessons/SKILL.md</code>, <code>tests/pitwall/routing.test.js</code>, <code>tests/pitwall/hook.test.js</code></dd></dl></li>
+          <li data-st="todo"><b>E1.4</b>boxbox-plan tags tasks <code>size</code>/<code>risk</code> and records epic <code>model: opus</code>; a plan.md parser reads them
+            <dl><dt>First test</dt><dd><code>routing: plan parser reads size, risk and epic model override from a plan.md</code></dd><dt>Fails when</dt><dd>a task has no size or risk tag, or the per-epic <code>model: opus</code> line is not read</dd><dt>Files</dt><dd><code>agents/**</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>skills/boxbox-setup/kit/pitwall/say</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>skills/boxbox-plan/SKILL.md</code>, <code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-tdd/SKILL.md</code>, <code>skills/boxbox-inspect/SKILL.md</code>, <code>skills/boxbox-report/SKILL.md</code>, <code>skills/boxbox-lessons/SKILL.md</code>, <code>tests/pitwall/routing.test.js</code>, <code>tests/pitwall/hook.test.js</code></dd></dl></li>
+          <li data-st="todo"><b>E1.5</b>boxbox-build routes tasks to the agents with <code>model</code> and the task id, applies escalation, and <code>say escalated</code> logs it
+            <dl><dt>First test</dt><dd><code>say escalated writes an escalated event with unit and reason</code></dd><dt>Fails when</dt><dd>Escalation loops: at most one escalation per task, then stop</dd><dt>Files</dt><dd><code>agents/**</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>skills/boxbox-setup/kit/pitwall/say</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>skills/boxbox-plan/SKILL.md</code>, <code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-tdd/SKILL.md</code>, <code>skills/boxbox-inspect/SKILL.md</code>, <code>skills/boxbox-report/SKILL.md</code>, <code>skills/boxbox-lessons/SKILL.md</code>, <code>tests/pitwall/routing.test.js</code>, <code>tests/pitwall/hook.test.js</code></dd></dl></li>
+          <li data-st="todo"><b>E1.6</b>Hand template work to boxbox-writer in report, lessons and setup refresh; keep inspect, fact-check and decisions on the session model
+            <dl><dt>First test</dt><dd>No cheap test. Verify: skill text names boxbox-writer only for template filling and never for judgement steps</dd><dt>Fails when</dt><dd>a judgement step (discover, plan, design, briefs, inspect, fact-check, approvals) is routed down to the writer</dd><dt>Files</dt><dd><code>agents/**</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>skills/boxbox-setup/kit/pitwall/say</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>skills/boxbox-plan/SKILL.md</code>, <code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-tdd/SKILL.md</code>, <code>skills/boxbox-inspect/SKILL.md</code>, <code>skills/boxbox-report/SKILL.md</code>, <code>skills/boxbox-lessons/SKILL.md</code>, <code>tests/pitwall/routing.test.js</code>, <code>tests/pitwall/hook.test.js</code></dd></dl></li>
+        </ol>
+      </article>
+      <article class="epic" id="e2">
+        <span class="status">to do</span>
+        <h3><data>E2</data>Task briefs</h3>
+        <p>Before each task, the main model writes <code>.boxbox/&lt;feature&gt;/&lt;epic&gt;/tasks/&lt;id&gt;.md</code> from the current code; builders (Claude Code) or the main agent (Codex) build from it; it is linked from the board and the pit wall and quoted in the report.</p>
+        <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e2-briefs</code></dd><dt>Depends on</dt><dd>E1</dd><dt>Design stop</dt><dd>no</dd></dl>
+        <h4>Done when</h4>
+        <ul class="accept"><li>GUIDE documents the brief format: goal and acceptance, files and functions with file:line and exact excerpts, interface, test cases, what not to touch, done check and commands, expected diff size</li><li>boxbox-build writes the brief just before each task, after a scout pulls excerpts, never at plan time</li><li>Every subagent prompt is the fixed part (GUIDE rules, conventions, commands) first and the brief second, with nothing that changes per call in the fixed part</li><li>The board's task has a <code>brief</code> link; the pit wall shows it; the report template has a per-task brief quote the checker validates</li><li>Under Codex the main agent builds from the brief itself</li></ul>
+        <ol class="tasks">
+          <li data-st="todo"><b>E2.1</b>Brief format in GUIDE and the folder map; brief parser for expected diff size and files
+            <dl><dt>First test</dt><dd><code>brief: parser reads files and expected diff size from a brief</code></dd><dt>Fails when</dt><dd>a brief omits its files or expected diff size, so the parser reads nothing</dd><dt>Files</dt><dd><code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-report/SKILL.md</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>skills/boxbox-setup/kit/templates/**</code>, <code>tools/gen-templates.py</code>, <code>skills/boxbox-setup/kit/pitwall/check-page.js</code>, <code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>skills/boxbox-setup/kit/pitwall/index.html</code>, <code>agents/boxbox-builder.md</code>, <code>tests/pitwall/**</code></dd></dl></li>
+          <li data-st="todo"><b>E2.2</b>boxbox-build writes the brief before each task and hands builders fixed part then brief
+            <dl><dt>First test</dt><dd>No cheap test. Verify: skill text has the order and the "no timestamps in the fixed part" rule; builder agent prompt expects a brief</dd><dt>Fails when</dt><dd>The fixed part changes mid-feature and cache reads fall: built only from files that do not change during a feature</dd><dt>Files</dt><dd><code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-report/SKILL.md</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>skills/boxbox-setup/kit/templates/**</code>, <code>tools/gen-templates.py</code>, <code>skills/boxbox-setup/kit/pitwall/check-page.js</code>, <code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>skills/boxbox-setup/kit/pitwall/index.html</code>, <code>agents/boxbox-builder.md</code>, <code>tests/pitwall/**</code></dd></dl></li>
+          <li data-st="todo"><b>E2.3</b>Report template gets a per-task brief quote and the checker validates it
+            <dl><dt>First test</dt><dd><code>check-page: a report brief quote must match the brief file</code></dd><dt>Fails when</dt><dd>A brief quotes code that has since moved: excerpts carry data-quote-style path:line so the checker flags drift in the report</dd><dt>Files</dt><dd><code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-report/SKILL.md</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>skills/boxbox-setup/kit/templates/**</code>, <code>tools/gen-templates.py</code>, <code>skills/boxbox-setup/kit/pitwall/check-page.js</code>, <code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>skills/boxbox-setup/kit/pitwall/index.html</code>, <code>agents/boxbox-builder.md</code>, <code>tests/pitwall/**</code></dd></dl></li>
+          <li data-st="todo"><b>E2.4</b>Board and pit wall link each task's brief
+            <dl><dt>First test</dt><dd><code>server: board task brief link is served under /b/</code></dd><dt>Fails when</dt><dd>a task has no brief file, or the board link to it is not served</dd><dt>Files</dt><dd><code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-report/SKILL.md</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>skills/boxbox-setup/kit/templates/**</code>, <code>tools/gen-templates.py</code>, <code>skills/boxbox-setup/kit/pitwall/check-page.js</code>, <code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>skills/boxbox-setup/kit/pitwall/index.html</code>, <code>agents/boxbox-builder.md</code>, <code>tests/pitwall/**</code></dd></dl></li>
+        </ol>
+      </article>
+      <article class="epic" id="e3">
+        <span class="status">to do</span>
+        <h3><data>E3</data>Routing gate and escalation enforcement</h3>
+        <p>A subagent call that breaks the routing rules is denied with a reason naming the right agent and model, and the agent retries; under <code>models: auto</code> or the FORCE override the gate stands aside and the pit wall says why.</p>
+        <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e3-gate</code></dd><dt>Depends on</dt><dd>E1, E2</dd><dt>Design stop</dt><dd>yes, because it adds a synchronous decision path to the hook that every Agent call passes through, and its failure behaviour (D4)</dd></dl>
+        <h4>Done when</h4>
+        <ul class="accept"><li>Only Claude Code Agent and Task calls take the new synchronous node path; other calls keep the background path; Codex payloads (with <code>turn_id</code>) are untouched</li><li>The gate judges only <code>boxbox:*</code> agents; a wrong model, a missing task id, or a builder retry after two failures not on the session model is denied with a reason like "E2.3 is risk: yes, run boxbox-builder with model opus"</li><li><code>models: auto</code> or FORCE on: the gate allows everything and logs why; plain <code>CLAUDE_CODE_SUBAGENT_MODEL</code> is logged as information</li><li>Early-escalation triggers (diff over 3x expected, edits outside the brief, 5 edits without green) observed from subagent tool events require the session model for that task's next builder call</li><li>Any internal error allows the call and logs <code>gate-error</code> (D4)</li></ul>
+        <ol class="tasks">
+          <li data-st="todo"><b>E3.1</b>Synchronous gate path for Claude Code Agent/Task calls only
+            <dl><dt>First test</dt><dd><code>gate: an Agent call reaches the gate synchronously and a Bash call stays in the background</code></dd><dt>Fails when</dt><dd>The gate blocks real work: only boxbox agents judged; fail open</dd><dt>Files</dt><dd><code>hooks/boxbox-event</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/gate.test.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
+          <li data-st="todo"><b>E3.2</b>Deny wrong model or missing task id with a reason naming the right agent and model
+            <dl><dt>First test</dt><dd><code>gate: a risky task on sonnet is denied with "run boxbox-builder with model opus"</code></dd><dt>Fails when</dt><dd>the denial reason does not name the right agent and model, or a call without a task id is allowed</dd><dt>Files</dt><dd><code>hooks/boxbox-event</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/gate.test.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
+          <li data-st="todo"><b>E3.3</b>Stand aside under <code>models: auto</code> and FORCE, and say why
+            <dl><dt>First test</dt><dd><code>gate: FORCE on allows any model and logs gate-off with the reason</code></dd><dt>Fails when</dt><dd>Resolution order changes in a future Claude Code: the gate compares passed model to expected and never resolves; FORCE detected</dd><dt>Files</dt><dd><code>hooks/boxbox-event</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/gate.test.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
+          <li data-st="todo"><b>E3.4</b>Fail open on internal errors with a gate-error event
+            <dl><dt>First test</dt><dd><code>gate: an unparsable plan.md allows the call and logs gate-error</code></dd><dt>Fails when</dt><dd>The gate blocks real work: only boxbox agents judged; fail open</dd><dt>Files</dt><dd><code>hooks/boxbox-event</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/gate.test.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
+          <li data-st="todo"><b>E3.5</b>Escalation state: two failures or an early trigger require the session model for the task's next builder call
+            <dl><dt>First test</dt><dd><code>gate: after two recorded failures a sonnet builder retry is denied</code></dd><dt>Fails when</dt><dd>a builder retry after two failures, or after an early trigger, is allowed on a cheaper model</dd><dt>Files</dt><dd><code>hooks/boxbox-event</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/gate.test.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
+        </ol>
+      </article>
+      <article class="epic" id="e4">
+        <span class="status">to do</span>
+        <h3><data>E4</data>Exact cost per model</h3>
+        <p>Tokens and cost are counted per model, per subagent and per task from the main transcript plus every subagent transcript, including subagents still running, with the cache-read share per model and a labelled "saved versus all on the session model" estimate.</p>
+        <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e4-cost</code></dd><dt>Depends on</dt><dd>E1</dd><dt>Design stop</dt><dd>yes, because it changes the token data the server serves to the page and to <code>--summary</code></dd></dl>
+        <h4>Done when</h4>
+        <ul class="accept"><li>prices.json prices claude-sonnet-5-5 cache reads at $0.10/M, matching Claude Code's reported cost</li><li>A subagent's transcript is registered at SubagentStart; its tokens count while it runs; nothing is counted twice</li><li>Per-model totals for a fixture session (main plus three subagents) match a hand count to the token</li><li>Each subagent's task comes from its Agent call's task id (meta.json toolUseId), so parallel subagents land on the right task</li><li>Cache-read share per model and the savings estimate are served; <code>--summary &lt;unit&gt;</code> prints cost by model</li><li>Codex sessions still show their model per session with empty prices</li></ul>
+        <ol class="tasks">
+          <li data-st="todo"><b>E4.1</b>Fix the Sonnet cache-read price and price <code>[1m]</code> ids
+            <dl><dt>First test</dt><dd><code>server: priceFor matches claude-opus-5-5[1m] and sonnet cache read costs 0.1 per million</code></dd><dt>Fails when</dt><dd><code>[1m]</code> model ids unpriced: normalise the suffix before lookup</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>skills/boxbox-setup/kit/pitwall/prices.json</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/server.test.js</code>, <code>tests/pitwall/fixtures/**</code></dd></dl></li>
+          <li data-st="todo"><b>E4.2</b>Register subagent transcripts at SubagentStart and attach each to its task through meta.json
+            <dl><dt>First test</dt><dd><code>server: a running subagent's tokens count under its task before SubagentStop</code></dd><dt>Fails when</dt><dd>Double counting: dedupe per message id per transcript; the main transcript has no sidechain lines</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>skills/boxbox-setup/kit/pitwall/prices.json</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/server.test.js</code>, <code>tests/pitwall/fixtures/**</code></dd></dl></li>
+          <li data-st="todo"><b>E4.3</b>Aggregate tokens, cost and cache-read share by model
+            <dl><dt>First test</dt><dd><code>server: per-model totals match a hand count of the spike fixtures</code></dd><dt>Fails when</dt><dd>per-model totals differ from a hand count of the fixture session by even one token</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>skills/boxbox-setup/kit/pitwall/prices.json</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/server.test.js</code>, <code>tests/pitwall/fixtures/**</code></dd></dl></li>
+          <li data-st="todo"><b>E4.4</b>Savings estimate and <code>--summary</code> by model
+            <dl><dt>First test</dt><dd><code>server: saved estimate re-prices subagent tokens at the session model's rates</code></dd><dt>Fails when</dt><dd>the saved estimate is not labelled an estimate, or is not priced at the session model's rates</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>skills/boxbox-setup/kit/pitwall/prices.json</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/server.test.js</code>, <code>tests/pitwall/fixtures/**</code></dd></dl></li>
+        </ol>
+      </article>
+      <article class="epic" id="e5">
+        <span class="status">to do</span>
+        <h3><data>E5</data>Pit wall routing views</h3>
+        <p>Every Telemetry and Team radio row carries a model chip; builder, scout, runner and writer each get a lane; Timing shows cost, tokens and cache-read share by model, escalations and the savings estimate; Home shows the mode, active agents, last escalation and why the gate is off when it is.</p>
+        <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e5-views</code></dd><dt>Depends on</dt><dd>E3, E4</dd><dt>Design stop</dt><dd>no</dd></dl>
+        <h4>Done when</h4>
+        <ul class="accept"><li>Feed rows show a family chip with the full id on hover (A10)</li><li>Lanes: driver, builder, scout, runner, writer, steward; parallel builders each get their own lane</li><li>Timing has a by-model table (tokens, cost, cache-read share), an escalations list and the savings line marked "estimate"</li><li>Home has a routing readout; <code>?demo</code> data covers the new fields</li></ul>
+        <ol class="tasks">
+          <li data-st="todo"><b>E5.1</b>Model on each event row and a chip in the feed
+            <dl><dt>First test</dt><dd><code>hook: subagent tool events carry the subagent's model</code></dd><dt>Fails when</dt><dd>a subagent tool event carries no model, so the chip is empty</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/index.html</code>, <code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/**</code></dd></dl></li>
+          <li data-st="todo"><b>E5.2</b>Lanes per Boxbox agent and per parallel builder
+            <dl><dt>First test</dt><dd><code>hook: laneFor maps boxbox:boxbox-scout to the scout lane</code></dd><dt>Fails when</dt><dd>A subagent type outside Boxbox: falls into a generic crew lane</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/index.html</code>, <code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/**</code></dd></dl></li>
+          <li data-st="todo"><b>E5.3</b>Timing by model, escalations and savings
+            <dl><dt>First test</dt><dd>No cheap test. Verify: <code>?demo</code> page shows the three new blocks with values from the state payload</dd><dt>Fails when</dt><dd>the by-model table, escalations or savings line show nothing for the demo state payload</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/index.html</code>, <code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/**</code></dd></dl></li>
+          <li data-st="todo"><b>E5.4</b>Home routing readout with gate-off reason
+            <dl><dt>First test</dt><dd><code>server: state reports mode, active agents, last escalation and gate-off reason</code></dd><dt>Fails when</dt><dd>the gate is off but the readout does not say why</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/index.html</code>, <code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/**</code></dd></dl></li>
+        </ol>
+      </article>
+      <article class="epic" id="e6">
+        <span class="status">to do</span>
+        <h3><data>E6</data>Status line</h3>
+        <p>Under the prompt, Claude Code CLI shows one line like <code>E2.3 · builder sonnet · $0.42 · 14/14 tests</code>, or <code>PAUSED</code>, or <code>Your move: D3</code>, installed only after the developer agrees.</p>
+        <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e6-statusline</code></dd><dt>Depends on</dt><dd>E4</dd><dt>Design stop</dt><dd>no</dd></dl>
+        <h4>Done when</h4>
+        <ul class="accept"><li>Reads <code>.boxbox/live/</code> only and finishes in under 50 ms; prints nothing on any error</li><li>Setup asks before writing <code>statusLine</code> into the project's <code>.claude/settings.json</code>, merging rather than overwriting, and never touches user settings</li><li>The status line command is pre-approved like <code>say</code></li></ul>
+        <ol class="tasks">
+          <li data-st="todo"><b>E6.1</b>Status line script from live data
+            <dl><dt>First test</dt><dd><code>statusline: prints task, model, cost and tests from live files in under 50 ms</code></dd><dt>Fails when</dt><dd>Missing or partial live files: prints nothing</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/statusline</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/statusline.test.js</code></dd></dl></li>
+          <li data-st="todo"><b>E6.2</b>Setup offers to install it into project settings
+            <dl><dt>First test</dt><dd>No cheap test. Verify: setup text asks first, merges one key, shows an existing statusLine</dd><dt>Fails when</dt><dd>An existing statusLine in project settings: setup shows it and asks before replacing</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/statusline</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/statusline.test.js</code></dd></dl></li>
+        </ol>
+      </article>
+      <article class="epic" id="e7">
+        <span class="status">to do</span>
+        <h3><data>E7</data>Parallel tasks</h3>
+        <p>With <code>parallel: on</code> and <code>worktree.baseRef: "head"</code>, independent tasks of one epic build at once in worktree builders (at most 3), merge back in plan order with one commit per task, and fall back to one at a time on any conflict or red suite.</p>
+        <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e7-parallel</code></dd><dt>Depends on</dt><dd>E2, E5</dd><dt>Design stop</dt><dd>no</dd></dl>
+        <h4>Done when</h4>
+        <ul class="accept"><li>A pure function picks tasks that can run together: same epic, no dependency between them, no overlapping brief files, at most 3</li><li>Parallel refuses to start without <code>worktree.baseRef: "head"</code> and says why (D3); setup asks to set it and ignores .claude/worktrees/ (A7)</li><li>boxbox-build merges task branches in plan order (one commit per task), runs the full suite once, and on a conflict or red suite stops parallel for the epic and reports it</li></ul>
+        <ol class="tasks">
+          <li data-st="todo"><b>E7.1</b>Choose tasks that can build together
+            <dl><dt>First test</dt><dd><code>routing: two tasks sharing a brief file are never scheduled together</code></dd><dt>Fails when</dt><dd>Overlapping files: never scheduled together</dd><dt>Files</dt><dd><code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>agents/boxbox-builder.md</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
+          <li data-st="todo"><b>E7.2</b>Base-branch check and setup step
+            <dl><dt>First test</dt><dd><code>routing: parallel is refused when worktree.baseRef is not head</code></dd><dt>Fails when</dt><dd>Wrong base branch: refuse</dd><dt>Files</dt><dd><code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>agents/boxbox-builder.md</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
+          <li data-st="todo"><b>E7.3</b>Build skill: worktree builders, ordered merge, fallback
+            <dl><dt>First test</dt><dd>No cheap test. Verify: skill text covers order, one commit per task, full suite once, fallback and report</dd><dt>Fails when</dt><dd>Conflict or red suite: fall back</dd><dt>Files</dt><dd><code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>agents/boxbox-builder.md</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
+        </ol>
+      </article>
+      <article class="epic" id="e8">
+        <span class="status">to do</span>
+        <h3><data>E8</data>Release 0.7.0</h3>
+        <p>README explains routing with a Claude Code vs Codex table and marks live-only checks as not yet verified in a live session (D5); version is 0.7.0 everywhere; all tests and <code>claude plugin validate .</code> pass.</p>
+        <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e8-release</code></dd><dt>Depends on</dt><dd>E1, E2, E3, E4, E5, E6, E7</dd><dt>Design stop</dt><dd>no</dd></dl>
+        <h4>Done when</h4>
+        <ul class="accept"><li>README: a routing section, a feature/Claude Code/Codex table, and the live-only items listed as "not yet verified in a live session"</li><li>0.7.0 in all four manifests and the README</li><li>Full suite green; <code>claude plugin validate .</code> passes; a Codex fixture run through the hook errors nowhere</li></ul>
+        <ol class="tasks">
+          <li data-st="todo"><b>E8.1</b>Codex regression: the Codex fixture through every changed hook path behaves as in 0.6
+            <dl><dt>First test</dt><dd><code>hook: a Codex PreToolUse never reaches the routing gate</code></dd><dt>Fails when</dt><dd>a Codex payload (with <code>turn_id</code>) reaches the routing gate or errors in a changed hook path</dd><dt>Files</dt><dd><code>README.md</code>, <code>.claude-plugin/**</code>, <code>.codex-plugin/**</code>, <code>.cursor-plugin/**</code>, <code>docs/routing-spike.md</code>, <code>tests/pitwall/**</code></dd></dl></li>
+          <li data-st="todo"><b>E8.2</b>README table, routing section, live-only caveats, and docs/routing-spike.md linked
+            <dl><dt>First test</dt><dd>No cheap test. Verify: read the README section against the spec's Part 7</dd><dt>Fails when</dt><dd>a live-only item is listed without "not yet verified in a live session"</dd><dt>Files</dt><dd><code>README.md</code>, <code>.claude-plugin/**</code>, <code>.codex-plugin/**</code>, <code>.cursor-plugin/**</code>, <code>docs/routing-spike.md</code>, <code>tests/pitwall/**</code></dd></dl></li>
+          <li data-st="todo"><b>E8.3</b>Version 0.7.0 everywhere and the release checks
+            <dl><dt>First test</dt><dd><code>release: every manifest says 0.7.0</code></dd><dt>Fails when</dt><dd>one of the four manifests or the README still says another version</dd><dt>Files</dt><dd><code>README.md</code>, <code>.claude-plugin/**</code>, <code>.codex-plugin/**</code>, <code>.cursor-plugin/**</code>, <code>docs/routing-spike.md</code>, <code>tests/pitwall/**</code></dd></dl></li>
+        </ol>
+      </article>
+    </section>
+    <section data-section="order" data-required="yes" data-min-words="40" id="order">
+      <h2 data-short="Order">The order, and why</h2>
+      <ol>
+        <li>E1 first: the routing rule it defines is what every later epic checks against.</li>
+        <li>E2 next: the briefs feed the gate's expected-diff and file checks.</li>
+        <li>E3: the gate, which needs E1 and E2.</li>
+        <li>E4: cost counting needs only E1, so it could run beside E2 and E3.</li>
+        <li>E5: the pit wall views need the gate and the cost data.</li>
+        <li>E6: the status line reads the cost data from E4.</li>
+        <li>E7: parallel tasks need the briefs and the agent lanes.</li>
+        <li>E8 last: the release checks everything that came before.</li>
+      </ol>
+      <p>Each epic builds on something already tested and reviewed, so a defect shows up at the epic that introduced it instead of surfacing in a later one that depended on it.</p>
+    </section>
+    <section data-section="risks" data-required="yes" data-min-words="50" id="risks">
+      <h2>Risks</h2>
+      <ul class="findings">
+        <li data-st="flag"><span class="status" data-st="flag">high</span><b>The gate wrongly blocks real work</b><p>A wrong denial would stop a subagent call you need. It is limited by judging only Boxbox agents, failing open on any internal error (D4), and standing aside under <code>models: auto</code>.</p></li>
+        <li data-st="flag"><span class="status" data-st="flag">high</span><b>Shipping on tests alone leaves live-only behaviour unseen</b><p>A live gate denial, a real parallel merge and the status line in a live session are first seen by users. This is your D5 override, and the README says so by marking those items "not yet verified in a live session".</p></li>
+        <li data-st="move"><span class="status" data-st="move">medium</span><b>Parallel worktrees start on the wrong base</b><p>A builder could miss the epic's earlier tasks. Parallel mode is off by default and refuses to start without <code>worktree.baseRef: "head"</code> (D3).</p></li>
+        <li data-st="move"><span class="status" data-st="move">medium</span><b>Tokens are double counted or credited to the wrong task</b><p>The fixture test checks per-model totals against a hand count of a session with three subagents (E4.3).</p></li>
+        <li><span class="status">low</span><b>A future Claude Code changes how a subagent's model is resolved</b><p>The gate compares the passed model to the expected one and never resolves a default, FORCE is detected, and <code>auto</code> steps aside.</p></li>
+      </ul>
+    </section>
+    <section data-section="stops" data-required="yes" data-min-words="30" id="stops">
+      <h2 data-short="Stops">Where I stop for you</h2>
+      <ul>
+        <li><span class="status" data-st="move">you</span> Plan approval, now: say "go" or tell me what to change.</li>
+        <li><span class="status" data-st="move">you</span> Design stops before E1, E3 and E4, where you approve the shape before any code.</li>
+        <li><span class="status" data-st="move">you</span> Review after each of the 8 epics, before the next one starts.</li>
+        <li><span class="status" data-st="move">you</span> Before tagging: your decision on whether to run the deferred live checks on a scratch repo.</li>
+      </ul>
+    </section>
+    <section data-section="done" data-required="yes" data-min-words="40" id="done">
+      <h2 data-short="Done means">How we will know the milestone is done</h2>
+      <ul class="checklist">
+        <li><label><input type="checkbox"><div>README has a routing section, a feature, Claude Code and Codex table, and lists the live-only items as "not yet verified in a live session"<span>Read the README against the spec's Part 7</span></div></label></li>
+        <li><label><input type="checkbox"><div>Version 0.7.0 in all four manifests and the README<span>The release test finds no other version</span></div></label></li>
+        <li><label><input type="checkbox"><div>Full suite green, and a Codex fixture run through the hook errors nowhere<span>A Codex PreToolUse never reaches the routing gate</span></div></label></li>
+        <li><label><input type="checkbox"><div>Every epic's tests green<span>Each epic's "Done when" list is met</span></div></label></li>
+        <li><label><input type="checkbox"><div><code>claude plugin validate .</code> passes<span>No errors reported</span></div></label></li>
+      </ul>
+    </section>
+    <section data-section="later" data-required="no" data-min-words="0" id="later">
+      <h2>Later</h2>
+      <ul>
+        <li>Live end-to-end checks on a demo repo (deferred by you).</li>
+        <li>Use Claude Code's own routing if it ships one (<code>models: auto</code> already steps aside).</li>
+        <li>Opusplan-style mode integration (spike 8: it exists, but follows plan mode, not Boxbox stages).</li>
+        <li>A <code>subagentStatusLine</code> from the plugin for subagent rows (plugins can ship that one).</li>
+        <li>Codex prices in <code>prices.json</code>.</li>
+      </ul>
+    </section>
+
+    <footer class="pagefoot">
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="context.html">Context</a><a class="pagelink" href="decisions.html">Decisions</a><a class="pagelink" href="../knowledge/subagent-model-routing.html">Subagent model routing</a></nav>
+      <p>Source for the agent: plan.md</p>
+    </footer>
+  </article>
+</div>
+</body>
+</html>

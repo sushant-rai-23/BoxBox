@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="context">
+<title>Context: Boxbox 0.7.0 model routing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/boxbox.css">
+<script src="../assets/boxbox.js"></script>
+</head>
+<body>
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="../board.html">Board</a><span aria-current="page">Boxbox 0.7.0 model routing: context</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article" data-commit="3825189">
+    <header class="doc-head">
+      <h1>Boxbox 0.7.0: cheaper models for routine work, a brief for every task, and exact cost per model</h1>
+      <p class="lede">You asked for a release that cuts cost without cutting quality. Cheaper Claude models (Sonnet, Haiku) build, search, run checks and fill pages, each from a precise task brief. The strong session model (Opus) keeps planning, decisions and review. A hook enforces the routing, and the pit wall shows exactly which model did what and what it cost. It is done when all of that is built, tested and shipped as 0.7.0, with Codex unchanged apart from gaining task briefs.</p>
+      <div class="marks"><span class="status" data-st="move">read before the decisions</span></div>
+    </header>
+
+    <section data-section="overview" data-required="yes" data-min-words="120" id="overview">
+      <h2 data-short="The project">What this project is, and who it serves</h2>
+      <p data-evidence="code">Boxbox is a plugin for AI coding agents (Claude Code, Codex, Cursor and others). It makes the agent work the way a careful engineer would: read the code, plan the work as milestones, epics and tasks, ask the developer for the decisions that matter, build one tested unit at a time, and stop for review with a page that teaches what was built. The plugin is mostly Markdown "skills", which are instructions the agent loads by name, in <code>skills/</code>. Two small programs sit beside them. One is a set of hooks in <code>hooks/</code>, commands Claude Code runs on every event. The other is a local web page called the pit wall, served by <code>skills/boxbox-setup/kit/pitwall/server.js</code>, which shows the developer live what the agent is doing and what it costs. It serves developers who want an agent to do the typing while they stay in control and keep understanding their code.</p>
+      <dl class="facts" data-evidence="code">
+        <dt>Stack</dt><dd>Node.js 18+ with no npm dependencies (<code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>hooks/boxbox-event.js</code>), bash (<code>hooks/boxbox-event</code>, <code>hooks/session-start</code>), Markdown skills (<code>skills/*/SKILL.md</code>), static HTML/CSS/JS pages (<code>skills/boxbox-setup/kit/templates/</code>), Python 3 for the template generator (<code>tools/gen-templates.py</code>)</dd>
+        <dt>How it runs</dt><dd>Tests: <code>node --test tests/pitwall/*.test.js</code>. Plugin check: <code>claude plugin validate .</code>. Pit wall: <code>node .boxbox/pitwall/server.js --ensure</code>. No build step and no linter.</dd>
+        <dt>Entry points</dt><dd>The <code>boxbox</code> skill (<code>skills/boxbox/SKILL.md</code>); the hooks registered in <code>hooks/hooks.json</code> (Claude Code) and <code>hooks/hooks-codex.json</code> (Codex); the pit wall at <code>http://127.0.0.1:4747/</code></dd>
+      </dl>
+    </section>
+
+    <section data-section="architecture" data-required="yes" data-min-words="80" data-needs="svg" id="architecture">
+      <h2 data-short="Architecture">How it is built</h2>
+      <p data-evidence="code">Claude Code runs the agent and fires hook events. The bash hook <code>hooks/boxbox-event</code> catches every event, applies the pause gate, and passes the event to <code>hooks/boxbox-event.js</code>. That file writes a line for most events to <code>.boxbox/live/events.jsonl</code> (it skips its own <code>say</code> commands and most notifications), and registers each transcript in <code>sessions.jsonl</code>. The pit wall server reads those files plus Claude Code's own transcripts (the JSONL log of every message, with token usage) and pushes the state to the page in the browser. The skills write files in <code>.boxbox/</code>, run the tiny <code>say</code> script to announce their stage (it writes <code>stage.json</code>, <code>waiting.json</code> and an event line), and run three pit wall commands: <code>server.js --ensure</code>, <code>server.js --summary</code> and <code>check-page.js</code>. In 0.7, four new pieces join this picture: agent files in <code>agents/</code>, a routing gate inside the hook, per-model accounting in the server, and a status line script.</p>
+<figure class="diagram wide">
+<svg viewBox="0 0 760 300" role="img" aria-label="Claude Code sends hook events to hooks/boxbox-event, which calls boxbox-event.js, which writes .boxbox/live; server.js reads .boxbox/live and the transcripts and serves index.html. New in 0.7: agents/ used by Claude Code, a routing gate in the hook, and a status line reading .boxbox/live.">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0 0L10 5L0 10z"/></marker></defs>
+  <rect class="d-box out" x="20" y="30" width="170" height="62"/><text class="d-label" x="36" y="56">Claude Code</text><text class="d-sub" x="36" y="76">agent + transcripts</text>
+  <rect class="d-box hot" x="20" y="200" width="170" height="62"/><text class="d-label" x="36" y="226">agents/ (new)</text><text class="d-sub" x="36" y="246">builder, scout, runner, writer</text>
+  <rect class="d-box hot" x="300" y="30" width="170" height="62"/><text class="d-label" x="316" y="56">hooks/boxbox-event</text><text class="d-sub" x="316" y="76">pause gate + routing gate</text>
+  <rect class="d-box" x="300" y="200" width="170" height="62"/><text class="d-label" x="316" y="226">.boxbox/live/</text><text class="d-sub" x="316" y="246">events, sessions, stage</text>
+  <rect class="d-box hot" x="570" y="30" width="170" height="62"/><text class="d-label" x="586" y="56">pitwall/server.js</text><text class="d-sub" x="586" y="76">tokens by model (new)</text>
+  <rect class="d-box hot" x="570" y="200" width="170" height="62"/><text class="d-label" x="586" y="226">status line (new)</text><text class="d-sub" x="586" y="246">reads .boxbox/live</text>
+  <path class="d-edge" d="M190 61 H296" marker-end="url(#arrow)"/>
+  <path class="d-edge" d="M105 92 V196" marker-end="url(#arrow)"/>
+  <path class="d-edge" d="M385 92 V196" marker-end="url(#arrow)"/>
+  <path class="d-edge hot" d="M470 231 H566" marker-end="url(#arrow)"/>
+  <path class="d-edge" d="M470 215 L570 92" marker-end="url(#arrow)"/>
+</svg>
+<figcaption>The highlighted boxes are what 0.7 adds or changes. The status line will only read. The hook and <code>say</code> write the live data; the server writes only its own housekeeping files (token, port, pid, log) and <code>PAUSE</code> when you press Pause.</figcaption>
+</figure>
+    </section>
+
+    <section data-section="flow" data-required="yes" data-min-words="120" id="flow">
+      <h2 data-short="Request path">How a request travels today</h2>
+      <p data-evidence="code">The path that 0.7 changes is a subagent's life, from the main agent calling the Agent tool to its tokens showing on the pit wall. Here it is in 0.6, step by step. The gaps 0.7 fills are named at each step.</p>
+      <ol class="path" data-evidence="code">
+        <li><b>The main agent calls the Agent tool</b><span class="at">hooks/hooks.json:35</span><p>Claude Code fires <code>PreToolUse</code> with <code>tool_name: "Agent"</code> and the call's <code>subagent_type</code>, <code>prompt</code> and, if passed, <code>model</code>. Every <code>PreToolUse</code> goes to the bash hook (matcher <code>*</code>).</p></li>
+        <li><b>The bash hook decides sync or background</b><span class="at">hooks/boxbox-event:50</span><p>Only <code>SessionStart</code> and pit wall commands run node synchronously, so they can answer Claude Code. Everything else, Agent calls included, reaches node only in the background, so node cannot allow or deny them. (The bash pause gate before it can still deny any call.) The routing gate needs a synchronous node path for Agent and Task calls.</p></li>
+        <li><b>The call is logged as crew work</b><span class="at">hooks/boxbox-event.js:105</span><p><code>classify</code> maps <code>Agent</code>, <code>Task</code> and Codex's <code>spawn_agent</code> to the kind <code>crew</code>. It ignores the <code>model</code> field.</p></li>
+        <li><b>The subagent starts and stops</b><span class="at">hooks/boxbox-event.js:406</span><p>Both events append a <code>crew</code> line. Only <code>SubagentStop</code> registers the subagent's transcript in <code>sessions.jsonl</code>, under the parent's session id, so a running subagent's tokens are not counted until it ends.</p></li>
+        <li><b>The server reads every transcript</b><span class="at">skills/boxbox-setup/kit/pitwall/server.js:378</span><p><code>refreshSessions</code> tails each registered transcript. <code>ingestClaudeLines</code> keeps one entry per message, with its model and a <code>sub</code> tag for subagents.</p></li>
+        <li><b>Tokens are grouped by unit and session</b><span class="at">skills/boxbox-setup/kit/pitwall/server.js:198</span><p><code>aggregate</code> buckets each entry by the stage active at its timestamp: epic, task, session. It never groups by model or by subagent, so a subagent's tokens fold into the parent's session row.</p></li>
+        <li><b>The page shows it</b><span class="at">skills/boxbox-setup/kit/pitwall/index.html:564</span><p><code>renderTiming</code> draws a sessions table, which has a Model column but no cost per model, and a per-task table. <code>renderLanes</code> (line 511) draws three lanes: Driver, Pit crew and Steward.</p></li>
+      </ol>
+    </section>
+
+    <section data-section="conventions" data-required="yes" data-min-words="80" id="conventions">
+      <h2 data-short="Conventions">Patterns and conventions to follow</h2>
+      <ul data-evidence="code">
+        <li><strong>No dependencies</strong>: the server and hook use Node built-ins only (<code>skills/boxbox-setup/kit/pitwall/server.js:11</code>). New code, the status line included, stays dependency-free, so a fresh clone runs with nothing to install.</li>
+        <li><strong>Pure parts are exported and tested</strong>: server.js keeps a "pure parts (tested)" block (<code>skills/boxbox-setup/kit/pitwall/server.js:26</code>) and exports it (<code>skills/boxbox-setup/kit/pitwall/server.js:661</code>). The hook exports its helpers the same way (<code>hooks/boxbox-event.js:421</code>). Routing rules, per-model aggregation and brief parsing should be pure functions exported for tests.</li>
+        <li><strong>Tests use node:test and temp repos</strong>: <code>tests/pitwall/gate.test.js:13</code> builds a throwaway repo with <code>mkdtemp</code> and runs the real bash hook against it. New gate tests follow this, so they exercise the bash and node paths together.</li>
+        <li><strong>The hook fails open, except the pause gate</strong>: with no <code>.boxbox/</code> it exits 0 within 50 ms (<code>tests/pitwall/gate.test.js:23</code>), while pause denies on any error (<code>hooks/boxbox-event:24</code>). The routing gate must decide which way it fails. That is a decision for you.</li>
+        <li><strong>Never log content</strong>: events hold no file contents, prompt text or command output (<code>skills/boxbox-setup/kit/GUIDE.md:126</code>). Brief text and subagent prompts stay out of events.jsonl.</li>
+      </ul>
+    </section>
+
+    <section data-section="constraints" data-required="yes" data-min-words="60" id="constraints">
+      <h2>Constraints</h2>
+      <ul data-evidence="observed">
+        <li><strong>Claude Code only</strong>: agents, the gate, skill <code>model:</code> and the status line were verified as Claude Code features (see <code>docs/routing-spike.md</code>). Your spec requires Codex to behave as in 0.6, plus task briefs, with no errors from these parts.</li>
+        <li><strong>Plugins cannot ship the main status line</strong>: only <code>agent</code> and <code>subagentStatusLine</code> take effect from a plugin's settings (spike 9). Setup must ask before writing the project's <code>.claude/settings.json</code>.</li>
+        <li><strong>Worktrees start from the remote's default branch when a remote exists</strong>: parallel builders would miss the epic's earlier commits unless <code>worktree.baseRef</code> is <code>"head"</code>. Without a remote they start from the current HEAD (spike 7).</li>
+        <li><strong>Hook latency</strong>: every tool call passes through the hook (<code>hooks/hooks.json:37</code>), so the gate should add nothing to non-Agent calls. For the status line, Claude Code documents no timeout but cancels a running script when the next update comes (spike 9), so Boxbox sets itself a 50 ms target.</li>
+        <li><strong>Budget</strong>: up to $30 of real Claude Code sessions for verification, but live demo runs are deferred for now.</li>
+      </ul>
+    </section>
+
+    <section data-section="scope" data-required="yes" data-min-words="60" id="scope">
+      <h2 data-short="Scope">What this touches, and what it must not</h2>
+      <h3>Will change</h3>
+      <ul class="tree" data-evidence="code">
+        <li><code>agents/</code><ul><li data-st="new"><code>boxbox-builder.md, boxbox-scout.md, boxbox-runner.md, boxbox-writer.md</code><span>the four fixed-model subagents</span></li></ul></li>
+        <li><code>hooks/</code><ul><li data-st="changed"><code>boxbox-event</code><span>a synchronous path for Agent and Task calls</span></li><li data-st="changed"><code>boxbox-event.js</code><span>the routing gate, subagent registration at start, escalation events, config parsing</span></li><li data-st="changed"><code>hooks.json</code><span>only if the gate needs its own matcher</span></li></ul></li>
+        <li><code>skills/boxbox-setup/kit/pitwall/</code><ul><li data-st="changed"><code>server.js</code><span>tokens by model, by subagent and by task; the savings estimate</span></li><li data-st="changed"><code>index.html</code><span>model chips, four new lanes, the Timing tables, the Home routing readout</span></li><li data-st="new"><code>statusline</code><span>the one-line status script</span></li></ul></li>
+        <li><code>skills/</code><ul><li data-st="changed"><code>boxbox-plan, boxbox-build, boxbox-tdd, boxbox-inspect, boxbox-report, boxbox-setup, boxbox-lessons</code><span>briefs, size and risk tags, routing, escalation, setup questions</span></li><li data-st="changed"><code>boxbox-setup/kit/GUIDE.md</code><span>the config format, briefs in the folder map, the plan task line</span></li></ul></li>
+        <li><code>README.md, .claude-plugin/, .codex-plugin/, .cursor-plugin/</code><ul><li data-st="changed"><code>README.md</code><span>a Claude Code vs Codex table, version 0.7.0</span></li></ul></li>
+        <li><code>tests/pitwall/</code><ul><li data-st="new"><code>routing.test.js</code><span>gate rules, per-model counts against real spike transcripts</span></li></ul></li>
+      </ul>
+      <h3>Must not change</h3>
+      <ul data-evidence="code"><li><code>hooks/hooks-codex.json</code>: Codex gets no new events. Codex runs the same <code>hooks/boxbox-event</code> and <code>boxbox-event.js</code> on every call, so every change to those shared scripts must leave Codex payloads (which carry <code>turn_id</code>) on their 0.6 path.</li><li><code>skills/boxbox-setup/kit/assets/</code>: the page look is fixed. Pages from 0.5 and 0.6 must keep rendering.</li><li><code>skills/boxbox-setup/kit/pitwall/check-page.js</code> rules: only add what the report's new sections need.</li><li>The user's global <code>~/.claude/settings.json</code>: never written without asking.</li></ul>
+    </section>
+
+    <section data-section="concepts" data-required="yes" data-min-words="40" id="concepts">
+      <h2 data-short="Concepts">Ideas this feature needs</h2>
+      <div class="table" data-evidence="code"><table>
+        <thead><tr><th>Concept</th><th>In one line</th><th>Where it shows up</th><th>For you</th></tr></thead>
+        <tbody>
+          <tr><td>Subagents and model routing</td><td>The main agent starts helper agents, each with its own context and possibly a cheaper model</td><td>agents/, the gate, escalation, skill model</td><td><span class="level" data-level="new">new</span> <a href="../knowledge/subagent-model-routing.html">read</a></td></tr>
+          <tr><td>Claude Code hooks</td><td>Commands Claude Code runs on events, which can allow or deny a tool call</td><td>the routing gate, subagent accounting</td><td><span class="level" data-level="new">new</span> <a href="../knowledge/subagent-model-routing.html">read</a></td></tr>
+          <tr><td>Prompt caching and token accounting</td><td>Repeated prompt prefixes are billed far cheaper; tokens times price gives cost</td><td>prompt order for subagents, Timing per model</td><td><span class="level" data-level="new">new</span> <a href="../knowledge/prompt-caching-and-token-accounting.html">read</a></td></tr>
+          <tr><td>Git worktrees and merging</td><td>Several working folders on different branches of one repo, merged back in order</td><td>parallel mode</td><td><span class="level" data-level="new">new</span> <a href="../knowledge/git-worktrees-and-merging.html">read</a></td></tr>
+        </tbody>
+      </table></div>
+      <h3>Subagents, in two paragraphs</h3>
+      <p data-evidence="source">A <dfn>subagent</dfn> is a second Claude that the main agent starts with the Agent tool. It works in its own context window, starting from the prompt it is given rather than the conversation (<a href="https://code.claude.com/docs/en/sub-agents">Claude Code docs: subagents</a>), and it can run on a different model. A plugin defines one in <code>agents/&lt;name&gt;.md</code>, with a <code>model:</code> line such as <code>sonnet</code>. Step 0 confirmed that this is honoured, and that a <code>model</code> passed on the call wins over the file (<code>docs/routing-spike.md</code>, sections 1 and 2).</p>
+      <p data-evidence="observed">A <dfn>hook</dfn> is a command Claude Code runs on an event, with the event as JSON on its input. On <code>PreToolUse</code> a hook can answer "deny" with a reason. The agent reads the reason and tries again, and Step 0 saw it retry with the right agent (section 6). That is the whole enforcement mechanism of 0.7.</p>
+      <h3>Caching and worktrees, in one paragraph each</h3>
+      <p data-evidence="observed">Claude's API stores a prompt's beginning for a while. When the next call starts with exactly the same text, those tokens are billed as a <dfn>cache read</dfn>, much cheaper than fresh input. In Step 0 the second Haiku subagent read 4,460 tokens from the cache that the first one had written (<code>docs/routing-spike.md</code>, other observations). This is why every subagent prompt must start with the same fixed part.</p>
+      <p data-evidence="observed">A <dfn>worktree</dfn> is a second folder checked out on another branch of the same repository, so two builders can edit files at once without stepping on each other. Step 0 found that Claude Code's worktree subagents start from the remote's default branch when the repo has a remote, unless <code>worktree.baseRef</code> says otherwise (section 7).</p>
+    </section>
+
+    <section data-section="failure" data-required="yes" data-min-words="60" id="failure">
+      <h2 data-short="Failure">How this can fail</h2>
+      <ul class="findings" data-evidence="inferred">
+        <li data-st="flag"><span class="status" data-st="flag">high</span><b>The gate wrongly denies a call and blocks real work</b><p>A rule bug or an agent type it does not know would stall the session. Limit: the gate judges only <code>boxbox:*</code> agents, its rules are pure functions with table tests, and <code>models: auto</code> switches it off.</p></li>
+        <li data-st="flag"><span class="status" data-st="flag">high</span><b>Parallel builders start from main, not from the epic</b><p>Their changes would merge against missing code. Limit: parallel mode refuses to start unless <code>worktree.baseRef</code> is <code>"head"</code>, and stays off by default.</p></li>
+        <li data-st="move"><span class="status" data-st="move">medium</span><b>Subagent tokens counted twice, or missed while running</b><p>The cost would be wrong. Limit: register the transcript at start (its path can be derived), keep one entry per message id, and test against the real spike transcripts. Step 0 found no subagent lines in the main transcript.</p></li>
+        <li data-st="move"><span class="status" data-st="move">medium</span><b>Parallel subagents land on the wrong task</b><p>The pit wall tracks one current unit, so two builders at once would share it. Limit: tie each subagent to its task through the Agent call, which <code>agent-&lt;id&gt;.meta.json</code> links back by <code>toolUseId</code>.</p></li>
+        <li data-st="move"><span class="status" data-st="move">medium</span><b>A future Claude Code changes the resolution order</b><p>It changed in v2.1.251 already. Limit: one function holds the order, FORCE is read from the environment and turns the gate off, and <code>models: auto</code> steps aside.</p></li>
+        <li data-st="move"><span class="status" data-st="move">medium</span><b>Escalation loops or pushes through</b><p>Limit: at most one escalation per task, logged as <code>escalated</code>. A failure on the session model stops and asks you.</p></li>
+        <li><span class="status">low</span><b>The status line slows the prompt</b><p>Limit: it reads small local files only, with a timing test under 50 ms, and prints nothing on any error.</p></li>
+        <li><span class="status">low</span><b>Cache reads drop because the fixed prompt part changes</b><p>Limit: build the fixed part only from files that stay put during a feature, and show the cache-read share per model so a drop is visible.</p></li>
+        <li><span class="status">low</span><b>Codex errors on Claude-Code-only parts</b><p>Limit: the gate acts only on Claude Code's <code>Agent</code> and <code>Task</code> calls, Codex payloads carry <code>turn_id</code> and are skipped, and the Codex fixture is tested.</p></li>
+      </ul>
+    </section>
+
+    <section data-section="answers" data-required="no" data-min-words="0" id="answers">
+      <h2 data-short="From you">What you told me</h2>
+      <div class="table"><table>
+        <thead><tr><th>Asked</th><th>Answer</th></tr></thead>
+        <tbody>
+          <tr><td>Where do you and your users run Claude Code?</td><td>Both the CLI and VS Code</td></tr>
+          <tr><td>Where should the live "done means" runs happen?</td><td>A scratch demo repo, then "no demo for now": deferred</td></tr>
+          <tr><td>Budget for verification sessions?</td><td>Up to $30</td></tr>
+          <tr><td>Deadline or other contributors?</td><td>None</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section data-section="open" data-required="yes" data-min-words="20" data-min-items="1" id="open">
+      <h2>Open questions</h2>
+      <ul data-evidence="inferred">
+        <li>Should Boxbox pass <code>model</code> on every subagent call, or rely on the agent files and pass it only to escalate?</li>
+        <li>Should the gate fail open (allow on any error) or fail closed?</li>
+        <li>Where does the gate read a task's size, risk and escalation state from?</li>
+        <li>Does parallel mode belong in 0.7, given the worktree caveat?</li>
+        <li>Should <code>boxbox-writer</code> ship now, or should report filling move to a small Sonnet skill?</li>
+        <li>How should the release split into epics, and in what order?</li>
+      </ul>
+    </section>
+
+    <section data-section="glossary" data-required="yes" data-min-words="30" id="glossary">
+      <h2 data-short="Glossary">Words used on this page</h2>
+      <dl class="terms" data-evidence="inferred">
+        <dt>Session model</dt><dd>The model the main conversation runs on, Opus in this project's sessions. Subagents set to <code>inherit</code> use it.</dd>
+        <dt>Routing</dt><dd>Choosing which model does which piece of work.</dd>
+        <dt>Gate</dt><dd>The new check in the <code>PreToolUse</code> hook that denies a subagent call breaking the routing rules.</dd>
+        <dt>Brief</dt><dd>A short file per task, <code>.boxbox/&lt;feature&gt;/&lt;epic&gt;/tasks/&lt;id&gt;.md</code> (the path your spec gives), holding everything a builder needs and nothing else.</dd>
+        <dt>Escalation</dt><dd>Retrying a task on the session model after a cheaper model failed or drifted.</dd>
+        <dt>FORCE override</dt><dd><code>CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1</code>, which makes every subagent use <code>CLAUDE_CODE_SUBAGENT_MODEL</code> whatever the call or file says.</dd>
+        <dt>Lane</dt><dd>One row of the pit wall's Telemetry view, showing one worker's activity.</dd>
+      </dl>
+    </section>
+
+    <footer class="pagefoot">
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="../knowledge/subagent-model-routing.html">Subagents and model routing</a><a class="pagelink" href="../knowledge/prompt-caching-and-token-accounting.html">Prompt caching and token accounting</a><a class="pagelink" href="../knowledge/git-worktrees-and-merging.html">Git worktrees and merging</a></nav>
+      <p>Source for the agent: context.md</p>
+    </footer>
+  </article>
+</div>
+</body>
+</html>

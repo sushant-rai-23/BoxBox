@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="knowledge">
+<title>Knowledge: Subagents and model routing in Claude Code</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/boxbox.css">
+<script src="../assets/boxbox.js"></script>
+</head>
+<body>
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="../board.html">Board</a><span aria-current="page">Subagents and model routing</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article" data-commit="3825189">
+    <header class="doc-head">
+      <h1>Subagents and model routing in Claude Code</h1>
+      <p class="lede">For a developer new to Claude Code's plugin mechanics. It covers only what Boxbox 0.7 needs: what a subagent is, how Claude Code picks the model a subagent runs on, how a hook can stop a subagent call and say why, what a status line is, and why any of this saves money. Afterwards you can read the 0.7 plan's routing epics and judge whether each step is real or wishful.</p>
+      <div class="marks"><span class="level" data-level="new">new</span></div>
+    </header>
+
+    <section data-section="unchecked" data-required="no" data-min-words="0" id="unchecked">
+      <h2>Not checked</h2>
+      <aside class="callout" data-kind="warning" data-evidence="observed"><p><b>Not checked.</b> Everything marked observed was run on Claude Code 2.1.296 in the terminal on 14 October 2026 (see <code>docs/routing-spike.md</code>). Whether the VS Code extension shows a status line was not checked.</p></aside>
+    </section>
+
+    <section data-section="idea" data-required="yes" data-min-words="120" id="idea">
+      <h2 data-short="The idea">The idea in plain words</h2>
+      <aside class="side"><p><b>Where you'll meet it</b></p><ul><li><code>hooks/hooks.json</code></li><li><code>hooks/boxbox-event.js</code></li><li><code>skills/boxbox-build/SKILL.md</code></li><li><code>docs/routing-spike.md</code></li></ul></aside>
+      <p data-evidence="source">Claude Code is a program that runs Claude in your terminal. The Claude you talk to is the <span class="term" tabindex="0">main agent<span class="term-def" role="tooltip">The Claude session you type into. It reads files, runs commands and can start subagents.</span></span>. It can hand a job to a <span class="term" tabindex="0">subagent<span class="term-def" role="tooltip">A second Claude started by the main agent, with its own empty context, its own instructions and its own tool list.</span></span>: a fresh Claude that starts with an empty memory of the conversation, does the job, and sends back only its final answer. The docs say each subagent "runs in its own context window with a custom system prompt, specific tool access, and independent permissions" (<a href="https://code.claude.com/docs/en/sub-agents">Subagents docs</a>). A <span class="term" tabindex="0">context window<span class="term-def" role="tooltip">Everything the model can see in one request: instructions, the conversation so far and file contents. It is paid for in tokens.</span></span> is everything the model sees at once.</p>
+      <p data-evidence="source">Each subagent can run on a different <b>model</b>: Opus (the largest and most expensive), Sonnet (middle) or Haiku (small and cheap). <b>Model routing</b> means choosing, for each job, which model does it (<a href="https://code.claude.com/docs/en/model-config">Model configuration docs</a>).</p>
+      <p>Analogy: a head chef (the main agent) sends prep work to kitchen staff. Each cook gets a written ticket, not the whole evening's conversation, and you pay a senior cook more than a junior one, so you send chopping to the junior. The analogy stops being true in one place: a cook remembers yesterday, a subagent remembers nothing except the ticket it was handed.</p>
+    </section>
+
+    <section data-section="why" data-required="yes" data-min-words="100" id="why">
+      <h2>Why it exists</h2>
+      <p data-evidence="code">Two problems, and both cost money. First, price per <span class="term" tabindex="0">token<span class="term-def" role="tooltip">A chunk of text, roughly three quarters of a word. Models are billed per million tokens read (input) and written (output).</span></span> differs a lot by model. The price table Boxbox ships, <code>skills/boxbox-setup/kit/pitwall/prices.json</code>, lists these US dollar prices per million tokens:</p>
+      <div class="table" data-evidence="code"><table>
+        <thead><tr><th>Model</th><th>Input</th><th>Output</th><th>Cache read</th><th>Compared with Opus</th></tr></thead>
+        <tbody>
+          <tr><td><code>claude-opus-5-5</code></td><td>$4</td><td>$20</td><td>$0.20</td><td>1x</td></tr>
+          <tr><td><code>claude-sonnet-5-5</code></td><td>$2</td><td>$10</td><td>$0.20</td><td>half the input and output price</td></tr>
+          <tr><td><code>claude-haiku-5-5</code></td><td>$0.10</td><td>$0.50</td><td>$0.01</td><td>one fortieth</td></tr>
+        </tbody>
+      </table></div>
+      <p data-evidence="observed">Without routing, every subagent runs on the session's model. In the routing spike, the main session was Opus, and the headless test runs cost $2.70, "almost all of it Opus main-session turns" (<code>docs/routing-spike.md</code>). Filling a page from a template or reading files does not need the biggest model.</p>
+      <p data-evidence="source">Second, a long conversation fills the main agent's context window. Handing a job to a subagent keeps the work's file reads and tool output out of the main conversation; only the answer comes back (<a href="https://code.claude.com/docs/en/sub-agents">Subagents docs</a>). That is why <code>skills/boxbox-build/SKILL.md</code> asks for a fresh subagent per task.</p>
+    </section>
+
+    <section data-section="how" data-required="yes" data-min-words="150" data-needs="svg" id="how">
+      <h2 data-short="How it works">How it works, step by step</h2>
+      <h3>1. The main agent starts a subagent with the Agent tool</h3>
+      <p data-evidence="source">Claude acts through <b>tools</b>: named actions such as Read, Bash or Agent, each called with a small JSON object of inputs. The <b>Agent</b> tool starts a subagent. "In version 2.1.63, the Task tool was renamed to Agent", and <code>Task</code> still works as an alias (<a href="https://code.claude.com/docs/en/sub-agents">Subagents docs</a>). Its inputs are a <code>description</code>, the <code>prompt</code> (the ticket), the <code>subagent_type</code> (which agent definition to use) and, optionally, a <code>model</code>.</p>
+      <h3>2. Agent files describe each kind of subagent</h3>
+      <p data-evidence="source">A plugin (a folder that adds skills, hooks and agents to Claude Code) ships agents as Markdown files in <code>agents/&lt;name&gt;.md</code>. The top of the file, between two <code>---</code> lines, is <b>frontmatter</b>: settings written as <code>key: value</code>. Only <code>name</code> and <code>description</code> are required; <code>tools</code> limits which tools it may use, <code>model</code> picks its model, and <code>isolation: worktree</code> runs it in a separate copy of the repo. The text below the frontmatter is the subagent's instructions (<a href="https://code.claude.com/docs/en/sub-agents">Subagents docs</a>, <a href="https://code.claude.com/docs/en/plugins-reference">Plugins reference</a>).</p>
+      <p data-evidence="observed">This is the real test agent from the spike. A plugin's agent is named <code>&lt;plugin&gt;:&lt;name&gt;</code>, so this one was called as <code>spike:spike-sonnet</code>. Plugin agents ignore <code>hooks</code>, <code>mcpServers</code> and <code>permissionMode</code>.</p>
+<figure class="code" data-evidence="observed">
+<figcaption><code>plugin/agents/spike-sonnet.md</code><span>from the spike's test plugin (outside this repo)</span></figcaption>
+<pre><code>---
+name: spike-sonnet
+description: Spike agent pinned to sonnet. Replies with one word.
+model: sonnet
+tools: Read
+---
+Reply with exactly the word: pong</code></pre>
+</figure>
+      <p data-evidence="observed">The <code>description</code> is what the main agent reads when choosing an agent; only <code>model: sonnet</code> decides the model. This repo has no <code>agents/</code> folder yet, so Boxbox 0.7 would add the first agent files.</p>
+      <h3>3. Claude Code resolves the model</h3>
+      <p data-evidence="observed">The first rule that applies wins, checked in this order: (1) <code>CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1</code> together with <code>CLAUDE_CODE_SUBAGENT_MODEL</code> set: that model, always; (2) the Agent call's <code>model</code> input; (3) the agent file's <code>model:</code> (<code>inherit</code> means the session's model); (4) <code>CLAUDE_CODE_SUBAGENT_MODEL</code> on its own, as a default; (5) the main session's model. An <b>environment variable</b> is a named setting the shell passes to every program it starts. The spike confirmed each step: a plain <code>CLAUDE_CODE_SUBAGENT_MODEL=haiku</code> did not change <code>spike-sonnet</code>; adding FORCE did (<code>docs/routing-spike.md</code>).</p>
+      <p data-evidence="source">The docs list the same order for steps 2 to 5, note that before v2.1.251 the variable came first, and that forcing one model on every subagent needs <code>CLAUDE_CODE_SUBAGENT_MODEL_FORCE</code> set to <code>1</code> (<a href="https://code.claude.com/docs/en/sub-agents">Subagents docs</a>).</p>
+      <p data-evidence="source">A <b>skill</b> (a Markdown instruction file Claude loads on demand) can also carry <code>model:</code> in its frontmatter. That switch is short-lived: "The override applies for the rest of the current turn ... The session model resumes when you send your next prompt" (<a href="https://code.claude.com/docs/en/skills">Skills docs</a>). The spike saw exactly that: the skill answered on Sonnet, the next prompt on Opus. There is also a model setting called <code>opusplan</code> that uses Opus in Claude Code's plan mode and Sonnet otherwise (<a href="https://code.claude.com/docs/en/model-config">Model configuration docs</a>); Boxbox 0.7 does not use it, because it follows Claude Code's plan mode, not Boxbox's plan stage.</p>
+      <h3>4. Hooks watch, and can say no</h3>
+      <p data-evidence="source">A <b>hook</b> is a command Claude Code runs when an event happens, such as "a tool is about to run" (<code>PreToolUse</code>), "a subagent started" (<code>SubagentStart</code>) or "a subagent finished" (<code>SubagentStop</code>). The command receives the event as JSON on <b>stdin</b> (standard input: the text piped into a program). A <code>PreToolUse</code> hook can block the call by printing JSON with <code>hookSpecificOutput.permissionDecision</code> set to <code>"deny"</code> and a <code>permissionDecisionReason</code>; Claude Code "blocks the tool call, and shows Claude the reason". Exiting with code 2 also blocks, with stderr as the reason (<a href="https://code.claude.com/docs/en/hooks">Hooks docs</a>).</p>
+<figure class="diagram wide">
+<svg viewBox="0 0 760 300" role="img" aria-label="Sequence of the routing gate in the spike: the main agent calls the Agent tool for spike-haiku; the PreToolUse hook denies it with a reason; the main agent retries with spike-sonnet; the hook allows it and the subagent starts on Sonnet; when the subagent finishes, the SubagentStop hook runs; the subagent's answer returns to the main agent.">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0 0L10 5L0 10z"/></marker></defs>
+  <text class="d-label" x="36" y="22">Main agent</text><text class="d-label" x="226" y="22">PreToolUse hook</text><text class="d-label" x="466" y="22">Subagent</text><text class="d-label" x="640" y="22">SubagentStop</text>
+  <line class="d-life" x1="80" y1="34" x2="80" y2="290"/><line class="d-life" x1="290" y1="34" x2="290" y2="290"/><line class="d-life" x1="500" y1="34" x2="500" y2="290"/><line class="d-life" x1="690" y1="34" x2="690" y2="290"/>
+  <path class="d-edge" d="M80 62 H286" marker-end="url(#arrow)"/><text class="d-note" x="94" y="54">Agent: spike-haiku</text>
+  <path class="d-edge back hot" d="M290 100 H84" marker-end="url(#arrow)"/><text class="d-note" x="110" y="92">deny + reason</text>
+  <path class="d-edge" d="M80 142 H286" marker-end="url(#arrow)"/><text class="d-note" x="94" y="134">retry: spike-sonnet</text>
+  <path class="d-edge hot" d="M290 182 H496" marker-end="url(#arrow)"/><text class="d-note" x="300" y="174">allowed, runs on Sonnet</text>
+  <path class="d-edge" d="M500 224 H686" marker-end="url(#arrow)"/><text class="d-note" x="512" y="216">finished</text>
+  <path class="d-edge back" d="M500 268 H84" marker-end="url(#arrow)"/><text class="d-note" x="200" y="260">final answer only</text>
+</svg>
+<figcaption>The spike's deny run, in order. The hook never chooses a model itself: it refuses the call and the reason makes the main agent pick another agent.</figcaption>
+</figure>
+      <p data-evidence="observed">Reading the diagram top to bottom: the main agent asked for <code>spike:spike-haiku</code>. The spike's <code>PreToolUse</code> hook printed the deny JSON. The main agent read the reason, retried with <code>spike:spike-sonnet</code>, the hook printed nothing (so the call was allowed), and the subagent ran on <code>claude-sonnet-5-5</code>. When it ended, <code>SubagentStop</code> fired with the subagent's transcript path (<code>docs/routing-spike.md</code>).</p>
+      <p data-evidence="observed">What the two subagent hooks receive differs. <code>SubagentStart</code> gets <code>session_id</code>, <code>transcript_path</code> (the parent's), <code>cwd</code>, <code>prompt_id</code>, <code>agent_id</code>, <code>agent_type</code> and <code>hook_event_name</code>, with no model and no subagent transcript. <code>SubagentStop</code> adds <code>agent_transcript_path</code>, <code>last_assistant_message</code>, <code>stop_hook_active</code> and <code>permission_mode</code>. The model a subagent really used is read from its own transcript file (<code>docs/routing-spike.md</code>).</p>
+      <h3>5. A status line shows the result</h3>
+      <p data-evidence="source">A <b>status line</b> is a command named under <code>statusLine</code> in a <code>settings.json</code> file. Claude Code pipes session JSON (model, cost, context use) to it on stdin and shows the one line it prints under the prompt (<a href="https://code.claude.com/docs/en/statusline">Status line docs</a>). A plugin cannot ship one: from a plugin's <code>settings.json</code>, "Only two keys take effect from a plugin, <code>agent</code> and <code>subagentStatusLine</code>" (<a href="https://code.claude.com/docs/en/plugins-reference">Plugins reference</a>). So Boxbox setup has to offer to write it into the project's <code>.claude/settings.json</code>.</p>
+    </section>
+
+    <section data-section="here" data-required="yes" data-min-words="100" id="here">
+      <h2 data-short="In this repo">How this repo uses it</h2>
+      <p data-evidence="code">Today Boxbox watches subagents but does not route them: no agent file in this repo names a model, and no hook denies a call to pick another model. The pieces already in place are these.</p>
+      <ul data-evidence="code">
+        <li><code>hooks/hooks.json:35</code>: registers a <code>PreToolUse</code> hook with matcher <code>*</code> (every tool), running <code>hooks/boxbox-event</code>. Today it only pauses or logs; 0.7's routing gate would live here.</li>
+        <li><code>hooks/hooks.json:105</code> and <code>hooks/hooks.json:116</code>: register <code>SubagentStart</code> and <code>SubagentStop</code> with the same script.</li>
+        <li><code>hooks/boxbox-event:50</code>: the bash wrapper runs Node synchronously (Claude Code waits for it) only for <code>SessionStart</code> and for pit wall commands; every other event, including the subagent ones, is logged in the background so the agent never waits. A deny decision must be printed synchronously, so a routing gate has to be added to this line's condition.</li>
+        <li><code>hooks/boxbox-event.js:105</code>: <code>classify</code> treats a call to <code>Agent</code>, <code>Task</code> or Codex's <code>spawn_agent</code> as kind <code>crew</code>. Matching both <code>Agent</code> and <code>Task</code> matters: the spike saw hooks get <code>Agent</code> while the session result named the denied call <code>Task</code>.</li>
+        <li><code>hooks/boxbox-event.js:200</code>: <code>laneFor</code> puts an event in the driver lane when there is no <code>agent_id</code>, the steward lane for reviewer-like agent types, and the crew lane otherwise.</li>
+        <li><code>hooks/boxbox-event.js:406</code>: the <code>SubagentStart</code> and <code>SubagentStop</code> case logs a crew event and, on stop, records the subagent's transcript so the pit wall can count its tokens.</li>
+        <li><code>skills/boxbox-build/SKILL.md:34</code>: "Fresh context if you can": each build task goes to a new subagent with only the task's ticket.</li>
+        <li><code>skills/boxbox-inspect/SKILL.md:21</code>: suggests a different model for the reviewer than the one that built the unit.</li>
+      </ul>
+<figure class="code" data-evidence="code">
+<figcaption><code>hooks/boxbox-event.js</code><span>lines 200 to 204</span></figcaption>
+<pre data-quote="hooks/boxbox-event.js:200-204"><code>function laneFor(p, stage) {
+  if (!p.agent_id) return "driver";<b class="pin">1</b>
+  if (/review|inspect|steward/i.test(p.agent_type || "") || stage === "inspect") return "steward";<b class="pin">2</b>
+  return "crew";
+}</code></pre>
+<ol class="code-notes">
+  <li>No <code>agent_id</code> in the hook input means the event came from the main agent.</li>
+  <li>An agent type containing "review", "inspect" or "steward", or any subagent during the inspect stage, is shown as the reviewer.</li>
+</ol>
+</figure>
+      <p data-evidence="code">If the <code>SubagentStart</code>/<code>SubagentStop</code> registrations were removed, the pit wall would still see the Agent call through <code>PreToolUse</code>, but would lose the crew lane's start and finish marks and the subagent transcripts it counts tokens from.</p>
+    </section>
+
+    <section data-section="example" data-required="yes" data-min-words="120" id="example">
+      <h2>A worked example</h2>
+      <p data-evidence="observed">The spike left a script, <code>subs.js</code>, that reads a run's main transcript, each subagent transcript and the hook log, and prints for each subagent the model requested and the model that actually answered. These are its real outputs; I shortened nothing except leaving out the start of run e's long reply (cut by the script itself at "abou").</p>
+<figure class="code wide" data-evidence="observed">
+<figcaption><span>Run a: three Agent calls with no gate. Run from the spike's scratchpad folder.</span></figcaption>
+<pre><code>node subs.js a</code></pre>
+<pre class="output"><code>== a 3bb023ed-1a8a-453f-8274-6c50c0344cb4 | Done. All three calls replied "pong".
+ main models: claude-opus-5-5  sidechain lines in main: 0
+  agent-a4bdf961c0c93ede3.jsonl spike:spike-sonnet requested: - actual: claude-sonnet-5-5 requestedModel field: claude-sonnet-5-5 meta: {"agentType":"spike:spike-sonnet","description":"Ping spike-sonnet","toolUseId":"toolu_015Hzv2fAzWknicaU9S8fXhM","spawnDepth":1,"requestShape":"foreground","requestNonInteractive":true}
+  agent-aba355d9c0f1e08b1.jsonl spike:spike-sonnet requested: haiku actual: claude-haiku-5-5 requestedModel field: claude-haiku-5-5 meta: {"agentType":"spike:spike-sonnet","description":"Ping spike-sonnet as haiku","toolUseId":"toolu_01E1veSd2KKvqAoGktz7g9uH","spawnDepth":1,"requestShape":"foreground","requestNonInteractive":true,"model":"haiku"}
+  agent-af6a4b96d0cc87e7f.jsonl spike:spike-haiku requested: - actual: claude-haiku-5-5 requestedModel field: claude-haiku-5-5 meta: {"agentType":"spike:spike-haiku","description":"Ping spike-haiku","toolUseId":"toolu_01FZKMwPPbeyvd1jc4R3sZXj","spawnDepth":1,"requestShape":"foreground","requestNonInteractive":true}
+  PreToolUse tool_name: Agent {"description":"Ping spike-sonnet","prompt":"ping","subagent_type":"spike:spike-sonnet","run_in_background":false}
+  PreToolUse tool_name: Agent {"description":"Ping spike-sonnet as haiku","prompt":"ping","subagent_type":"spike:spike-sonnet","model":"haiku","run_in_background":false}
+  PreToolUse tool_name: Agent {"description":"Ping spike-haiku","prompt":"ping","subagent_type":"spike:spike-haiku","run_in_background":false}</code></pre>
+</figure>
+      <ol class="path" data-evidence="observed">
+        <li><b>The session runs on Opus</b><span class="at">spike run a, "main models"</span><p>Every main-agent line is <code>claude-opus-5-5</code>, and the main transcript holds no subagent lines (sidechain count 0), so adding subagent transcripts later does not count anything twice.</p></li>
+        <li><b>Call 1: no model passed, agent file says sonnet</b><span class="at">agent-a4bdf961…</span><p>Rule 3 applies. It ran on <code>claude-sonnet-5-5</code>, half Opus's price.</p></li>
+        <li><b>Call 2: same agent, call passes model haiku</b><span class="at">agent-aba355d9…</span><p>Rule 2 beats rule 3: it ran on <code>claude-haiku-5-5</code>. Only this subagent's <code>meta</code> has <code>"model":"haiku"</code>, so the meta file records what the call asked for.</p></li>
+        <li><b>Call 3: agent file says haiku</b><span class="at">agent-af6a4b96…</span><p>Rule 3 again, on Haiku. The <code>PreToolUse</code> lines show the hook saw the tool as <code>Agent</code>, and saw <code>model</code> only when the caller passed one. When it is absent, a gate has to work out the model itself from the agent file.</p></li>
+        <li><b>Joining a subagent to its call</b><span class="at">meta toolUseId</span><p>Each meta's <code>toolUseId</code> is the id of the <code>PreToolUse</code> event for that Agent call. That is how the pit wall can say "this call, gated here, ran on this model".</p></li>
+      </ol>
+<figure class="code wide" data-evidence="observed">
+<figcaption><span>Run e: the same plugin with the deny hook switched on (SPIKE_DENY=1). The script cuts the reply at about 300 characters.</span></figcaption>
+<pre><code>node subs.js e</code></pre>
+<pre class="output"><code>== e 83869c4a-4c5b-4fe2-b0db-f660d8b2bc59 | The `spike:spike-haiku` call was blocked. A PreToolUse hook on the Agent tool denied it with: "Routing gate: use spike:spike-sonnet instead of spike-haiku."  As you instructed, I retried with `spike:spike-sonnet` and the same prompt, `ping`. It ran and replied **"pong"**, with no tool calls, in abou
+ main models: claude-opus-5-5  sidechain lines in main: 0
+  agent-ada618eaf06a43823.jsonl spike:spike-sonnet requested: - actual: claude-sonnet-5-5 requestedModel field: claude-sonnet-5-5 meta: {"agentType":"spike:spike-sonnet","description":"Ping spike-sonnet agent","toolUseId":"toolu_01TyGGCWxcjgqS5bataCSrhw","spawnDepth":1,"requestShape":"foreground","requestNonInteractive":true}
+  PreToolUse tool_name: Agent {"description":"Ping spike-haiku agent","prompt":"ping","subagent_type":"spike:spike-haiku"}
+  PreToolUse tool_name: Agent {"description":"Ping spike-sonnet agent","prompt":"ping","subagent_type":"spike:spike-sonnet","run_in_background":false}</code></pre>
+</figure>
+      <p data-evidence="observed">Two Agent calls reached the hook, but only one subagent transcript exists: the denied <code>spike-haiku</code> call never started a subagent. The main agent's reply quotes the hook's reason word for word, which is the whole mechanism of a routing gate: the reason is the instruction.</p>
+    </section>
+
+    <section data-section="mistakes" data-required="yes" data-min-words="80" data-min-items="2" id="mistakes">
+      <h2>Common mistakes</h2>
+      <ul class="findings">
+        <li data-st="flag" data-evidence="observed"><span class="status" data-st="flag">trap</span><b>Expecting <code>CLAUDE_CODE_SUBAGENT_MODEL</code> to override agent files</b><p>Since v2.1.251 it is only a default: <code>spike-sonnet</code> stayed on Sonnet with the variable set to haiku. Only <code>CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1</code> overrides everything. Check both variables before assuming a gate is in charge (<code>docs/routing-spike.md</code>).</p></li>
+        <li data-st="flag" data-evidence="code"><span class="status" data-st="flag">trap</span><b>Printing a deny from a background hook</b><p><code>hooks/boxbox-event:50</code> sends most events to Node in the background with output thrown away, so a deny printed there never reaches Claude Code and the call goes ahead. A gate must run in the foreground path.</p></li>
+        <li data-st="move" data-evidence="observed"><span class="status" data-st="move">trap</span><b>Matching only <code>Agent</code></b><p>Hooks see <code>tool_name: "Agent"</code>, but the session result listed the denied call under <code>"Task"</code>. Match both names, as <code>hooks/boxbox-event.js</code> already does for its <code>crew</code> kind.</p></li>
+        <li data-st="move" data-evidence="observed"><span class="status" data-st="move">trap</span><b>Looking for the model in the hook input</b><p><code>SubagentStart</code> has no model and no subagent transcript path; <code>PreToolUse</code> has <code>model</code> only when the caller passed one. Read the model from the subagent's transcript, or compute it with the resolution order.</p></li>
+        <li data-evidence="source"><span class="status">trap</span><b>Trying to ship the status line in the plugin</b><p>It is dropped silently; only <code>agent</code> and <code>subagentStatusLine</code> take effect from a plugin (<a href="https://code.claude.com/docs/en/plugins-reference">Plugins reference</a>). Write <code>statusLine</code> into the project's settings instead, with the developer's consent.</p></li>
+      </ul>
+    </section>
+
+    <section data-section="not" data-required="yes" data-min-words="60" id="not">
+      <h2 data-short="When not to">When not to use it</h2>
+      <p data-evidence="source">Do not start a subagent for a job that needs the conversation so far, such as answering the developer's last question or a small edit to a file already open: the subagent begins with none of that context, and re-explaining it costs tokens the switch was meant to save. Do not route hard design or debugging to a smaller model just because it is cheaper; a wrong answer that has to be redone costs more than one Opus pass. For a single step inside one skill, a skill's <code>model:</code> is the wrong tool too, because it switches the whole turn, not part of it (<a href="https://code.claude.com/docs/en/skills">Skills docs</a>); a small separate agent fits better.</p>
+    </section>
+
+    <section data-section="check" data-required="yes" data-min-words="40" data-min-items="3" id="check">
+      <h2>Check yourself</h2>
+      <ol class="checks">
+        <li><details><summary>An agent file says <code>model: sonnet</code>, the call passes <code>model: "haiku"</code>, and <code>CLAUDE_CODE_SUBAGENT_MODEL=opus</code> is set without FORCE. Which model runs?</summary><div>Haiku. The call's <code>model</code> (rule 2) beats the agent file (rule 3), and the variable without FORCE is only a default (rule 4). Run a's second subagent shows rules 2 and 3.</div></details></li>
+        <li><details><summary>What happens if the routing gate's deny is printed from the background branch of <code>hooks/boxbox-event:50</code>?</summary><div>Nothing stops the call. Claude Code reads the hook's stdout, but the background branch sends Node's output to <code>/dev/null</code> and the wrapper exits 0 at once, so the call is allowed.</div></details></li>
+        <li><details><summary>Why can't the gate just read the model from <code>SubagentStart</code>?</summary><div>That event has no model field, and it fires after the call was already allowed. The decision belongs in <code>PreToolUse</code>, which runs before the subagent exists.</div></details></li>
+        <li><details><summary>A skill sets <code>model: sonnet</code>. What model answers the developer's next message?</summary><div>The session's model again. A skill's model lasts for the rest of the current turn only; the spike saw Sonnet for the skill, then Opus on the next prompt.</div></details></li>
+        <li><details><summary>Why does Boxbox setup have to write the status line into <code>.claude/settings.json</code> instead of the plugin?</summary><div>From a plugin's settings, only <code>agent</code> and <code>subagentStatusLine</code> take effect; <code>statusLine</code> is dropped.</div></details></li>
+      </ol>
+    </section>
+
+    <section data-section="reading" data-required="yes" data-min-words="10" data-min-items="2" id="reading">
+      <h2 data-short="Reading">Further reading</h2>
+      <ul>
+        <li><a href="https://code.claude.com/docs/en/sub-agents">Claude Code: Subagents</a>: the frontmatter table and "choose a model", with the resolution order.</li>
+        <li><a href="https://code.claude.com/docs/en/hooks">Claude Code: Hooks reference</a>: the PreToolUse decision fields, exit code 2, and the SubagentStart and SubagentStop inputs.</li>
+        <li><a href="https://code.claude.com/docs/en/statusline">Claude Code: Status line</a>: the JSON a status line command receives.</li>
+        <li><a href="https://code.claude.com/docs/en/plugins-reference">Claude Code: Plugins reference</a>: what a plugin can ship, including agents and the two settings keys it may set.</li>
+      </ul>
+    </section>
+
+    <footer class="pagefoot">
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="../board.html">Board</a><a class="pagelink" href="../model-routing/context.html">Context: model routing</a></nav>
+      <p>Ask the agent about anything here that is unclear.</p>
+    </footer>
+  </article>
+</div>
+</body>
+</html>

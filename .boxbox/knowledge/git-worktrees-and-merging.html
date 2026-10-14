@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="knowledge">
+<title>Knowledge: Git worktrees and merging parallel work</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../assets/boxbox.css">
+<script src="../assets/boxbox.js"></script>
+</head>
+<body>
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="../board.html">Board</a><span aria-current="page">Git worktrees and merging</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article" data-commit="3825189">
+    <header class="doc-head">
+      <h1>Git worktrees and merging parallel work</h1>
+      <p class="lede">For a developer new to git worktrees and merges. It covers only what Boxbox 0.7's optional parallel mode needs: several builder agents each working in their own folder on their own task branch, and their commits brought back into the epic branch one at a time. Afterwards you can read a parallel-mode plan, spot a worktree that started from the wrong branch, and decide what to do when two tasks collide.</p>
+    </header>
+
+    <section data-section="idea" data-required="yes" data-min-words="120" id="idea">
+      <h2 data-short="The idea">The idea in plain words</h2>
+      <aside class="side"><p><b>Where you'll meet it</b></p><ul><li><code>skills/boxbox-setup/kit/GUIDE.md</code>, "Git model"</li><li><code>skills/boxbox-build/SKILL.md</code>, "Branches"</li><li><code>.claude/worktrees/</code> when parallel mode runs</li></ul></aside>
+      <p>First, the basics. A <span class="term" tabindex="0">commit<span class="term-def" role="tooltip">A saved snapshot of every tracked file, with a message, an author, a date and a pointer to the commit before it (its parent). Its id is a hash such as 743704d.</span></span> is a saved snapshot of the project that points back at the commit before it, so the commits form a chain called the history. A <span class="term" tabindex="0">branch<span class="term-def" role="tooltip">A movable name that points at one commit. Committing on a branch moves the name forward to the new commit.</span></span> is just a name that points at one commit; when you commit on it, the name moves forward. The folder where you edit files is the <span class="term" tabindex="0">working tree<span class="term-def" role="tooltip">The ordinary folder of files you edit. git compares it with the last commit to see what changed.</span></span>, and the hidden <code>.git</code> folder holds every commit and branch.</p>
+      <p>Normally one repository has one working tree, so you can have only one branch checked out at a time. A <span class="term" tabindex="0">worktree<span class="term-def" role="tooltip">An extra working folder linked to the same .git, checked out on its own branch.</span></span> is a second (or third) working folder, checked out on a different branch, that shares the same <code>.git</code>. A commit made in any of the folders lands in the one shared history, so every folder can see every other folder's branches.</p>
+      <p>The analogy: one shared kitchen pantry (the <code>.git</code>) with several cooking stations (the folders). Each cook works on their own dish at their own station without bumping elbows, and anything they finish goes back into the same pantry. Where it stops being true: two cooks can still write different versions of the same recipe card, and nobody notices until someone tries to put both cards in one binder. That is a merge conflict, covered below.</p>
+      <p><span class="term" tabindex="0">Merging<span class="term-def" role="tooltip">Combining the changes from one branch into another branch.</span></span> is bringing the commits from a task branch back onto the epic branch. Boxbox would do that one task at a time, in plan order.</p>
+    </section>
+
+    <section data-section="why" data-required="yes" data-min-words="100" id="why">
+      <h2>Why it exists</h2>
+      <p data-evidence="source">Without worktrees, a repository has one folder and one checked-out branch. Two agents editing at the same time in that folder would edit the same files on the same branch: one agent's half-written change breaks the other's test run, and their commits mix. git's answer is to let one repository support several working trees, "allowing you to check out more than one branch at a time", each linked worktree "sharing everything except per-worktree files such as <code>HEAD</code>, <code>index</code>" (<a href="https://git-scm.com/docs/git-worktree">git-worktree documentation</a>).</p>
+      <p data-evidence="source">Claude Code uses this for parallel agents: running each session in its own worktree "gives it a separate copy of the files to edit, so one session can build a feature while a second fixes a bug", and subagents "can run in their own worktrees so parallel edits don't conflict" (<a href="https://code.claude.com/docs/en/worktrees">Claude Code: Run parallel sessions with worktrees</a>).</p>
+      <p data-evidence="source">A separate folder isolates the edits, not the outcome. Two tasks can still change the same line, and that only shows up when the second one is merged. git then stops and marks the conflicting lines with <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code>, <code>=======</code> and <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> for a person to resolve (<a href="https://git-scm.com/docs/git-merge">git-merge documentation, "How conflicts are presented"</a>). This is why parallel mode needs a plan for merging, not only for running.</p>
+    </section>
+
+    <section data-section="how" data-required="yes" data-min-words="150" data-needs="svg" id="how">
+      <h2 data-short="How it works">How it works, step by step</h2>
+<figure class="diagram wide">
+<svg viewBox="0 0 760 270" role="img" aria-label="One shared .git folder at the top. Below it three folders linked to it: the main folder repo/ on branch epic, worktree wt-task-1 on branch task-1, and worktree wt-task-2 on branch task-2. Arrows go from each task folder back to the epic folder, numbered 1 and 2, showing they are merged back one at a time in plan order.">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0 0L10 5L0 10z"/></marker></defs>
+  <rect class="d-box out" x="295" y="16" width="170" height="62"/><text class="d-label" x="311" y="42">.git (shared)</text><text class="d-sub" x="311" y="62">all commits, branches</text>
+  <rect class="d-box" x="20" y="150" width="170" height="62"/><text class="d-label" x="36" y="176">repo/ main folder</text><text class="d-sub" x="36" y="196">branch: epic</text>
+  <rect class="d-box hot" x="295" y="150" width="170" height="62"/><text class="d-label" x="311" y="176">wt-task-1/</text><text class="d-sub" x="311" y="196">branch: task-1</text>
+  <rect class="d-box hot" x="570" y="150" width="170" height="62"/><text class="d-label" x="586" y="176">wt-task-2/</text><text class="d-sub" x="586" y="196">branch: task-2</text>
+  <line class="d-life" x1="105" y1="150" x2="330" y2="78"/>
+  <line class="d-life" x1="380" y1="150" x2="380" y2="78"/>
+  <line class="d-life" x1="655" y1="150" x2="430" y2="78"/>
+  <text class="d-note" x="480" y="110">each folder reads and writes the same .git</text>
+  <path class="d-edge hot" d="M295 181 H194" marker-end="url(#arrow)"/><text class="d-step" x="236" y="172">1</text>
+  <path class="d-edge hot" d="M655 212 Q400 268 110 216" marker-end="url(#arrow)"/><text class="d-step" x="392" y="256">2</text>
+</svg>
+<figcaption>One repository, three folders. Dotted lines: every folder shares the one <code>.git</code>. Arrows 1 and 2: task branches come back into <code>epic</code> one at a time, in plan order.</figcaption>
+</figure>
+      <p data-evidence="source"><b>Step 1, create a worktree.</b> <code>git worktree add -b task-1 ../wt-task-1 epic</code> makes a new folder <code>../wt-task-1</code>, creates a new branch <code>task-1</code> starting at the commit <code>epic</code> points to, and checks it out there. The doc: "Create a worktree at &lt;path&gt; and checkout &lt;commit-ish&gt; into it" (<a href="https://git-scm.com/docs/git-worktree#Documentation/git-worktree.txt-add">git worktree add</a>). git refuses to check out a branch that is already checked out in another worktree, unless forced, so two folders can never share one branch.</p>
+      <p data-evidence="source"><b>Step 2, see them.</b> <code>git worktree list</code> lists the main worktree first, then each linked one, with the commit and branch each has checked out (<a href="https://git-scm.com/docs/git-worktree#Documentation/git-worktree.txt-list">git worktree list</a>).</p>
+      <p data-evidence="observed"><b>Step 3, work in each folder.</b> Each folder is ordinary: edit, test, commit. I ran this in a scratch repository (never in this repo) with fixed names and dates so the hashes repeat. Paths are shortened to <code>wt-demo/</code>; the full scratch path is longer.</p>
+<figure class="code wide" data-evidence="observed">
+<figcaption><span>Scratch repo: main has one commit, epic branches from it, then two worktrees</span></figcaption>
+<pre><code>git worktree add -b task-1 ../wt-task-1 epic
+git worktree add -b task-2 ../wt-task-2 epic
+git worktree list
+# in wt-task-1: change "hello" to "namaste", commit "E1.1: say namaste"
+# in wt-task-2: append a colour line, commit "E1.2: add colour"
+git log --oneline --graph --all</code></pre>
+<pre class="output"><code>Preparing worktree (new branch 'task-1')
+HEAD is now at adeea03 init
+Preparing worktree (new branch 'task-2')
+HEAD is now at adeea03 init
+wt-demo/repo       adeea03 [epic]
+wt-demo/wt-task-1  adeea03 [task-1]
+wt-demo/wt-task-2  adeea03 [task-2]
+* 743704d E1.1: say namaste
+| * 6f125a2 E1.2: add colour
+|/
+* adeea03 init</code></pre>
+</figure>
+      <p data-evidence="observed">The graph shows two commits side by side, both with parent <code>adeea03</code>. Neither task knows about the other. <code>epic</code> has not moved yet: it is still at <code>adeea03</code>.</p>
+      <p data-evidence="source"><b>Step 4, bring them back, one at a time.</b> There are three ways to put a task's commit onto <code>epic</code>. A <b>fast-forward</b> happens when <code>epic</code> is still at the task's starting point: git just moves the <code>epic</code> name forward to the task's commit, "without creating an extra merge commit"; <code>--ff-only</code> refuses if that is not possible (<a href="https://git-scm.com/docs/git-merge">git merge</a>). A <b>merge commit</b> (<code>git merge --no-ff</code>) adds a new commit with two parents that joins the histories. A <b>squash</b> (<code>git merge --squash</code>) stages the combined change but makes no merge commit, so you write one ordinary commit yourself (<a href="https://git-scm.com/docs/git-merge#Documentation/git-merge.txt---squash">git merge --squash</a>). A <b>cherry-pick</b> takes an existing commit, applies the change it introduced, and records a new commit for it on the current branch (<a href="https://git-scm.com/docs/git-cherry-pick">git cherry-pick</a>).</p>
+<figure class="code wide" data-evidence="observed">
+<figcaption><span>Scratch repo, in repo/ on epic: task 1 fast-forwards, task 2 cannot, so cherry-pick it</span></figcaption>
+<pre><code>git merge --ff-only task-1
+git merge --ff-only task-2
+git cherry-pick task-2
+git log --oneline --graph --all
+cat app.txt</code></pre>
+<pre class="output"><code>Updating adeea03..743704d
+Fast-forward
+ app.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+hint: Diverging branches can't be fast-forwarded, you need to either:
+hint:
+hint: 	git merge --no-ff
+hint:
+hint: or:
+hint:
+hint: 	git rebase
+hint:
+hint: Disable this message with "git config set advice.diverging false"
+fatal: Not possible to fast-forward, aborting.
+Auto-merging app.txt
+[epic e3d8d8a] E1.2: add colour
+ Date: Wed Oct 14 10:00:00 2026 +0000
+ 1 file changed, 1 insertion(+)
+* e3d8d8a E1.2: add colour
+* 743704d E1.1: say namaste
+| * 6f125a2 E1.2: add colour
+|/
+* adeea03 init
+greeting = "namaste"
+farewell = "bye"
+colour = "orange"</code></pre>
+</figure>
+      <p data-evidence="observed">Task 1 fast-forwarded: <code>epic</code> now points at the very commit made in the worktree, <code>743704d</code>. Task 2 could not fast-forward, because <code>epic</code> had moved past task 2's starting point. The cherry-pick copied its change on top as a new commit, <code>e3d8d8a</code>, with a new hash; the original <code>6f125a2</code> still hangs off <code>adeea03</code> on <code>task-2</code>. The result is a straight line on <code>epic</code>, one commit per task, in plan order.</p>
+      <p data-evidence="source"><b>Step 5, a conflict.</b> When two tasks change the same line, git cannot choose. The cherry-pick stops, leaves the branch "at the last commit successfully made", and writes both versions into the file between conflict markers; <code>git cherry-pick --abort</code> returns to the state before it started (<a href="https://git-scm.com/docs/git-cherry-pick">git cherry-pick, conflicts and --abort</a>).</p>
+<figure class="code wide" data-evidence="observed">
+<figcaption><span>Scratch repo: task-3 and task-4 both change the greeting line, from epic at e3d8d8a</span></figcaption>
+<pre><code>git merge --ff-only task-3
+git cherry-pick task-4
+git status --short
+cat app.txt
+git cherry-pick --abort
+git log --oneline -1</code></pre>
+<pre class="output"><code>Updating e3d8d8a..a6c33ad
+Fast-forward
+ app.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+Auto-merging app.txt
+CONFLICT (content): Merge conflict in app.txt
+error: could not apply 98f20bd... E2.2: say sat sri akal
+hint: After resolving the conflicts, mark them with
+hint: "git add/rm &lt;pathspec&gt;", then run
+hint: "git cherry-pick --continue".
+hint: You can instead skip this commit with "git cherry-pick --skip".
+hint: To abort and get back to the state before "git cherry-pick",
+hint: run "git cherry-pick --abort".
+hint: Disable this message with "git config set advice.mergeConflict false"
+UU app.txt
+&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+greeting = "vanakkam"
+=======
+greeting = "sat sri akal"
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; 98f20bd (E2.2: say sat sri akal)
+farewell = "bye"
+colour = "orange"
+a6c33ad E2.1: say vanakkam</code></pre>
+</figure>
+      <p data-evidence="observed"><code>UU</code> means the file is unmerged on both sides. The part above <code>=======</code> is what <code>epic</code> already has (task 3); below is task 4's change. After the abort, <code>epic</code> is back at <code>a6c33ad</code> with task 3 only, untouched.</p>
+      <p data-evidence="source"><b>Step 6, clean up.</b> <code>git worktree remove &lt;path&gt;</code> deletes a linked folder; it refuses an unclean one (untracked or modified files) unless you add <code>--force</code>, and the main worktree cannot be removed (<a href="https://git-scm.com/docs/git-worktree#Documentation/git-worktree.txt-remove">git worktree remove</a>). Removing the folder does not delete its branch: that is a separate <code>git branch -d</code>.</p>
+<figure class="code wide" data-evidence="observed">
+<figcaption><span>Scratch repo: cleanup after tasks 1 and 2</span></figcaption>
+<pre><code>git worktree remove ../wt-task-1
+git worktree remove ../wt-task-2
+git branch -d task-1
+git branch -d task-2
+git branch -D task-2
+git worktree list</code></pre>
+<pre class="output"><code>Deleted branch task-1 (was 743704d).
+error: the branch 'task-2' is not fully merged
+hint: If you are sure you want to delete it, run 'git branch -D task-2'
+hint: Disable this message with "git config set advice.forceDeleteBranch false"
+Deleted branch task-2 (was 6f125a2).
+wt-demo/repo  e3d8d8a [epic]</code></pre>
+</figure>
+      <p data-evidence="observed">The two removes print nothing on success. <code>task-1</code> deletes cleanly because its commit is on <code>epic</code>. <code>task-2</code> is "not fully merged" because its original commit <code>6f125a2</code> is not on <code>epic</code>; only the cherry-picked copy is. Check the change is really on <code>epic</code> before forcing with <code>-D</code>.</p>
+    </section>
+
+    <section data-section="here" data-required="yes" data-min-words="100" id="here">
+      <h2 data-short="In this repo">How this repo uses it</h2>
+      <aside class="callout" data-kind="note" data-evidence="observed"><p><b>No worktree code yet.</b> At commit 3825189, <code>git grep -i worktree</code> finds nothing in any tracked file. Parallel mode is a plan for 0.7. What exists today is the branch model it must fit into.</p></aside>
+      <ul data-evidence="code">
+        <li><code>skills/boxbox-setup/kit/GUIDE.md:282</code>: each feature gets a feature branch off the main branch. (The installed copy is <code>.boxbox/GUIDE.md</code>, same lines.)</li>
+        <li><code>skills/boxbox-setup/kit/GUIDE.md:283</code>: with unit = epic, each epic gets its own branch off the feature branch, one commit per task, and the epic is squash-merged into the feature branch on approval.</li>
+        <li><code>skills/boxbox-build/SKILL.md:24</code>: the build skill creates the epic branch from the feature branch.</li>
+        <li><code>skills/boxbox-build/SKILL.md:37</code>: one commit per task, code and tests only, never with a failing check.</li>
+      </ul>
+<figure class="code wide" data-evidence="code">
+<figcaption><code>skills/boxbox-setup/kit/GUIDE.md</code><span>lines 282 to 283</span></figcaption>
+<pre data-quote="skills/boxbox-setup/kit/GUIDE.md:282-283"><code>- Each feature gets a feature branch off the main branch: `&lt;feature&gt;`.
+- Unit = epic: each epic gets a branch off the feature branch: `&lt;feature&gt;-e1-&lt;slug&gt;`. One commit per task, holding only that task's code and tests. At the stop, open a draft pull request from the epic branch into the feature branch. On approval, squash-merge it, so the feature branch has one commit per epic.</code></pre>
+</figure>
+      <p data-evidence="code">So parallel mode adds one layer below the epic branch: a short-lived task branch per builder, each in its own worktree, whose single commit comes back onto the epic branch. After that the epic branch must look exactly as it does in sequential mode, one commit per task in plan order, so the review stop and the squash-merge (line 283) do not change. That is why a cherry-pick or a fast-forward fits and a merge commit does not: a merge commit would add an extra commit per task to the epic branch.</p>
+      <p data-evidence="observed">The 0.7 routing spike (<code>docs/routing-spike.md</code>, section 7, not yet committed) ran a real <code>isolation: worktree</code> subagent. It ran in <code>&lt;repo&gt;/.claude/worktrees/agent-&lt;agent_id&gt;</code> on a new branch <code>worktree-agent-&lt;agent_id&gt;</code>, its commit stayed on that branch, and the Agent tool result returned <code>agentId</code>, <code>worktreePath</code> and <code>worktreeBranch</code>. The <code>.claude/</code> folder showed up untracked in the main checkout.</p>
+      <p data-evidence="observed">The gotcha that matters most: with a remote whose default branch was <code>master</code> and the session on <code>epic</code>, the worktree branched from <code>master</code> and the epic's commits were missing. Without a remote it branched from the current HEAD, and with <code>"worktree": {"baseRef": "head"}</code> in <code>.claude/settings.json</code> it branched from the current branch. The spike repo's real graph shows both outcomes:</p>
+<figure class="code wide" data-evidence="observed">
+<figcaption><span>The spike's scratch repo, <code>git log --oneline --graph --all</code></span></figcaption>
+<pre><code>git log --oneline --graph --all</code></pre>
+<pre class="output"><code>* 42c5ab8 spike wt commit
+| * 0966c85 spike wt commit
+| | * 8f7733b spike wt commit
+| |/
+| * b7c4dfd epic commit
+|/
+| * 0d4f943 spike wt commit
+|/
+* 9dee144 init</code></pre>
+</figure>
+      <p data-evidence="observed">Two agent commits (<code>0966c85</code>, <code>8f7733b</code>) sit on top of <code>b7c4dfd epic commit</code>: those worktrees started from the epic. Two (<code>42c5ab8</code>, <code>0d4f943</code>) sit directly on <code>9dee144 init</code>, which is <code>master</code>: those started without the epic's work. The spike's conclusion is that parallel mode must set <code>worktree.baseRef: "head"</code> or refuse to run, and must make sure <code>.claude/worktrees/</code> is ignored.</p>
+      <p data-evidence="source">The docs agree: subagent worktrees "branch from your repository's default branch unless <code>worktree.baseRef</code> is set to <code>"head"</code>"; <code>"head"</code> branches "from your current local HEAD", and the setting cannot be a branch name. The docs also advise adding <code>.claude/worktrees/</code> to <code>.gitignore</code>, and say a subagent's worktree is removed automatically when it finishes without changes, while one with changes stays on disk (<a href="https://code.claude.com/docs/en/worktrees#isolate-subagents-with-worktrees">Claude Code: Isolate subagents with worktrees</a>).</p>
+    </section>
+
+    <section data-section="example" data-required="yes" data-min-words="120" id="example">
+      <h2>A worked example</h2>
+      <p data-evidence="code">One epic with two tasks, E1.1 and E1.2, run in parallel mode as 0.7 plans it. The first two steps are today's code; the rest is the planned flow, matched to the scratch run above. Nothing after step 2 exists in this repo yet.</p>
+      <ol class="path" data-evidence="code">
+        <li><b>The epic branch exists</b><span class="at">skills/boxbox-build/SKILL.md:24</span><p>The build skill creates <code>&lt;feature&gt;-e1-&lt;slug&gt;</code> off the feature branch and checks it out in the main folder. In the scratch run, this is <code>epic</code> at <code>adeea03</code>. If <code>worktree.baseRef</code> is not <code>"head"</code>, parallel mode must stop here.</p></li>
+        <li><b>Each builder commits once</b><span class="at">skills/boxbox-build/SKILL.md:37</span><p>One commit per task, code and tests only, all checks green. In parallel mode each builder makes that commit in its own worktree on its own branch (<code>worktree-agent-&lt;id&gt;</code>), as the scratch run made <code>743704d</code> on <code>task-1</code> and <code>6f125a2</code> on <code>task-2</code>, both on top of <code>adeea03</code>. The agent result hands back <code>worktreeBranch</code>, which is the name the next step needs.</p></li>
+        <li><b>Bring E1.1 back first</b><span class="at">skills/boxbox-setup/kit/GUIDE.md:283</span><p>In plan order, the first task's branch starts exactly at the epic's tip, so <code>git merge --ff-only</code> moves <code>epic</code> to <code>743704d</code>. Then run the full test suite (<code>node --test tests/pitwall/*.test.js</code> in this repo) on the epic branch.</p></li>
+        <li><b>Bring E1.2 back second</b><span class="at">skills/boxbox-setup/kit/GUIDE.md:283</span><p>The epic has moved, so a fast-forward is refused. <code>git cherry-pick</code> copies the commit on top as <code>e3d8d8a</code>. Run the full suite again: each task passed alone in its worktree, but this is the first time the two changes run together. On a conflict (step 5 above), <code>git cherry-pick --abort</code>, then redo that task on the updated epic branch the normal sequential way.</p></li>
+        <li><b>Clean up</b><span class="at">skills/boxbox-setup/kit/GUIDE.md:283</span><p><code>git worktree remove</code> each folder, then delete the task branches. The epic branch now has one commit per task in order, and the review stop and squash-merge continue as today.</p></li>
+      </ol>
+    </section>
+
+    <section data-section="mistakes" data-required="yes" data-min-words="80" data-min-items="2" id="mistakes">
+      <h2>Common mistakes</h2>
+      <ul class="findings">
+        <li data-st="flag" data-evidence="source"><span class="status" data-st="flag">trap</span><b>The worktree starts from main, not the epic</b><p>Claude Code's default base is the remote's default branch, so a builder silently works without the epic's earlier commits, and its change later lands on code it never saw (<a href="https://code.claude.com/docs/en/worktrees#choose-the-base-branch">Choose the base branch</a>). Notice it with <code>git log --oneline --graph --all</code>: the task commit sits on <code>main</code>, not on the epic. Fix: set <code>worktree.baseRef: "head"</code>, and check the worktree's parent commit before merging.</p></li>
+        <li data-st="flag" data-evidence="source"><span class="status" data-st="flag">trap</span><b>Merging several task branches at once</b><p>A single <code>git merge</code> of many branches, or merging them all before testing, hides which task broke what. Merge one task, run the full suite, then the next. A conflict stops git with conflict markers in the file (<a href="https://git-scm.com/docs/git-merge">git merge</a>); never commit a file that still contains them.</p></li>
+        <li data-st="move" data-evidence="source"><span class="status" data-st="move">trap</span><b>Trusting each worktree's green tests</b><p>Each builder only tested its own change. Two changes that each pass can fail together without any textual conflict: a cherry-pick applies "the change each one introduces" as text (<a href="https://git-scm.com/docs/git-cherry-pick">git cherry-pick</a>), and git does not check meaning. Fix: run the full suite on the epic branch after every task comes back.</p></li>
+        <li data-evidence="source"><span class="status">trap</span><b>Forgetting cleanup</b><p>A worktree folder and its branch outlive the task. <code>git worktree remove</code> refuses an unclean folder without <code>--force</code> (<a href="https://git-scm.com/docs/git-worktree#Documentation/git-worktree.txt-remove">git worktree remove</a>), and a cherry-picked branch looks "not fully merged" to <code>git branch -d</code>. Fix: remove each folder, confirm the change is on the epic, then delete the branch. Ignore <code>.claude/worktrees/</code> so the folders never show as untracked.</p></li>
+      </ul>
+    </section>
+
+    <section data-section="not" data-required="yes" data-min-words="60" id="not">
+      <h2 data-short="When not to">When not to use it</h2>
+      <p data-evidence="source">Do not run tasks in parallel when one task depends on another's code: a worktree is created from a fixed starting commit, so a later task cannot see an earlier task's work until it is merged (<a href="https://git-scm.com/docs/git-worktree">git worktree</a>). The same goes for tasks that will edit the same lines, since the second one will conflict. For those, keep the normal sequential build: one task at a time on the epic branch, which is what Boxbox does by default. A worktree is also a fresh checkout without gitignored files such as <code>.env</code> (<a href="https://code.claude.com/docs/en/worktrees#copy-gitignored-files-into-worktrees">Copy gitignored files into worktrees</a>), so a task whose tests need local setup costs more to run in one. For a one-file change, one folder and one branch is simpler.</p>
+    </section>
+
+    <section data-section="check" data-required="yes" data-min-words="40" data-min-items="3" id="check">
+      <h2>Check yourself</h2>
+      <ol class="checks">
+        <li><details><summary>Why does a worktree let two agents edit at once, when a branch alone does not?</summary><div>A branch is only a name for a commit; with one folder, only one branch can be checked out, so two agents would edit the same files. A worktree gives each branch its own folder while sharing the one <code>.git</code>, so their edits never touch and their commits land in the same history.</div></details></li>
+        <li><details><summary>What happens if parallel mode runs without <code>worktree.baseRef: "head"</code> in a repo with a remote?</summary><div>Each builder's worktree starts from the remote's default branch, not the epic branch, so it works without the epic's earlier commits. The spike saw exactly this: two agent commits sit on <code>9dee144 init</code> instead of on <code>b7c4dfd epic commit</code>. Boxbox should refuse to run parallel mode in that state.</div></details></li>
+        <li><details><summary>In the scratch run, why did task 1 fast-forward but task 2 need a cherry-pick?</summary><div>Both started at <code>adeea03</code>. After task 1 fast-forwarded, <code>epic</code> was at <code>743704d</code>, no longer task 2's parent, so <code>--ff-only</code> refused. A cherry-pick re-applied task 2's change on top as a new commit, <code>e3d8d8a</code>.</div></details></li>
+        <li><details><summary>Why does Boxbox prefer cherry-pick or fast-forward over a merge commit for task branches?</summary><div>The git model wants one commit per task on the epic branch (<code>skills/boxbox-setup/kit/GUIDE.md:283</code>). Fast-forward and cherry-pick each add exactly the task's commit; a merge commit adds an extra joining commit per task. The squash belongs one level up, epic into feature, on approval.</div></details></li>
+        <li><details><summary>A cherry-pick stops with <code>CONFLICT</code>. What state is the epic branch in, and what should Boxbox do?</summary><div>The branch stays at the last commit that succeeded and the file holds conflict markers. Boxbox runs <code>git cherry-pick --abort</code> to get back to that clean state, then builds that task again sequentially on the updated epic branch, instead of guessing a resolution.</div></details></li>
+      </ol>
+    </section>
+
+    <section data-section="reading" data-required="yes" data-min-words="10" data-min-items="2" id="reading">
+      <h2 data-short="Reading">Further reading</h2>
+      <ul>
+        <li><a href="https://git-scm.com/docs/git-worktree">git-worktree</a>: the Description, then <code>add</code>, <code>list</code> and <code>remove</code>.</li>
+        <li><a href="https://git-scm.com/docs/git-cherry-pick">git-cherry-pick</a>: the Description and what happens on a conflict.</li>
+        <li><a href="https://git-scm.com/docs/git-merge">git-merge</a>: fast-forward, <code>--ff-only</code>, <code>--squash</code>, and "How conflicts are presented".</li>
+        <li><a href="https://code.claude.com/docs/en/worktrees">Claude Code: Run parallel sessions with worktrees</a>: "Isolate subagents with worktrees" and "Choose the base branch".</li>
+      </ul>
+    </section>
+
+    <footer class="pagefoot">
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="../board.html">Board</a><a class="pagelink" href="../model-routing/context.html">Context: model routing</a></nav>
+      <p>Ask the agent about anything here that is unclear.</p>
+    </footer>
+  </article>
+</div>
+</body>
+</html>
