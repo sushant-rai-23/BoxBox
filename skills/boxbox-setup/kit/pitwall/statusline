@@ -1,0 +1,71 @@
+#!/usr/bin/env node
+// Boxbox status line for Claude Code: one line under the prompt.
+//   E2.3 · builder sonnet · $0.42 · 14/14 tests      PAUSED · E2.3 · $0.42      Your move: D3 ... · $0.42
+// Claude Code runs it with the session as JSON on stdin (cost, model, cwd). It reads .boxbox/live only:
+// no network, no git, no full scans. On anything unexpected it prints what it can, or nothing.
+// Installed by boxbox-setup into the project's .claude/settings.json, after asking the developer.
+"use strict";
+const fs = require("fs");
+const path = require("path");
+
+const readText = f => { try { return fs.readFileSync(f, "utf8"); } catch { return ""; } };
+const readJSON = f => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
+const family = m => { const x = String(m || "").toLowerCase().match(/^(?:claude-)?(opus|sonnet|haiku|fable)(?:\b|-)/); return x ? x[1] : ""; };
+
+// The end of events.jsonl only: the last 64 KB holds every recent event this line needs.
+function tailEvents(file) {
+  let fd;
+  try {
+    fd = fs.openSync(file, "r");
+    const size = fs.fstatSync(fd).size, n = Math.min(size, 64 * 1024), buf = Buffer.alloc(n);
+    fs.readSync(fd, buf, 0, n, size - n);
+    return buf.toString("utf8").split("\n").map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  } catch { return []; } finally { if (fd !== undefined) try { fs.closeSync(fd); } catch {} }
+}
+
+function line(p) {
+  const start = (p.workspace && p.workspace.project_dir) || p.cwd || "";
+  let box = "";
+  for (let d = path.resolve(start || "/"); ; d = path.dirname(d)) {
+    if (fs.existsSync(path.join(d, ".boxbox"))) { box = path.join(d, ".boxbox"); break; }
+    if (d === path.dirname(d) || fs.existsSync(path.join(d, ".git"))) break;
+  }
+  if (!box) return "";
+  const live = path.join(box, "live");
+  const cost = p.cost && typeof p.cost.total_cost_usd === "number" ? `$${p.cost.total_cost_usd.toFixed(2)}` : "";
+  const stage = readJSON(path.join(live, "stage.json")) || {};
+  const unit = stage.unit || stage.stage || "";
+  const parts = [];
+  if (fs.existsSync(path.join(live, "PAUSE"))) parts.push("PAUSED", unit);
+  else {
+    const w = readJSON(path.join(live, "waiting.json"));
+    if (w && w.what) parts.push(`Your move: ${String(w.what).slice(0, 80)}`);
+    else {
+      const ev = tailEvents(path.join(live, "events.jsonl"));
+      // A Boxbox agent running now, and the model the gate let it run on.
+      const open = new Map();
+      for (const e of ev) if (e.kind === "crew" && /^boxbox:boxbox-/.test(e.target || "")) { if (e.result === "started") open.set(e.sub, e); else open.delete(e.sub); }
+      const run = [...open.values()].pop();
+      let who = family(p.model && p.model.id);
+      if (run) {
+        const agent = run.target.replace("boxbox:boxbox-", "");
+        const g = ev.filter(e => e.kind === "gate" && e.result === "allow" && e.target === run.target && (!run.unit || e.unit === run.unit)).pop();
+        who = `${agent}${g && g.model ? " " + (family(g.model) || g.model) : ""}`;
+      }
+      const t = ev.filter(e => e.test && e.test.observed && e.test.passed !== undefined).pop();
+      parts.push(unit, who, cost, t ? `${t.test.passed}/${t.test.passed + (t.test.failed || 0)} tests` : "");
+      return parts.filter(Boolean).join(" · ");
+    }
+  }
+  parts.push(cost);
+  return parts.filter(Boolean).join(" · ");
+}
+
+let raw = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", d => (raw += d));
+process.stdin.on("end", () => {
+  let out = "";
+  try { out = line(JSON.parse(raw || "{}")); } catch { out = ""; }
+  if (out) process.stdout.write(out + "\n");
+});
