@@ -312,12 +312,14 @@ function ensureServer(root, open) {
   return /^http:\/\//.test(url) ? { url } : { error: "The pit wall did not start: " + short(r.stderr || "no output", 200) };
 }
 
-// The events whose line contains `needle` (a string or a RegExp), parsed, in file order. Cheap
-// enough for the gate: lines that cannot match are never parsed.
+// The events whose line contains `needle` (a string or a RegExp), parsed, in file order, including
+// the rotated file (events.1.jsonl) so escalation state survives a rotation. Lines that cannot
+// match are never parsed: about 50 ms for a full 5 MB log.
 function readEvents(live, needle) {
   const out = [];
   const hit = typeof needle === "string" ? l => l.indexOf(needle) >= 0 : l => needle.test(l);
-  for (const l of readText(path.join(live, "events.jsonl")).split("\n")) if (hit(l)) { try { out.push(JSON.parse(l)); } catch {} }
+  for (const f of ["events.1.jsonl", "events.jsonl"])
+    for (const l of readText(path.join(live, f)).split("\n")) if (hit(l)) { try { out.push(JSON.parse(l)); } catch {} }
   return out;
 }
 
@@ -346,11 +348,15 @@ function checkTriggers(p, live, box, edits, base) {
   const outside = brief && brief.files.length ? edits.find(f => !brief.files.includes(f)) : null;
   if (outside) why = `edited ${outside}, outside its brief`;
   else {
+    // Test-first work edits test files often and runs single tests: only edits to code files count,
+    // only edits that succeeded, and any test command that exited 0 counts as green.
+    const isTest = f => /(^|\/)(tests?|__tests__|spec)\/|[._-](test|spec)\.\w+$|(^|\/)test_[^/]+$/.test(f);
+    const green = e => e.type === "action" && !e.failed && (e.kind === "test" || (e.tool === "Bash" && /\btest|spec\b/i.test(e.target || "")));
     const mine = readEvents(live, `"sub":"${p.agent_id}"`);
     let lastPass = -1;
-    mine.forEach((e, i) => { if (e.test && e.test.status === "pass") lastPass = i; });
-    for (const f of edits) {
-      const n = 1 + mine.slice(lastPass + 1).filter(e => (e.edits || []).includes(f)).length;
+    mine.forEach((e, i) => { if (green(e)) lastPass = i; });
+    for (const f of edits.filter(f => !isTest(f))) {
+      const n = 1 + mine.slice(lastPass + 1).filter(e => e.type === "action" && !e.failed && (e.edits || []).includes(f)).length;
       if (n >= 5) { why = `edited ${f} 5 times without the tests going green`; break; }
     }
   }
@@ -359,20 +365,14 @@ function checkTriggers(p, live, box, edits, base) {
 
 // The main session's model family. Claude Code's hook input never says it, and the transcript can lag
 // (in a session's first turn its messages are not on disk yet), so: the transcript, then the model
-// recorded at the end of this session's last turn, then ANTHROPIC_MODEL, then the settings files,
-// in Claude Code's own order. Null when none says: the gate then fails open (decision D4).
-function sessionModel(p, root, live) {
+// recorded at the end of this session's last turn. Settings and ANTHROPIC_MODEL are not used: the
+// hook cannot see --model, /model or managed settings, so they can name the wrong model. Null when
+// unknown: the gate then fails open (decision D4).
+function sessionModel(p, live) {
   const fromTranscript = sessionFamily(p.transcript_path);
   if (fromTranscript) return fromTranscript;
   const cached = readJSON(path.join(live, "session-model.json"));
-  if (cached && cached.session && cached.session === p.session_id && cached.family) return cached.family;
-  const env = routing.familyOf(process.env.ANTHROPIC_MODEL);
-  if (env) return env;
-  for (const f of [path.join(root, ".claude", "settings.local.json"), path.join(root, ".claude", "settings.json"), path.join(process.env.HOME || "", ".claude", "settings.json")]) {
-    const s = readJSON(f);
-    if (s && s.model) return routing.familyOf(s.model);
-  }
-  return null;
+  return cached && cached.session && cached.session === p.session_id && cached.family ? cached.family : null;
 }
 
 // The last assistant message.model in a transcript's final 256 KB, as a family.
@@ -405,15 +405,15 @@ function runGate(p, box, live, cfg, base) {
     const plan = st.feature ? readText(path.join(box, st.feature, "plan.md")) : "";
     const env = process.env, forced = env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE && !/^(0|false)$/i.test(env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE);
     const force = forced ? (env.CLAUDE_CODE_SUBAGENT_MODEL && env.CLAUDE_CODE_SUBAGENT_MODEL !== "inherit" ? env.CLAUDE_CODE_SUBAGENT_MODEL : "inherit") : "";
-    const history = routing.builderHistory(readEvents(live, /"(gate|escalated|escalate-needed)"/));
-    d = routing.gateDecision({ input, mode: cfg.models, force, tasks: routing.parsePlanTasks(plan), history, session: sessionModel(p, path.dirname(box), live) });
+    const history = routing.builderHistory(readEvents(live, /"kind":"(crew|stage|escalated|escalate-needed)"/));
+    d = routing.gateDecision({ input, mode: cfg.models, force, tasks: routing.parsePlanTasks(plan), history, session: sessionModel(p, live) });
   } catch (err) {
     append(live, "events.jsonl", { ...base, type: "gate-error", kind: "gate-error", target: short(String(err && err.message), 200), why: "", result: "allowed" });
     return;
   }
   if (d.decision === "skip") return;
   append(live, "events.jsonl", { ...base, unit: d.task || base.unit, type: "gate", kind: "gate", id: p.tool_use_id || "", target: input.subagent_type || "",
-    result: d.decision, why: d.reason, model: input.model || "", expected: d.expected || "",
+    result: d.decision, why: d.reason, model: short(input.model || "", 60), expected: d.expected || "",
     ...(process.env.CLAUDE_CODE_SUBAGENT_MODEL && d.decision !== "off" ? { note: `CLAUDE_CODE_SUBAGENT_MODEL=${process.env.CLAUDE_CODE_SUBAGENT_MODEL} is set (a default only; the model Boxbox passes wins)` } : {}) });
   if (d.decision === "deny") process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "Boxbox routing: " + d.reason } }) + "\n");
 }
@@ -474,7 +474,7 @@ function main(event, raw, root) {
       }
       const edits = editedPaths(tool, p.tool_input || {}, root);
       if (edits.length) e.edits = edits;
-      if (edits.length && p.agent_id && agent === "claude-code") checkTriggers(p, live, box, edits, base);
+      if (event === "PostToolUse" && edits.length && p.agent_id && agent === "claude-code") checkTriggers(p, live, box, edits, base);
       if (event === "PostToolUse" && (c.kind === "page" || c.kind === "edit")) {
         const inf = inferStage(c.target, readJSON(path.join(live, "stage.json")), Date.now(), Date.parse(readText(path.join(live, "session-start"))) || 0);
         if (inf) {
@@ -522,7 +522,7 @@ function main(event, raw, root) {
     case "SubagentStart":
     case "SubagentStop": {
       const lane = laneFor({ agent_id: p.agent_id || "sub", agent_type: p.agent_type }, stage.stage);
-      const task = event === "SubagentStart" ? subagentTask(p, live) : "";
+      const task = subagentTask(p, live);
       append(live, "events.jsonl", { ...base, ...(task ? { unit: task } : {}), lane, type: "crew", kind: "crew", target: p.agent_type || "subagent", why: stage.why || "", result: event === "SubagentStart" ? "started" : "finished", sub: p.agent_id || "" });
       if (event === "SubagentStop" && p.agent_transcript_path) {
         append(live, "sessions.jsonl", { session: p.session_id || "", agent, transcript: p.agent_transcript_path, sub: p.agent_id || "", started: base.ts });

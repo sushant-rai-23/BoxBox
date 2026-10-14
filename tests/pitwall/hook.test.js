@@ -350,3 +350,29 @@ test("gate: a builder that edits outside its brief, or one file 5 times, needs e
   assert.ok(evs().some(e => e.kind === "escalate-needed" && e.unit === "E2.2" && e.target === "edited app/other.py, outside its brief"));
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("gate: normal test-first work does not trip the 5-edit trigger", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbtdd-"));
+  const box = path.join(root, ".boxbox"), live = path.join(box, "live");
+  fs.mkdirSync(path.join(box, "f", "e1-x", "tasks"), { recursive: true });
+  fs.mkdirSync(live, { recursive: true });
+  fs.writeFileSync(path.join(box, "config.md"), "commands:\n  test: npm test\nmodels: balanced\npitwall: off\n");
+  fs.writeFileSync(path.join(box, "state.md"), "# State\nfeature: f\n");
+  fs.writeFileSync(path.join(box, "f", "e1-x", "tasks", "E1.1.md"), "task: E1.1\nfiles:\n- src/a.js\n- test/a.test.js\n\n## Goal\nx\n");
+  fs.writeFileSync(path.join(live, "events.jsonl"), JSON.stringify({ ts: "t", kind: "gate", id: "tu1", unit: "E1.1", target: "boxbox:boxbox-builder", result: "allow" }) + "\n");
+  const sub = path.join(root, "p", "s1", "subagents");
+  fs.mkdirSync(sub, { recursive: true });
+  fs.writeFileSync(path.join(sub, "agent-b1.meta.json"), JSON.stringify({ toolUseId: "tu1" }));
+  const hook = (event, extra) => spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), event], { input: JSON.stringify({ session_id: "s1", transcript_path: path.join(root, "p", "s1.jsonl"), hook_event_name: event, agent_id: "b1", agent_type: "boxbox:boxbox-builder", ...extra }), env: { ...process.env, BOXBOX_ROOT: root } });
+  const edit = (f, failed) => hook(failed ? "PostToolUseFailure" : "PostToolUse", { tool_name: "Edit", tool_input: { file_path: path.join(root, f), old_string: "a", new_string: "b" }, tool_response: {}, error: "x" });
+  hook("SubagentStart", {});
+  for (let i = 0; i < 6; i++) edit("test/a.test.js");            // adding test cases: test files do not count
+  for (let i = 0; i < 4; i++) edit("src/a.js");
+  hook("PostToolUse", { tool_name: "Bash", tool_input: { command: "node --test test/a.test.js" }, tool_response: {} });  // one test, exit 0
+  for (let i = 0; i < 4; i++) edit("src/a.js");
+  for (let i = 0; i < 3; i++) edit("src/a.js", true);             // failed edits change nothing
+  const evs = fs.readFileSync(path.join(live, "events.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+  assert.ok(!evs.some(e => e.kind === "escalate-needed"), JSON.stringify(evs.filter(e => e.kind === "escalate-needed")));
+  fs.rmSync(root, { recursive: true, force: true });
+});

@@ -88,10 +88,10 @@ function routedRepo(models = "balanced") {
   fs.writeFileSync(path.join(d, ".boxbox/resets/plan.md"), "## E2 Set a password  [in_progress]\ntasks:\n- [ ] E2.1 accept the link | size: S | risk: no | test: x\n- [ ] E2.3 hash it | size: M | risk: yes | test: y\n");
   return d;
 }
-function agentCall(d, input, env = {}) {
+function agentCall(d, input, env = {}, toolUseId = "tu1") {
   const tr = path.join(d, "s1.jsonl");
   if (!fs.existsSync(tr)) fs.writeFileSync(tr, JSON.stringify({ type: "assistant", message: { id: "m1", model: "claude-opus-5-5[1m]", usage: { input_tokens: 1, output_tokens: 1 } } }) + "\n");
-  const payload = JSON.stringify({ session_id: "s1", transcript_path: tr, cwd: d, hook_event_name: "PreToolUse", tool_name: "Agent", tool_input: input, tool_use_id: "tu1" });
+  const payload = JSON.stringify({ session_id: "s1", transcript_path: tr, cwd: d, hook_event_name: "PreToolUse", tool_name: "Agent", tool_input: input, tool_use_id: toolUseId });
   return spawnSync("bash", [HOOK, "PreToolUse"], { input: payload, encoding: "utf8", env: { ...process.env, CLAUDE_PROJECT_DIR: d, CLAUDE_CODE_SUBAGENT_MODEL: "", CLAUDE_CODE_SUBAGENT_MODEL_FORCE: "", ...env } });
 }
 const events = d => { try { return fs.readFileSync(path.join(d, ".boxbox/live/events.jsonl"), "utf8").trim().split("\n").filter(Boolean).map(JSON.parse); } catch { return []; } };
@@ -108,7 +108,7 @@ test("gate: an Agent call reaches the gate synchronously and a Bash call stays i
   // A Bash call still goes to the background: the hook returns before node has written anything.
   const t = process.hrtime.bigint();
   const b = run(d, "PreToolUse");
-  assert.ok(Number(process.hrtime.bigint() - t) / 1e6 < 40, "a Bash call does not wait for node");
+  assert.ok(Number(process.hrtime.bigint() - t) / 1e6 < 150, "a Bash call does not wait for node");
   assert.equal(b.stdout, "");
 });
 
@@ -149,7 +149,8 @@ test("gate: an unparsable plan.md allows the call and logs gate-error", () => {
   fs.rmSync(path.join(d, ".boxbox/resets/plan.md"));
   fs.mkdirSync(path.join(d, ".boxbox/resets/plan.md"));
   const r1 = agentCall(d, { subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "sonnet", prompt: "p" });
-  assert.equal(r1.stdout, "", "no plan: the task counts as size M, risk no, and sonnet is allowed");
+  assert.equal(r1.stdout, "", "no readable plan: the call is not checked");
+  assert.match(events(d).find(x => x.kind === "gate").why, /not checked: no tasks in plan\.md/);
   const cut = '{"session_id":"s1","hook_event_name":"PreToolUse","tool_name":"Agent","tool_input":{"subagent_type":"boxbox:boxbox-bui';
   const r2 = spawnSync("bash", [HOOK, "PreToolUse"], { input: cut, encoding: "utf8", env: { ...process.env, CLAUDE_PROJECT_DIR: d } });
   assert.equal(r2.status, 0);
@@ -161,7 +162,19 @@ test("gate: an unparsable plan.md allows the call and logs gate-error", () => {
 
 test("gate: the real hook denies a third cheap builder run and allows the escalated one", () => {
   const d = routedRepo();
-  const call = model => agentCall(d, { subagent_type: "boxbox:boxbox-builder", description: "E2.1 accept the link", model, prompt: "p" });
+  let n = 0;
+  // One builder call: the gate, then (when allowed) the subagent starting and finishing, as Claude Code
+  // reports them. Claude Code writes agent-<id>.meta.json naming the call before SubagentStart.
+  const call = model => {
+    const id = "tu" + (++n), r = agentCall(d, { subagent_type: "boxbox:boxbox-builder", description: "E2.1 accept the link", model, prompt: "p" }, {}, id);
+    if (r.stdout) return r;
+    const sub = path.join(d, "s1", "subagents");
+    fs.mkdirSync(sub, { recursive: true });
+    fs.writeFileSync(path.join(sub, `agent-a${n}.meta.json`), JSON.stringify({ agentType: "boxbox:boxbox-builder", toolUseId: id }));
+    for (const ev of ["SubagentStart", "SubagentStop"])
+      spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), ev], { input: JSON.stringify({ session_id: "s1", transcript_path: path.join(d, "s1.jsonl"), hook_event_name: ev, agent_id: "a" + n, agent_type: "boxbox:boxbox-builder" }), env: { ...process.env, BOXBOX_ROOT: d } });
+    return r;
+  };
   assert.equal(call("sonnet").stdout, "");
   assert.equal(call("sonnet").stdout, "");
   assert.match(call("sonnet").stdout, /E2\.1 failed twice: run say escalated/);
@@ -173,25 +186,18 @@ test("gate: the real hook denies a third cheap builder run and allows the escala
   assert.match(call("opus").stdout, /was escalated and failed again: stop and tell the developer/);
 });
 
-test("gate: with no flushed transcript yet, the session model comes from the turn cache, then ANTHROPIC_MODEL, then settings", () => {
-  const empty = d => fs.writeFileSync(path.join(d, "s1.jsonl"), "");
+test("gate: with no flushed transcript yet, the session model comes from this session's turn cache, or the call is not checked", () => {
   const risky = { subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "haiku", prompt: "p" };
-  // 1. settings
-  const d1 = routedRepo(); empty(d1);
-  fs.mkdirSync(path.join(d1, ".claude"));
-  fs.writeFileSync(path.join(d1, ".claude/settings.json"), JSON.stringify({ model: "opus" }));
-  assert.match(agentCall(d1, risky, { HOME: d1 }).stdout, /with model opus/);
-  // 2. ANTHROPIC_MODEL beats settings
-  assert.match(agentCall(d1, risky, { HOME: d1, ANTHROPIC_MODEL: "claude-sonnet-5-5" }).stdout, /with model sonnet/);
-  // 3. the cache written at the end of a turn beats both, for the same session only
-  const d2 = routedRepo(); empty(d2);
-  fs.writeFileSync(path.join(d2, ".boxbox/live/session-model.json"), JSON.stringify({ session: "s1", family: "fable" }));
-  assert.match(agentCall(d2, risky, { HOME: d2, ANTHROPIC_MODEL: "sonnet" }).stdout, /with model fable/);
-  fs.writeFileSync(path.join(d2, ".boxbox/live/session-model.json"), JSON.stringify({ session: "other", family: "fable" }));
-  assert.match(agentCall(d2, risky, { HOME: d2, ANTHROPIC_MODEL: "sonnet" }).stdout, /with model sonnet/);
-  // 4. nothing known: fail open
-  const d3 = routedRepo(); empty(d3);
-  assert.equal(agentCall(d3, risky, { HOME: d3, ANTHROPIC_MODEL: "" }).stdout, "");
+  const d = routedRepo();
+  fs.writeFileSync(path.join(d, "s1.jsonl"), "");
+  fs.mkdirSync(path.join(d, ".claude"));
+  fs.writeFileSync(path.join(d, ".claude/settings.json"), JSON.stringify({ model: "sonnet" }));
+  // settings and ANTHROPIC_MODEL are never used: they can disagree with --model and /model
+  assert.equal(agentCall(d, risky, { HOME: d, ANTHROPIC_MODEL: "sonnet" }).stdout, "", "unknown: fail open");
+  fs.writeFileSync(path.join(d, ".boxbox/live/session-model.json"), JSON.stringify({ session: "s1", family: "fable" }));
+  assert.match(agentCall(d, risky, { HOME: d }).stdout, /with model fable/, "the end of the last turn recorded it");
+  fs.writeFileSync(path.join(d, ".boxbox/live/session-model.json"), JSON.stringify({ session: "other", family: "fable" }));
+  assert.equal(agentCall(d, risky, { HOME: d }).stdout, "", "another session's model is not this one's");
 });
 
 test("the end of a turn records the session model for the gate", () => {

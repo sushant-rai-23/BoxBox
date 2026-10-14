@@ -102,20 +102,23 @@ function taskOfDescription(description) {
   return m ? (m[1].toLowerCase() === "setup" ? "setup" : m[1].toUpperCase()) : "";
 }
 
-// Each builder task's history from events.jsonl, in file order: allowed builder runs, when it was
-// escalated, runs since, and the first early-escalation trigger the hook saw ("escalate-needed").
+// Each builder task's history from events.jsonl, in file order (the true order: say stamps whole
+// seconds, so timestamps cannot order events in the same second). A run is a builder subagent that
+// finished on the task. The task's latest `build` stage starts its history again, so an earlier
+// feature's E1.1 and the runs before a review are not counted against a new attempt.
 function builderHistory(events) {
   const out = new Map();
-  const get = u => { if (!out.has(u)) out.set(u, { runs: 0, escalatedAt: "", runsAfterEscalation: 0, triggered: "" }); return out.get(u); };
+  const fresh = () => ({ runs: 0, escalatedAt: "", runsAfterEscalation: 0, triggered: "" });
+  const get = u => { if (!out.has(u)) out.set(u, fresh()); return out.get(u); };
   for (const e of events || []) {
     if (!e || !e.unit) continue;
-    if (e.kind === "gate" && e.result === "allow" && e.target === "boxbox:boxbox-builder") {
-      const h = get(e.unit); h.runs++;
-      // Events come in file order, which is the true order: say stamps whole seconds, so a run in
-      // the same second as an escalation cannot be ordered by its timestamp.
+    const unit = /^e\d/.test(e.unit) ? e.unit.toUpperCase() : e.unit;
+    if (e.kind === "stage" && e.target === "build") out.set(unit, fresh());
+    else if (e.kind === "crew" && e.result === "finished" && e.target === "boxbox:boxbox-builder") {
+      const h = get(unit); h.runs++;
       if (h.escalatedAt) h.runsAfterEscalation++;
-    } else if (e.kind === "escalated") { const h = get(e.unit); if (!h.escalatedAt) h.escalatedAt = e.ts || "0"; }
-    else if (e.kind === "escalate-needed") { const h = get(e.unit); if (!h.triggered) h.triggered = e.target || "needs escalation"; }
+    } else if (e.kind === "escalated") { const h = get(unit); if (!h.escalatedAt) h.escalatedAt = e.ts || "0"; }
+    else if (e.kind === "escalate-needed") { const h = get(unit); if (!h.triggered) h.triggered = e.target || "needs escalation"; }
   }
   return out;
 }
@@ -137,7 +140,10 @@ function gateDecision(q) {
     return deny(agent === "builder"
       ? `start the description with the task id, like "E2.3 <what>", so the gate can find the task`
       : `start the description with the unit it serves: a task id, an epic id or "setup", like "E2.3 <what>"`);
-  const t = (q.tasks && q.tasks.get(task)) || { size: "M", risk: false, epicModel: null };
+  const known = q.tasks && q.tasks.size > 0;
+  if (agent === "builder" && !known) return { decision: "allow", reason: "not checked: no tasks in plan.md for the current feature", task, expected: null };
+  if (agent === "builder" && !q.tasks.get(task)) return deny(`${task} is not a task in plan.md: start the description with the task's id from the plan`);
+  const t = (known && q.tasks.get(task)) || { size: "M", risk: false, epicModel: null };
   const session = q.session || null;
   const h = agent === "builder" ? (q.history && q.history.get(task)) || null : null;
   const plain = expectedModel({ agent, mode: q.mode, session: session || "session", size: t.size, risk: t.risk, epicModel: t.epicModel });
@@ -145,7 +151,9 @@ function gateDecision(q) {
   if (h && !h.escalatedAt && (h.runs >= 2 || h.triggered)) {
     const why = h.triggered || "failed twice";
     if (session && plain.model === session) return deny(`${task} ${why}, and it already runs on the session model: stop and tell the developer`);
-    return deny(`${task} ${why}: run say escalated "${why}" --unit ${task}, then boxbox-builder with model ${session || "<the session model>"}`, session);
+    // The agent may copy this command: keep file names and shell characters out of it.
+    const said = h.triggered ? h.triggered.replace(/^edited .*?(, outside its brief| \d+ times.*)$/, "edited a file$1").replace(/[^\w .,:\/-]/g, "") : why;
+    return deny(`${task} ${why.replace(/[$`\\]/g, "")}: run say escalated "${said}" --unit ${task}, then boxbox-builder with model ${session || "<the session model>"}`, session);
   }
   const e = h && h.escalatedAt
     ? expectedModel({ agent, mode: q.mode, session: session || "session", escalated: true })
