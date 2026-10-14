@@ -28,6 +28,7 @@ If the request holds several groups of features with different outcomes, make se
 - Describe behaviour, not code. Do not name helper functions in a task line unless the task cannot be understood without them.
 - A task that cannot name its first test is too vague: split it or sharpen it.
 - A task with no cheap test (a console setting, a permission) says so and states how it is verified by hand. Mark steps only the developer can do.
+- Give each task a size and a risk tag. `size: S` is under about 50 changed lines, `M` under 150, `L` more. Mark `risk: yes` when it touches auth, payments, crypto, data migrations, concurrency, or anything `context.md` lists as dangerous. In Claude Code these tags pick the builder's model (see "Model routing" in `GUIDE.md`): risky and `L` tasks stay on the session model.
 - If a change makes later tasks easier, do it first as its own task.
 
 **Design stops.** Mark an epic `design: yes` when it adds a new module, a data model, a public interface or a boundary between services, or when its shape would be costly to change once built. That epic gets a design page and an approval before any of its code is written (**boxbox-design**). Small epics that follow an existing pattern do not need one. Say in the plan why each marked epic is marked.
@@ -108,14 +109,15 @@ outcome: <what a person can use or verify>
 branch: <feature>-e1-<slug>
 depends: <none | E0>
 design: no | yes, because <reason>
+model: <opus | sonnet | haiku>   (only when the developer asked for one model on this epic's builder tasks, "use opus for E3")
 files: <globs this epic expects to touch, tests included: src/resets.js, test/resets.test.js>
 accept:
 - <checkable criterion>
 fails:
 - <failure mode>: <how handled> (E1.3), or "not testable: <why, and what limits the risk>"
 tasks:
-- [ ] E1.1 <what changes> | test: <first test> | done: <check> | deps: <none>
-- [ ] E1.2 <what changes> | no cheap test, verify: <manual check> | you
+- [ ] E1.1 <what changes> | size: S | risk: no | test: <first test> | done: <check> | deps: <none>
+- [ ] E1.2 <what changes> | size: S | risk: no | no cheap test, verify: <manual check> | you
 
 ## Only the developer can do
 - <when>: <step>

@@ -67,3 +67,22 @@ test("routing: familyOf and agentOf", () => {
   assert.equal(R.agentOf("boxbox-scout"), null);
   assert.equal(R.agentOf("Explore"), null);
 });
+
+test("routing: plan parser reads size, risk and epic model override from a plan.md", () => {
+  const plan = [
+    "# Plan: Resets", "approved: yes, 2026-10-14", "",
+    "## E1 Request a reset  [done]", "outcome: x", "files: app/resets.py", "tasks:",
+    "- [x] E1.1 store a hashed token | size: S | risk: yes | test: token row exists | done: green | deps: none",
+    "- [ ] E1.2 send the email | test: an email is queued | done: green | deps: E1.1",
+    "", "## E2 Set a new password  [todo]", "model: opus", "outcome: y", "tasks:",
+    "- [ ] E2.1 accept the link | size: L | risk: no | test: link works | done: green | deps: none",
+    "- [ ] E2.2 expire it | size: m | test: model: haiku in the text is not an override | done: green | deps: none"
+  ].join("\n");
+  const t = R.parsePlanTasks(plan);
+  assert.deepEqual(t.get("E1.1"), { epic: "E1", size: "S", risk: true, epicModel: null });
+  assert.deepEqual(t.get("E1.2"), { epic: "E1", size: "M", risk: false, epicModel: null });
+  assert.deepEqual(t.get("E2.1"), { epic: "E2", size: "L", risk: false, epicModel: "opus" });
+  assert.deepEqual(t.get("E2.2"), { epic: "E2", size: "M", risk: false, epicModel: "opus" });
+  assert.equal(t.size, 4);
+  assert.equal(R.parsePlanTasks("").size, 0);
+});

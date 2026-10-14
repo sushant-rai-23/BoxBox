@@ -27,6 +27,29 @@ function parseModels(configText) {
   return { mode, parallel: !!(p && p[1].toLowerCase() === "on"), warning };
 }
 
+// Size, risk and the epic's model override for every task in plan.md. Missing size is M, missing risk is no.
+// The override is a `model:` line at the start of a line inside the epic, before its tasks.
+function parsePlanTasks(planText) {
+  const tasks = new Map();
+  let epic = "", epicModel = null;
+  for (const line of String(planText || "").split("\n")) {
+    const e = line.match(/^## (E\d+)\b/);
+    if (e) { epic = e[1]; epicModel = null; continue; }
+    const m = line.match(/^model:[ \t]*(\S+)/);
+    if (m && epic) { epicModel = familyOf(m[1]); continue; }
+    const t = line.match(/^- \[[ xX]\] (E\d+\.\d+) (.*)$/);
+    if (!t) continue;
+    const fields = {};
+    for (const part of t[2].split("|").slice(1)) {
+      const kv = part.match(/^\s*(size|risk):\s*(\S+)/i);
+      if (kv) fields[kv[1].toLowerCase()] = kv[2];
+    }
+    const size = /^[SML]$/i.test(fields.size || "") ? fields.size.toUpperCase() : "M";
+    tasks.set(t[1], { epic: epic || t[1].split(".")[0], size, risk: /^yes$/i.test(fields.risk || ""), epicModel });
+  }
+  return tasks;
+}
+
 // The model one call should use, and why. First matching rule wins. `model: null` means pass no model.
 function expectedModel(q) {
   const { agent, mode, session } = q;
@@ -55,4 +78,4 @@ function agentOf(subagentType) {
   return m ? m[1] : null;
 }
 
-module.exports = { MODES, parseModels, expectedModel, familyOf, agentOf };
+module.exports = { MODES, parseModels, parsePlanTasks, expectedModel, familyOf, agentOf };
