@@ -91,3 +91,8 @@ test("routing: escalatedTasks collects escalated units from events", () => {
   const ev = [{ kind: "stage", unit: "E2.1" }, { kind: "escalated", unit: "E2.3", target: "failed twice" }, { kind: "escalated", unit: "" }];
   assert.deepEqual([...R.escalatedTasks(ev)], ["E2.3"]);
 });
+
+test("routing: an agent that is not Boxbox's has no expected model", () => {
+  assert.deepEqual(R.expectedModel({ agent: "Explore", mode: "balanced", session: "opus" }), { model: null, why: "not a Boxbox agent" });
+  assert.deepEqual(R.expectedModel({ agent: undefined, mode: "best", session: "opus" }), { model: null, why: "not a Boxbox agent" });
+});

@@ -70,6 +70,7 @@ function expectedModel(q) {
     }
   }
   const m = (TABLE[mode] || TABLE.balanced)[agent];
+  if (!m) return { model: null, why: "not a Boxbox agent" };
   return { model: m === "session" ? session : m, why: `models: ${mode}` };
 }
 
