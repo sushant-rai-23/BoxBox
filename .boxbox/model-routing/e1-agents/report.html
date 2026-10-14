@@ -27,7 +27,7 @@
         <div><dt>tokens</dt><dd class="metric" data-source="pitwall:tokens">6.69M</dd></div>
       </dl>
     </header>
-    <aside class="callout" data-kind="move"><p><b>Your move.</b> The code is on branch <code data-source="git:branch">model-routing-e1-agents</code>, pushed to origin; there is no pull request because <code>gh</code> is not installed. Read it with <code>git diff model-routing...model-routing-e1-agents -- . ':!.boxbox'</code>. Approve it in chat, or say what to change.</p></aside>
+    <aside class="callout" data-kind="note"><p>Approved on 2026-10-14 and squash-merged into <code>model-routing</code>.</p></aside>
 
     <section data-section="exists" data-required="yes" data-min-words="120" id="exists">
       <h2 data-short="What exists">What now exists, and how to see it working</h2>
@@ -257,7 +257,7 @@ git branch -D model-routing-e1-agents</code></pre></figure>
       <dl class="metrics" data-evidence="observed">
         <div><dt>tokens</dt><dd class="metric" data-source="pitwall:tokens">6.69M</dd></div>
         <div><dt>approximate cost</dt><dd class="metric" data-source="pitwall:cost">$2.85</dd></div>
-        <div><dt>wall-clock time</dt><dd class="metric" data-source="pitwall:time">25 min</dd></div>
+        <div><dt>wall-clock time</dt><dd class="metric" data-source="pitwall:time">3 h 43 min</dd></div>
       </dl>
       <p data-evidence="observed">The time is wall-clock from the unit's first stage to the next unit, waits included. Of the 2.43M tokens, 233k were new and 2.19M were read from the prompt cache (cheaper repeats of text already sent). The figure is approximate and covers subagents only: this session's own transcript was never registered, because <code>.boxbox/</code> was created after the session started.</p>
     </section>

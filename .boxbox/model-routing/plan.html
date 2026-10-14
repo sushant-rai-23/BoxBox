@@ -66,7 +66,7 @@
       <h3>M1: Boxbox 0.7.0 model routing</h3>
       <p>Cheaper models do the routine work, every task gets a brief, a gate enforces the routing, and the pit wall and a status line show exact cost per model.</p>
       <article class="epic" id="e1">
-        <span class="status" data-st="move">your review</span>
+        <span class="status" data-st="done">done</span>
         <h3><data>E1</data>Routing config and fixed-model agents</h3>
         <p>In a Claude Code session, Boxbox builds tasks through boxbox-builder, searches through boxbox-scout, runs checks through boxbox-runner and fills pages through boxbox-writer, each on the model the repo's <code>models:</code> mode and the task's size and risk call for; escalation retries on the session model and is logged.</p>
         <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e1-agents</code></dd><dt>Depends on</dt><dd>none</dd><dt>Design stop</dt><dd>yes, because it adds the public config (<code>models:</code>, <code>parallel:</code>), four agent definitions and the routing rule every later epic checks against</dd></dl>

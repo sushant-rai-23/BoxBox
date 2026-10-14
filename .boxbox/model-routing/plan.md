@@ -22,7 +22,7 @@ goal: Cheaper models do routine work through fixed-model subagents, every task g
 - A10 Model chip shows the family, full id on hover (default)
 - A11 GUIDE config: `models:` and `parallel:` replace the old block (default)
 
-## E1 Routing config and fixed-model agents  [review]
+## E1 Routing config and fixed-model agents  [done]
 outcome: In a Claude Code session, Boxbox builds tasks through boxbox-builder, searches through boxbox-scout, runs checks through boxbox-runner and fills pages through boxbox-writer, each on the model the repo's `models:` mode and the task's size and risk call for; escalation retries on the session model and is logged.
 branch: model-routing-e1-agents
 depends: none

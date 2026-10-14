@@ -7,7 +7,7 @@ window.BOXBOX_BOARD = {
   "updated": "2026-10-14",
   "unit": "epic",
   "decisionLevel": "what matters",
-  "waiting": { "what": "Review E1", "detail": "No pull request (gh not installed). Branch model-routing-e1-agents is on origin. Diff: git diff model-routing...model-routing-e1-agents -- . ':!.boxbox'", "label": "Open report", "href": "model-routing/e1-agents/report.html" },
+  "waiting": null,
   "knowledge": [ { "title": "Subagents and model routing", "href": "knowledge/subagent-model-routing.html" }, { "title": "Prompt caching and token accounting", "href": "knowledge/prompt-caching-and-token-accounting.html" }, { "title": "Git worktrees and merging", "href": "knowledge/git-worktrees-and-merging.html" } ],
   "modules": [
     { "name": "Entry and flow skills", "files": ["skills/boxbox/**", "skills/boxbox-resume/**", "skills/boxbox-lessons/**"], "role": "Pick the flow, resume work, record the developer's corrections." },
@@ -33,7 +33,7 @@ window.BOXBOX_BOARD = {
   "title": "Routing config and fixed-model agents",
   "outcome": "In a Claude Code session, Boxbox builds tasks through boxbox-builder, searches through boxbox-scout, runs checks through boxbox-runner and fills pages through boxbox-writer, each on the model the repo's `models:` mode and the task's size and risk call for; escalation retries on the session model and is logged.",
   "links": [ { "label": "Design", "href": "model-routing/e1-agents/design.html" }, { "label": "Report", "href": "model-routing/e1-agents/report.html" } ],
-  "status": "review",
+  "status": "done",
   "branch": "model-routing-e1-agents",
   "files": [
    "agents/**",

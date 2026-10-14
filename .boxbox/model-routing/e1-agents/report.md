@@ -1,5 +1,5 @@
 # Report: E1 Routing config and fixed-model agents
-status: review
+status: approved, 2026-10-14
 branch: model-routing-e1-agents
 pr: none (gh is not installed); branches model-routing and model-routing-e1-agents pushed to origin
 
