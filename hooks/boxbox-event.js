@@ -255,7 +255,7 @@ function parseState(text) {
 // May this command skip the permission prompt? Three conditions, all required:
 //  1. No shell operator anywhere, even inside quotes: ; & | < > ` $ \ or a line break.
 //  2. The whole command is one of the plain forms below, with no other words:
-//       sh|bash [<repo>/].boxbox/pitwall/say stage|ask <words or quoted text>
+//       sh|bash [<repo>/].boxbox/pitwall/say stage|ask|escalated <words or quoted text>
 //       node [<repo>/].boxbox/pitwall/server.js --ensure [--open]
 //       node [<repo>/].boxbox/pitwall/server.js --summary <unit id>
 //       node [<repo>/].boxbox/pitwall/check-page.js [<repo>/].boxbox/<path>.html ...
@@ -332,11 +332,14 @@ function main(event, raw, root) {
       if (p.source === "startup" || p.source === "resume" || p.source === undefined) fs.writeFileSync(path.join(live, "session-start"), base.ts);
       append(live, "sessions.jsonl", { session: p.session_id || "", agent, transcript: p.transcript_path || "", started: base.ts });
       append(live, "events.jsonl", { ...base, type: "session", kind: "session", target: `${agent === "codex" ? "Codex" : "Claude Code"} session ${p.source || "started"}`, why: "", result: "" });
-      if (cfg.pitwall === "off") return;
+      // A models: value Boxbox does not know runs as balanced; say so where the developer and the agent will see it.
+      const warn = agent === "claude-code" && cfg.modelsWarning ? `Boxbox config: ${cfg.modelsWarning}. Tell the developer once.` : "";
+      if (warn) append(live, "events.jsonl", { ...base, type: "warning", kind: "warning", target: cfg.modelsWarning, why: "", result: "" });
+      if (cfg.pitwall === "off") { if (warn) emitContext(warn); return; }
       const s = ensureServer(root, cfg.pitwall === "open" && (p.source === "startup" || p.source === undefined));
-      emitContext(s.url
+      emitContext((s.url
         ? `Boxbox pit wall (live view of this session for the developer): ${s.url}`
-        : `Boxbox pit wall: ${s.error} Use .boxbox/board.html instead.`);
+        : `Boxbox pit wall: ${s.error} Use .boxbox/board.html instead.`) + (warn ? ` ${warn}` : ""));
       return;
     }
     case "UserPromptSubmit":

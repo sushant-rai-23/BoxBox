@@ -270,3 +270,19 @@ test("say escalated writes an escalated event with unit and reason", () => {
   assert.equal(ev.lane, "driver");
   assert.ok(!fs.existsSync(path.join(box, "live", "stage.json")), "an escalation does not move the stage");
 });
+
+test("an unknown models: value is reported at session start, as an event and to the agent", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbwarn-"));
+  fs.mkdirSync(path.join(root, ".boxbox"), { recursive: true });
+  fs.writeFileSync(path.join(root, ".boxbox", "config.md"), "commands:\n  test: npm test\nmodels: cheapest\npitwall: off\n");
+  const payload = JSON.stringify({ session_id: "s1", transcript_path: "/x/s1.jsonl", hook_event_name: "SessionStart", source: "startup" });
+  const r = spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), "SessionStart"], { input: payload, encoding: "utf8", env: { ...process.env, BOXBOX_ROOT: root } });
+  const out = JSON.parse(r.stdout.trim());
+  assert.match(out.hookSpecificOutput.additionalContext, /models: "cheapest".*balanced/);
+  const ev = fs.readFileSync(path.join(root, ".boxbox", "live", "events.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+  const w = ev.find(e => e.kind === "warning");
+  assert.ok(w, "a warning event is written");
+  assert.match(w.target, /cheapest/);
+  fs.rmSync(root, { recursive: true, force: true });
+});
