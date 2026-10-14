@@ -18,7 +18,7 @@ For a Boxbox unit, tell the pit wall: `sh .boxbox/pitwall/say stage inspect --un
 - the conventions from `context.md` and the decisions that apply
 - the checklist below, and this instruction: "Report findings as a list. For each: file and line, what is wrong, why it matters, severity (must fix, should fix, note). Do not fix anything. Say what you checked and found fine."
 
-If your agent lets you pick a model for a subagent, a different model from the one that built the unit is better still.
+If your agent lets you pick a model for a subagent, a different model from the one that built the unit is better still. In Claude Code the reviewer and the page fact-checker always run on the session model: never use a Boxbox agent for them and never route them down (see "Model routing" in `GUIDE.md`). Under `models: balanced` or `save` the builder ran on a cheaper model, so the reviewer already differs from it.
 
 **If you cannot run subagents:** review it yourself, after verification is finished. Read the whole diff top to bottom, file by file, against the checklist, as if a stranger wrote it. Say in the report that the review was not independent.
 
