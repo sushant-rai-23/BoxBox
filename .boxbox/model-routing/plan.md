@@ -91,7 +91,7 @@ tasks:
 - [x] E3.4 Fail open on internal errors with a gate-error event | test: `gate: an unparsable plan.md allows the call and logs gate-error` | done: test green | deps: E3.2
 - [x] E3.5 Escalation state: two failures or an early trigger require the session model for the task's next builder call | test: `gate: after two recorded failures a sonnet builder retry is denied` | done: test green | deps: E3.2
 
-## E4 Exact cost per model  [todo]
+## E4 Exact cost per model  [done]
 outcome: Tokens and cost are counted per model, per subagent and per task from the main transcript plus every subagent transcript, including subagents still running, with the cache-read share per model and a labelled "saved versus all on the session model" estimate.
 branch: model-routing-e4-cost
 depends: E1
@@ -109,10 +109,11 @@ fails:
 - A subagent killed before SubagentStop: registered at start, so still counted (E4.2)
 - `[1m]` model ids unpriced: normalise the suffix before lookup (E4.1)
 tasks:
-- [ ] E4.1 Fix the Sonnet cache-read price and price `[1m]` ids | test: `server: priceFor matches claude-opus-5-5[1m] and sonnet cache read costs 0.1 per million` | done: test green | deps: none
-- [ ] E4.2 Register subagent transcripts at SubagentStart and attach each to its task through meta.json | test: `server: a running subagent's tokens count under its task before SubagentStop` | done: test green on fixtures | deps: E4.1
-- [ ] E4.3 Aggregate tokens, cost and cache-read share by model | test: `server: per-model totals match a hand count of the spike fixtures` | done: test green | deps: E4.2
-- [ ] E4.4 Savings estimate and `--summary` by model | test: `server: saved estimate re-prices subagent tokens at the session model's rates` | done: test green | deps: E4.3
+- [x] E4.1 Fix the Sonnet cache-read price and price `[1m]` ids | test: `server: priceFor matches claude-opus-5-5[1m] and sonnet cache read costs 0.1 per million` | done: test green | deps: none
+- [x] E4.2 Register subagent transcripts at SubagentStart and attach each to its task through meta.json | test: `server: a running subagent's tokens count under its task before SubagentStop` | done: test green on fixtures | deps: E4.1
+- [x] E4.3 Aggregate tokens, cost and cache-read share by model | test: `server: per-model totals match a hand count of the spike fixtures` | done: test green | deps: E4.2
+- [x] E4.4 Savings estimate and `--summary` by model | test: `server: saved estimate re-prices subagent tokens at the session model's rates` | done: test green | deps: E4.3
+- [x] E4.5 Register a Claude Code session on its first hook event when SessionStart fired before .boxbox/ existed | size: S | risk: no | test: `hook: a session the pit wall never saw start is registered on its first event` | done: test green | deps: none
 
 ## E5 Pit wall routing views  [todo]
 outcome: Every Telemetry and Team radio row carries a model chip; builder, scout, runner and writer each get a lane; Timing shows cost, tokens and cache-read share by model, escalations and the savings estimate; Home shows the mode, active agents, last escalation and why the gate is off when it is.
@@ -194,4 +195,3 @@ tasks:
 - opusplan-style mode integration (spike 8: exists, follows plan mode not Boxbox stages).
 - A `subagentStatusLine` from the plugin for subagent rows (plugins can ship that one).
 - Codex prices in prices.json.
-- Register a Claude Code session on its first hook event when SessionStart fired before .boxbox/ existed (found in E1: its tokens are missing). Candidate for E4.
