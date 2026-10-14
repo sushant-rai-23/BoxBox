@@ -15,6 +15,8 @@
     commit:  { label: "Commit",    mode: "ring",   hue: "#3ddc84", light: "#11764A", desc: "committing a task" },
     skill:   { label: "Skill",     mode: "web",    hue: "#7ee0c3", light: "#0F7A66", desc: "loading or installing a skill" },
     crew:    { label: "Crew",      mode: "orbits", hue: "#9fb4ff", light: "#4B5FC0", desc: "a subagent started or finished" },
+    gate:    { label: "Routing",   mode: "ring",   hue: "#9fb4ff", light: "#4B5FC0", desc: "the routing gate checked a subagent call" },
+    escalated: { label: "Escalated", mode: "bands", hue: "#ff8f6b", light: "#B4401A", desc: "a task moved to the session model" },
     wait:    { label: "Waiting",   mode: "ring",   hue: "#ffc53d", light: "#8F6300", desc: "waiting for you" },
     stage:   { label: "Stage",     mode: "orbits", hue: "#e9f1fb", light: "#3C535A", desc: "a step in the Boxbox flow" },
     prompt:  { label: "You",       mode: "ring",   hue: "#ffc53d", light: "#8F6300", desc: "you replied in chat" },

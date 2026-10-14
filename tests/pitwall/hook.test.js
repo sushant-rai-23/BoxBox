@@ -432,3 +432,38 @@ test("a subagent's events carry its own task, not the last stage's unit", () => 
   assert.equal(last.unit, "E2.3");
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("gate: a brief's folders, ./ paths and globs cover the files in them", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbglob-"));
+  const box = path.join(root, ".boxbox"), live = path.join(box, "live");
+  fs.mkdirSync(path.join(box, "f", "e1-x", "tasks"), { recursive: true });
+  fs.mkdirSync(live, { recursive: true });
+  fs.writeFileSync(path.join(box, "state.md"), "# State\nfeature: f\n");
+  fs.writeFileSync(path.join(box, "f", "e1-x", "tasks", "E1.1.md"), "task: E1.1\nfiles:\n- app/\n- ./tests/test_a.py\n- lib/**/*.js\n\n## Goal\nx\n");
+  fs.writeFileSync(path.join(live, "events.jsonl"), JSON.stringify({ kind: "crew", result: "started", sub: "b1", unit: "E1.1", target: "boxbox:boxbox-builder" }) + "\n");
+  const edit = f => spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), "PostToolUse"], { input: JSON.stringify({ session_id: "s1", transcript_path: "/p/s1.jsonl", hook_event_name: "PostToolUse", agent_id: "b1", agent_type: "boxbox:boxbox-builder", tool_name: "Write", tool_input: { file_path: path.join(root, f), content: "x" }, tool_response: {} }), env: { ...process.env, BOXBOX_ROOT: root } });
+  const needed = () => fs.readFileSync(path.join(live, "events.jsonl"), "utf8").trim().split("\n").map(JSON.parse).filter(e => e.kind === "escalate-needed");
+  for (const f of ["app/models/user.py", "tests/test_a.py", "lib/a/b.js", "lib/c.js"]) edit(f);
+  assert.deepEqual(needed(), [], "all inside the brief");
+  edit("docs/z.md");
+  assert.equal(needed().length, 1);
+  // after the epic went to review, a new attempt can raise its own trigger
+  fs.appendFileSync(path.join(live, "events.jsonl"), JSON.stringify({ kind: "stage", type: "stage", target: "unit-review", unit: "E1" }) + "\n");
+  edit("docs/y.md");
+  assert.equal(needed().length, 2);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("session start says when the repo's .boxbox kit is older than the plugin", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbstale-"));
+  fs.mkdirSync(path.join(root, ".boxbox", "pitwall"), { recursive: true });
+  fs.writeFileSync(path.join(root, ".boxbox", "config.md"), "pitwall: off\n");
+  const start = () => spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), "SessionStart"], { input: JSON.stringify({ session_id: "s1", transcript_path: "/p/s1.jsonl", hook_event_name: "SessionStart", source: "startup" }), encoding: "utf8", env: { ...process.env, BOXBOX_ROOT: root } }).stdout;
+  fs.writeFileSync(path.join(root, ".boxbox", "pitwall", "say"), "#!/usr/bin/env bash\n# an older say\n");
+  assert.match(start(), /older than the installed Boxbox plugin.*refresh/);
+  fs.copyFileSync(path.join(__dirname, "../../skills/boxbox-setup/kit/pitwall/say"), path.join(root, ".boxbox", "pitwall", "say"));
+  assert.ok(!/older than/.test(start()), "an up-to-date kit says nothing");
+  fs.rmSync(root, { recursive: true, force: true });
+});

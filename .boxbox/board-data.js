@@ -335,7 +335,7 @@ window.BOXBOX_BOARD = {
   "id": "E8",
   "title": "Release 0.7.0",
   "outcome": "README explains routing with a Claude Code vs Codex table and marks live-only checks as not yet verified in a live session (D5); version is 0.7.0 everywhere; all tests and `claude plugin validate .` pass.",
-  "status": "todo",
+  "status": "done",
   "branch": "model-routing-e8-release",
   "files": [
    "README.md",
@@ -345,24 +345,25 @@ window.BOXBOX_BOARD = {
    "docs/routing-spike.md",
    "tests/pitwall/**"
   ],
+  "links": [ { "label": "Report (agent)", "href": "model-routing/e8-release/report.md" } ],
   "tasks": [
    {
     "id": "E8.1",
     "title": "Codex regression: the Codex fixture through every changed hook path behaves as in 0.6",
     "test": "`hook: a Codex PreToolUse never reaches the routing gate`",
-    "status": "todo"
+    "status": "done", "commit": "e0f7256"
    },
    {
     "id": "E8.2",
     "title": "README table, routing section, live-only caveats, and docs/routing-spike.md linked",
     "test": "no cheap test, verify: read the README section against the spec's Part 7",
-    "status": "todo"
+    "status": "done", "commit": "9d8ea0c"
    },
    {
     "id": "E8.3",
     "title": "Version 0.7.0 everywhere and the release checks",
     "test": "`release: every manifest says 0.7.0`",
-    "status": "todo"
+    "status": "done", "commit": "6828aab"
    }
   ]
  }

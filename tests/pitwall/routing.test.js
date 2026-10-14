@@ -167,9 +167,14 @@ test("gate: after two recorded failures a sonnet builder retry is denied", () =>
   // a subagent that only started, another task, a lowercase id: none is a finished E2.1 run
   assert.equal(decide([ev(1, "crew", "E2.1"), ev(2, "crew", "E2.1", { result: "started" }), ev(3, "crew", "E2.2")], "sonnet").decision, "allow");
   assert.equal(decide([...twice, { ts: "x", kind: "escalated", unit: "e2.1", target: "t" }], "opus").decision, "allow", "a lowercase unit still counts");
-  // a new build stage for the task starts its history again: a later feature, or changes after review
-  const restarted = [...again, { ts: "2026-10-14T11:00:00Z", kind: "stage", target: "build", unit: "E2.1" }];
-  assert.equal(decide(restarted, "sonnet").decision, "allow");
+  // saying the build stage again (a resume after a pause) keeps the history: never a second escalation
+  const resumed = [...again, { ts: "2026-10-14T11:00:00Z", kind: "stage", target: "build", unit: "E2.1" }];
+  assert.match(decide(resumed, "opus").reason, /was escalated and failed again/);
+  // the epic handed to the developer (unit-review), approved, or a new plan: a fresh start
+  for (const st of [{ target: "unit-review", unit: "E2" }, { target: "approved", unit: "E2" }, { target: "plan", unit: "" }])
+    assert.equal(decide([...again, { ts: "2026-10-14T11:00:00Z", kind: "stage", ...st }], "sonnet").decision, "allow", st.target);
+  // another epic's review does not reset E2's tasks
+  assert.match(decide([...again, { ts: "x", kind: "stage", target: "unit-review", unit: "E3" }], "opus").reason, /failed again/);
 });
 
 test("gate: a missing plan is not checked; a task the plan does not list is denied", () => {

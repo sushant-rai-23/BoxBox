@@ -74,6 +74,20 @@ function parseBrief(text) {
            files, base: field("base"), goal };
 }
 
+// Is a repo-relative file covered by a brief's `files`? Entries can be files, "./" paths, folders
+// ("app/" covers app/**) or globs ("lib/**/*.js", "src/*.ts").
+function inFiles(file, entries) {
+  const f = String(file).replace(/^\.\//, "");
+  return (entries || []).some(raw => {
+    const g = String(raw).trim().replace(/^\.\//, "");
+    if (!g) return false;
+    if (g === f || (g.endsWith("/") && f.startsWith(g))) return true;
+    if (!/[*?]/.test(g)) return false;
+    const re = new RegExp("^" + g.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*\/?/g, "\u0000").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]").replace(/\u0000/g, "(?:.*/)?") + "$");
+    return re.test(f);
+  });
+}
+
 // Parallel mode: the tasks of one epic that may build at the same time, in plan order. A task joins
 // when every task it depends on is done, its brief is written (so its files are known), and it shares
 // no file with a task already in the batch. At most three.
@@ -94,7 +108,7 @@ function parallelBatch(tasks, epic, done, briefFiles) {
 }
 
 // May builders run in worktrees? Only with `parallel: on` and worktree.baseRef "head" in a project
-// settings file (decision D3): otherwise Claude Code branches worktrees from the default branch,
+// settings file: otherwise Claude Code branches worktrees from the default branch,
 // and the epic's earlier commits would be missing (docs/routing-spike.md, section 7).
 // `settings`: the texts of .claude/settings.local.json then .claude/settings.json, Claude Code's own
 // order: the first file that sets worktree.baseRef decides.
@@ -141,17 +155,24 @@ function taskOfDescription(description) {
 
 // Each builder task's history from events.jsonl, in file order (the true order: say stamps whole
 // seconds, so timestamps cannot order events in the same second). A run is a builder subagent that
-// finished on the task. The task's latest `build` stage starts its history again, so an earlier
-// feature's E1.1 and the runs before a review are not counted against a new attempt.
+// finished on the task. History starts again when its epic goes to review or is approved, or a new
+// plan begins, so an earlier feature's E1.1 and the runs before a review never count against it.
 function builderHistory(events) {
   const out = new Map();
   const fresh = () => ({ runs: 0, escalatedAt: "", runsAfterEscalation: 0, triggered: "" });
   const get = u => { if (!out.has(u)) out.set(u, fresh()); return out.get(u); };
   for (const e of events || []) {
-    if (!e || !e.unit) continue;
+    if (!e) continue;
+    // A fresh start when the work is handed over or re-planned: the epic goes to the developer
+    // (unit-review), is approved or merged, or a plan begins. Saying the build stage again (a resume
+    // after a pause) keeps the history, so a task is never escalated twice.
+    if (e.kind === "stage" && /^(discover|plan|plan-review)$/.test(e.target || "")) { out.clear(); continue; }
+    if (!e.unit) continue;
     const unit = /^e\d/.test(e.unit) ? e.unit.toUpperCase() : e.unit;
-    if (e.kind === "stage" && e.target === "build") out.set(unit, fresh());
-    else if (e.kind === "crew" && e.result === "finished" && e.target === "boxbox:boxbox-builder") {
+    if (e.kind === "stage" && /^(unit-review|approved|merged)$/.test(e.target || "")) {
+      const ep = unit.split(".")[0];
+      for (const k of [...out.keys()]) if (k === ep || k.startsWith(ep + ".")) out.delete(k);
+    } else if (e.kind === "crew" && e.result === "finished" && e.target === "boxbox:boxbox-builder") {
       const h = get(unit); h.runs++;
       if (h.escalatedAt) h.runsAfterEscalation++;
     } else if (e.kind === "escalated") { const h = get(unit); if (!h.escalatedAt) h.escalatedAt = e.ts || "0"; }
@@ -160,7 +181,8 @@ function builderHistory(events) {
   return out;
 }
 
-// The routing gate: may this Agent call run as asked? See .boxbox/model-routing/e3-gate/design.md.
+// The routing gate: may this Agent call run as asked? The rules are in the kit's GUIDE.md, "Model routing";
+// the Claude Code behaviour they rely on is in docs/routing-spike.md.
 // Returns skip (not a Boxbox agent), off (routing is not Boxbox's to enforce), allow or deny.
 function gateDecision(q) {
   const input = q.input || {};
@@ -213,4 +235,4 @@ function agentOf(subagentType) {
   return m ? m[1] : null;
 }
 
-module.exports = { MODES, SIZE_LINES, parseModels, parsePlanTasks, parseBrief, parallelBatch, parallelReady, escalatedTasks, taskOfDescription, builderHistory, gateDecision, expectedModel, familyOf, agentOf };
+module.exports = { MODES, SIZE_LINES, parseModels, parsePlanTasks, parseBrief, inFiles, parallelBatch, parallelReady, escalatedTasks, taskOfDescription, builderHistory, gateDecision, expectedModel, familyOf, agentOf };
