@@ -299,7 +299,7 @@ window.BOXBOX_BOARD = {
   "id": "E7",
   "title": "Parallel tasks",
   "outcome": "With `parallel: on` and `worktree.baseRef: \"head\"`, independent tasks of one epic build at once in worktree builders (at most 3), merge back in plan order with one commit per task, and fall back to one at a time on any conflict or red suite.",
-  "status": "todo",
+  "status": "done",
   "branch": "model-routing-e7-parallel",
   "files": [
    "skills/boxbox-build/SKILL.md",
@@ -309,24 +309,25 @@ window.BOXBOX_BOARD = {
    "hooks/routing.js",
    "tests/pitwall/routing.test.js"
   ],
+  "links": [ { "label": "Report (agent)", "href": "model-routing/e7-parallel/report.md" } ],
   "tasks": [
    {
     "id": "E7.1",
     "title": "Choose tasks that can build together",
     "test": "`routing: two tasks sharing a brief file are never scheduled together`",
-    "status": "todo"
+    "status": "done", "commit": "0c9353c"
    },
    {
     "id": "E7.2",
     "title": "Base-branch check and setup step",
     "test": "`routing: parallel is refused when worktree.baseRef is not head`",
-    "status": "todo"
+    "status": "done", "commit": "0c9353c"
    },
    {
     "id": "E7.3",
     "title": "Build skill: worktree builders, ordered merge, fallback",
     "test": "no cheap test, verify: skill text covers order, one commit per task, full suite once, fallback and report",
-    "status": "todo"
+    "status": "done", "commit": "a2ce515"
    }
   ]
  },
