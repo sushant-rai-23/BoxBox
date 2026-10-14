@@ -22,30 +22,30 @@ goal: Cheaper models do routine work through fixed-model subagents, every task g
 - A10 Model chip shows the family, full id on hover (default)
 - A11 GUIDE config: `models:` and `parallel:` replace the old block (default)
 
-## E1 Routing config and fixed-model agents  [todo]
+## E1 Routing config and fixed-model agents  [review]
 outcome: In a Claude Code session, Boxbox builds tasks through boxbox-builder, searches through boxbox-scout, runs checks through boxbox-runner and fills pages through boxbox-writer, each on the model the repo's `models:` mode and the task's size and risk call for; escalation retries on the session model and is logged.
 branch: model-routing-e1-agents
 depends: none
 design: yes, because it adds the public config (`models:`, `parallel:`), four agent definitions and the routing rule every later epic checks against
-files: agents/**, hooks/boxbox-event.js, hooks/routing.js, skills/boxbox-setup/kit/GUIDE.md, skills/boxbox-setup/kit/pitwall/say, skills/boxbox-setup/SKILL.md, skills/boxbox-plan/SKILL.md, skills/boxbox-build/SKILL.md, skills/boxbox-tdd/SKILL.md, skills/boxbox-inspect/SKILL.md, skills/boxbox-report/SKILL.md, skills/boxbox-lessons/SKILL.md, tests/pitwall/routing.test.js, tests/pitwall/hook.test.js
+files: agents/**, skills/boxbox/SKILL.md, tests/pitwall/agents.test.js, hooks/boxbox-event.js, hooks/routing.js, skills/boxbox-setup/kit/GUIDE.md, skills/boxbox-setup/kit/pitwall/say, skills/boxbox-setup/SKILL.md, skills/boxbox-plan/SKILL.md, skills/boxbox-build/SKILL.md, skills/boxbox-tdd/SKILL.md, skills/boxbox-inspect/SKILL.md, skills/boxbox-report/SKILL.md, skills/boxbox-lessons/SKILL.md, tests/pitwall/routing.test.js, tests/pitwall/hook.test.js
 accept:
 - `agents/` holds boxbox-builder (sonnet), boxbox-scout (haiku), boxbox-runner (haiku), boxbox-writer (sonnet), each with a short strict prompt and only the tools it needs; `claude plugin validate .` passes
 - One pure function gives the expected model for (agent, task size, risk, epic override, escalation, mode, session model), matching the spec table for best, balanced, save and auto; table-tested
 - `config.md` parses `models:` and `parallel:`; setup asks `models:` recommending balanced and mentions `parallel:` without asking
 - boxbox-plan tags tasks with size and risk and records per-epic `model: opus`; boxbox-build passes `model` and the task id on every builder/runner call and never routes discover, plan, design, briefs, inspect, fact-check or approvals down
 - Escalation rules (two failures, diff over 3x, edits outside the brief, 5 edits without green) are in boxbox-build; `say escalated` writes an `escalated` event; a failure on the session model stops and asks the developer
-- Report page-filling, lessons pages and setup refresh go to boxbox-writer (D2)
+- Report page-filling goes to boxbox-writer (D2); setup refresh copies to boxbox-runner (A13); boxbox-lessons stays on the session model (A14)
 fails:
 - Unknown or misspelt mode in config.md: treated as `balanced` with a warning event (E1.2)
 - `auto` mode: the function returns "no model", the skills pass none (E1.2)
 - Escalation loops: at most one escalation per task, then stop (E1.5)
 tasks:
-- [ ] E1.1 Ship the four agent files with strict prompts and minimal tools | test: `agents: four boxbox agents with expected models and tools` reads agents/*.md frontmatter | done: test green, `claude plugin validate .` passes | deps: none
-- [ ] E1.2 Parse `models:` and `parallel:` and compute a call's expected model from mode, size, risk, epic override and escalation | test: `routing: balanced sends an M builder task to sonnet and a risky one to the session model` | done: table test over all four modes green | deps: none
-- [ ] E1.3 GUIDE config format and setup question for `models:`; `parallel:` mentioned, default off | no cheap test, verify: GUIDE config block and setup step read correctly; parseConfig test on the GUIDE example | deps: E1.2
-- [ ] E1.4 boxbox-plan tags tasks `size`/`risk` and records epic `model: opus`; a plan.md parser reads them | test: `routing: plan parser reads size, risk and epic model override from a plan.md` | done: parser test green | deps: E1.2
-- [ ] E1.5 boxbox-build routes tasks to the agents with `model` and the task id, applies escalation, and `say escalated` logs it | test: `say escalated writes an escalated event with unit and reason` | done: test green; build skill text reviewed against the spec table | deps: E1.2, E1.4
-- [ ] E1.6 Hand template work to boxbox-writer in report, lessons and setup refresh; keep inspect, fact-check and decisions on the session model | no cheap test, verify: skill text names boxbox-writer only for template filling and never for judgement steps | deps: E1.1
+- [x] E1.1 Ship the four agent files with strict prompts and minimal tools | test: `agents: four boxbox agents with expected models and tools` reads agents/*.md frontmatter | done: test green, `claude plugin validate .` passes | deps: none
+- [x] E1.2 Parse `models:` and `parallel:` and compute a call's expected model from mode, size, risk, epic override and escalation | test: `routing: balanced sends an M builder task to sonnet and a risky one to the session model` | done: table test over all four modes green | deps: none
+- [x] E1.3 GUIDE config format and setup question for `models:`; `parallel:` mentioned, default off | no cheap test, verify: GUIDE config block and setup step read correctly; parseConfig test on the GUIDE example | deps: E1.2
+- [x] E1.4 boxbox-plan tags tasks `size`/`risk` and records epic `model: opus`; a plan.md parser reads them | test: `routing: plan parser reads size, risk and epic model override from a plan.md` | done: parser test green | deps: E1.2
+- [x] E1.5 boxbox-build routes tasks to the agents with `model` and the task id, applies escalation, and `say escalated` logs it | test: `say escalated writes an escalated event with unit and reason` | done: test green; build skill text reviewed against the spec table | deps: E1.2, E1.4
+- [x] E1.6 Hand template work to boxbox-writer in report, lessons and setup refresh; keep inspect, fact-check and decisions on the session model | no cheap test, verify: skill text names boxbox-writer only for template filling and never for judgement steps | deps: E1.1
 
 ## E2 Task briefs  [todo]
 outcome: Before each task, the main model writes `.boxbox/<feature>/<epic>/tasks/<id>.md` from the current code; builders (Claude Code) or the main agent (Codex) build from it; it is linked from the board and the pit wall and quoted in the report.
@@ -194,3 +194,4 @@ tasks:
 - opusplan-style mode integration (spike 8: exists, follows plan mode not Boxbox stages).
 - A `subagentStatusLine` from the plugin for subagent rows (plugins can ship that one).
 - Codex prices in prices.json.
+- Register a Claude Code session on its first hook event when SessionStart fired before .boxbox/ existed (found in E1: its tokens are missing). Candidate for E4.
