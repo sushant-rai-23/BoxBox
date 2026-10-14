@@ -51,6 +51,27 @@ function parsePlanTasks(planText) {
   return tasks;
 }
 
+// Changed lines a task of each size is expected to need; escalation fires at three times this.
+const SIZE_LINES = { S: 50, M: 150, L: 400 };
+
+// The header of a task brief (.boxbox/<feature>/<epic>/tasks/<id>.md): the lines before the first
+// "## " heading. The gate and the build skill read the task's files and expected diff size from it.
+function parseBrief(text) {
+  const lines = String(text || "").split("\n");
+  const top = [], rest = [];
+  for (const l of lines) (rest.length || /^## /.test(l) ? rest : top).push(l);
+  const field = k => { const m = top.map(l => l.match(new RegExp(`^${k}:[ \\t]*(.*)$`))).find(Boolean); return m ? m[1].trim() : ""; };
+  const files = [];
+  const at = top.findIndex(l => /^files:\s*$/.test(l));
+  if (at >= 0) for (const l of top.slice(at + 1)) { const m = l.match(/^- (\S.*)$/); if (!m) break; files.push(m[1].trim()); }
+  const size = /^[SML]$/i.test(field("size")) ? field("size").toUpperCase() : "M";
+  const n = Number(field("expected_diff"));
+  const g = rest.indexOf("## Goal");
+  const goal = g >= 0 ? (rest.slice(g + 1).find(l => l.trim()) || "").trim() : "";
+  return { task: field("task"), size, risk: /^yes$/i.test(field("risk")), expectedDiff: n > 0 ? n : SIZE_LINES[size],
+           files, base: field("base"), goal };
+}
+
 // Tasks that were escalated to the session model: every `say escalated` event names one.
 function escalatedTasks(events) {
   const out = new Set();
@@ -87,4 +108,4 @@ function agentOf(subagentType) {
   return m ? m[1] : null;
 }
 
-module.exports = { MODES, parseModels, parsePlanTasks, escalatedTasks, expectedModel, familyOf, agentOf };
+module.exports = { MODES, SIZE_LINES, parseModels, parsePlanTasks, parseBrief, escalatedTasks, expectedModel, familyOf, agentOf };
