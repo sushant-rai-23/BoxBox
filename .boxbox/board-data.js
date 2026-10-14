@@ -7,7 +7,7 @@ window.BOXBOX_BOARD = {
   "updated": "2026-10-14",
   "unit": "epic",
   "decisionLevel": "what matters",
-  "waiting": null,
+  "waiting": { "what": "Review Boxbox 0.7.0", "detail": "All 8 epics built and merged into branch model-routing (pushed). No pull request: gh is not installed. Diff: git diff main...model-routing -- . ':!.boxbox'", "label": "Open the release review", "href": "model-routing/release/report.html" },
   "knowledge": [ { "title": "Subagents and model routing", "href": "knowledge/subagent-model-routing.html" }, { "title": "Prompt caching and token accounting", "href": "knowledge/prompt-caching-and-token-accounting.html" }, { "title": "Git worktrees and merging", "href": "knowledge/git-worktrees-and-merging.html" } ],
   "modules": [
     { "name": "Entry and flow skills", "files": ["skills/boxbox/**", "skills/boxbox-resume/**", "skills/boxbox-lessons/**"], "role": "Pick the flow, resume work, record the developer's corrections." },
@@ -25,8 +25,8 @@ window.BOXBOX_BOARD = {
   ],
   "milestones": [ {
     "id": "M1", "title": "Boxbox 0.7.0: model routing", "goal": "Cheaper models for routine work, a brief per task, exact cost per model, Codex unchanged.",
-    "status": "in_progress",
-    "links": [ { "label": "Context", "href": "model-routing/context.html" }, { "label": "Decisions", "href": "model-routing/decisions.html" }, { "label": "Plan", "href": "model-routing/plan.html" } ],
+    "status": "review",
+    "links": [ { "label": "Context", "href": "model-routing/context.html" }, { "label": "Decisions", "href": "model-routing/decisions.html" }, { "label": "Plan", "href": "model-routing/plan.html" }, { "label": "Release review", "href": "model-routing/release/report.html" } ],
     "epics": [
  {
   "id": "E1",

@@ -125,6 +125,11 @@
           <tr><td>A15: A call's description starts with the unit it serves: the task id for builder calls and per-task scout or runner calls, the epic id for epic-wide work, <code>setup</code> for setup work. Replaces A1.</td><td>The E1 review found setup refresh and report pages have no task id.</td><td>Easy.</td></tr>
           <tr><td>A16: Escalation is recorded as <code>say escalated "&lt;reason&gt;" --unit &lt;task id&gt;</code>; without a unit nothing is written. Replaces A3's form.</td><td>The E1 review found the <code>--why</code> form wrote an empty unit.</td><td>Easy.</td></tr>
           <tr><td>A17: <code>models: auto</code>, or no <code>models:</code> line, uses no Boxbox agents, no model and no escalation: plain subagents as in 0.6.</td><td>The E1 review found Boxbox agents would fall back to their file models, which is not "Claude Code decides".</td><td>Easy.</td></tr>
+          <tr><td>A18: The brief parser lives in <code>hooks/routing.js</code>, beside the routing rule the gate uses.</td><td>One module for everything the gate reads.</td><td>Easy.</td></tr>
+          <tr><td>A19: Each epic from E2 on got a <code>report.md</code>; one review page covers the whole release.</td><td>You asked to build E2 to E8 without stops and review at the end.</td><td>Easy.</td></tr>
+          <tr><td>A20: A task added to E4: a session that started before <code>.boxbox/</code> existed is registered on its first event.</td><td>This session's own tokens were missing from the pit wall.</td><td>Easy.</td></tr>
+          <tr><td>A21: E5's page changes went in one commit; the hook and server parts are separate commits.</td><td>Splitting one file's interleaved edits by task would be artificial.</td><td>Easy.</td></tr>
+          <tr><td>A22: The status line needs no pre-approval (replaces that part of A6).</td><td>Claude Code runs it itself, not as a tool call.</td><td>Easy.</td></tr>
         </tbody>
       </table></div>
     </section>

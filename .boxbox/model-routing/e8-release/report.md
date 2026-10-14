@@ -25,7 +25,7 @@ pr: none (gh not installed)
 - A live Codex session with 0.7 (as in 0.6, Codex is built from its docs and unverified end to end)
 
 ## Cost
-Cost: no tokens recorded for E8 (no subagents ran in E8, and this session's own transcript is not registered by the 0.6 hooks it runs under).
+Cost: the pit wall's E8 figure (3.96M tokens, about $1.67) is mostly the release-wide review subagent, which ran during E8's stages. The release page's writer ran under unit M1. Subagents only (this session's own transcript is not registered by the 0.6 hooks it runs under).
 
 ## Outside scope
 - none
