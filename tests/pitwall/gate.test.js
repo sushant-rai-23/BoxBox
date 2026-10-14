@@ -158,3 +158,17 @@ test("gate: an unparsable plan.md allows the call and logs gate-error", () => {
   assert.ok(e, "the failure shows on the pit wall");
   assert.equal(e.result, "allowed");
 });
+
+test("gate: the real hook denies a third cheap builder run and allows the escalated one", () => {
+  const d = routedRepo();
+  const call = model => agentCall(d, { subagent_type: "boxbox:boxbox-builder", description: "E2.1 accept the link", model, prompt: "p" });
+  assert.equal(call("sonnet").stdout, "");
+  assert.equal(call("sonnet").stdout, "");
+  assert.match(call("sonnet").stdout, /E2\.1 failed twice: run say escalated/);
+  const say = path.join(__dirname, "../../skills/boxbox-setup/kit/pitwall/say");
+  fs.mkdirSync(path.join(d, ".boxbox/pitwall"), { recursive: true });
+  fs.copyFileSync(say, path.join(d, ".boxbox/pitwall/say"));
+  spawnSync("sh", [path.join(d, ".boxbox/pitwall/say"), "escalated", "failed twice", "--unit", "E2.1"]);
+  assert.equal(call("opus").stdout, "", "the escalated retry runs on the session model");
+  assert.match(call("opus").stdout, /was escalated and failed again: stop and tell the developer/);
+});

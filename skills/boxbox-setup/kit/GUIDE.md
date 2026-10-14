@@ -204,6 +204,8 @@ Boxbox ships four subagents in the plugin's `agents/` folder: `boxbox:boxbox-bui
 
 **Escalation** (not under `auto`). Retry a builder task once on the session model when the builder failed it twice, or earlier when its diff is more than 3 times the expected size (S 50, M 150, L 400 changed lines, or the brief's estimate), it edited a file outside the brief's `files`, or it edited the same file 5 times without the test going green. Before the retry, run `sh .boxbox/pitwall/say escalated "<one-line reason>" --unit <task id>`. If it fails on the session model too, stop and tell the developer. If the builder already ran on the session model (`best`, a risky or `L` task, an epic override naming it), there is nothing to escalate to: stop and tell the developer at once. Never escalate the same task twice.
 
+**The gate.** In Claude Code, a hook checks every call to a Boxbox agent against these rules before it runs. A call that breaks them is denied with a reason that names the agent and model to use, or the step to take (`say escalated`, or stop and tell the developer): do exactly that, then call again. Under `models: auto`, or when `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set, the gate stands aside and the pit wall says why. If the gate itself fails, the call runs and the pit wall shows `gate-error`.
+
 Codex has no subagent models: under Codex, `models:` and `parallel:` are ignored and the main agent builds every task itself.
 
 ## Pages

@@ -102,6 +102,24 @@ function taskOfDescription(description) {
   return m ? (m[1].toLowerCase() === "setup" ? "setup" : m[1].toUpperCase()) : "";
 }
 
+// Each builder task's history from events.jsonl, in file order: allowed builder runs, when it was
+// escalated, runs since, and the first early-escalation trigger the hook saw ("escalate-needed").
+function builderHistory(events) {
+  const out = new Map();
+  const get = u => { if (!out.has(u)) out.set(u, { runs: 0, escalatedAt: "", runsAfterEscalation: 0, triggered: "" }); return out.get(u); };
+  for (const e of events || []) {
+    if (!e || !e.unit) continue;
+    if (e.kind === "gate" && e.result === "allow" && e.target === "boxbox:boxbox-builder") {
+      const h = get(e.unit); h.runs++;
+      // Events come in file order, which is the true order: say stamps whole seconds, so a run in
+      // the same second as an escalation cannot be ordered by its timestamp.
+      if (h.escalatedAt) h.runsAfterEscalation++;
+    } else if (e.kind === "escalated") { const h = get(e.unit); if (!h.escalatedAt) h.escalatedAt = e.ts || "0"; }
+    else if (e.kind === "escalate-needed") { const h = get(e.unit); if (!h.triggered) h.triggered = e.target || "needs escalation"; }
+  }
+  return out;
+}
+
 // The routing gate: may this Agent call run as asked? See .boxbox/model-routing/e3-gate/design.md.
 // Returns skip (not a Boxbox agent), off (routing is not Boxbox's to enforce), allow or deny.
 function gateDecision(q) {
@@ -121,7 +139,17 @@ function gateDecision(q) {
       : `start the description with the unit it serves: a task id, an epic id or "setup", like "E2.3 <what>"`);
   const t = (q.tasks && q.tasks.get(task)) || { size: "M", risk: false, epicModel: null };
   const session = q.session || null;
-  const e = expectedModel({ agent, mode: q.mode, session: session || "session", size: t.size, risk: t.risk, epicModel: t.epicModel });
+  const h = agent === "builder" ? (q.history && q.history.get(task)) || null : null;
+  const plain = expectedModel({ agent, mode: q.mode, session: session || "session", size: t.size, risk: t.risk, epicModel: t.epicModel });
+  if (h && h.escalatedAt && h.runsAfterEscalation >= 1) return deny(`${task} was escalated and failed again: stop and tell the developer`);
+  if (h && !h.escalatedAt && (h.runs >= 2 || h.triggered)) {
+    const why = h.triggered || "failed twice";
+    if (session && plain.model === session) return deny(`${task} ${why}, and it already runs on the session model: stop and tell the developer`);
+    return deny(`${task} ${why}: run say escalated "${why}" --unit ${task}, then boxbox-builder with model ${session || "<the session model>"}`, session);
+  }
+  const e = h && h.escalatedAt
+    ? expectedModel({ agent, mode: q.mode, session: session || "session", escalated: true })
+    : plain;
   if (e.model === "session") return { decision: "allow", reason: `session model unknown, not checked (${e.why})`, task, expected: null };
   if (familyOf(input.model) !== e.model) return deny(`${task} is ${e.why}, run boxbox-${agent} with model ${e.model}`, e.model);
   return { decision: "allow", reason: e.why, task, expected: e.model };
@@ -139,4 +167,4 @@ function agentOf(subagentType) {
   return m ? m[1] : null;
 }
 
-module.exports = { MODES, SIZE_LINES, parseModels, parsePlanTasks, parseBrief, escalatedTasks, taskOfDescription, gateDecision, expectedModel, familyOf, agentOf };
+module.exports = { MODES, SIZE_LINES, parseModels, parsePlanTasks, parseBrief, escalatedTasks, taskOfDescription, builderHistory, gateDecision, expectedModel, familyOf, agentOf };

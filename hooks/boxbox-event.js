@@ -312,6 +312,51 @@ function ensureServer(root, open) {
   return /^http:\/\//.test(url) ? { url } : { error: "The pit wall did not start: " + short(r.stderr || "no output", 200) };
 }
 
+// The events whose line contains `needle` (a string or a RegExp), parsed, in file order. Cheap
+// enough for the gate: lines that cannot match are never parsed.
+function readEvents(live, needle) {
+  const out = [];
+  const hit = typeof needle === "string" ? l => l.indexOf(needle) >= 0 : l => needle.test(l);
+  for (const l of readText(path.join(live, "events.jsonl")).split("\n")) if (hit(l)) { try { out.push(JSON.parse(l)); } catch {} }
+  return out;
+}
+
+// The task a subagent works on: Claude Code's agent-<id>.meta.json names the Agent call (toolUseId),
+// and the gate logged that call with its task (decision A4).
+function subagentTask(p, live) {
+  if (!p.agent_id || !p.transcript_path || !p.session_id) return "";
+  const meta = readJSON(path.join(path.dirname(p.transcript_path), p.session_id, "subagents", `agent-${p.agent_id}.meta.json`));
+  if (!meta || !meta.toolUseId) return "";
+  const g = readEvents(live, meta.toolUseId).find(e => e.kind === "gate" && e.id === meta.toolUseId);
+  return (g && g.unit) || "";
+}
+
+// Early escalation, seen from a builder's own edits: a file outside its brief, or the 5th edit of
+// one file with no passing test run since. Logs one "escalate-needed" per task; the gate enforces it.
+function checkTriggers(p, live, box, edits, base) {
+  if (!edits.length || !/boxbox-builder$/.test(p.agent_type || "")) return;
+  const start = readEvents(live, `"sub":"${p.agent_id}"`).find(e => e.kind === "crew" && e.result === "started");
+  const task = start && start.unit;
+  if (!task || !/^E\d+\.\d+$/.test(task)) return;
+  if (readEvents(live, "escalate-needed").some(e => e.kind === "escalate-needed" && e.unit === task)) return;
+  const st = parseState(readText(path.join(box, "state.md")));
+  let brief = null;
+  try { for (const d of fs.readdirSync(path.join(box, st.feature || "-"))) { const f = path.join(box, st.feature, d, "tasks", task + ".md"); if (fs.existsSync(f)) { brief = routing.parseBrief(readText(f)); break; } } } catch {}
+  let why = "";
+  const outside = brief && brief.files.length ? edits.find(f => !brief.files.includes(f)) : null;
+  if (outside) why = `edited ${outside}, outside its brief`;
+  else {
+    const mine = readEvents(live, `"sub":"${p.agent_id}"`);
+    let lastPass = -1;
+    mine.forEach((e, i) => { if (e.test && e.test.status === "pass") lastPass = i; });
+    for (const f of edits) {
+      const n = 1 + mine.slice(lastPass + 1).filter(e => (e.edits || []).includes(f)).length;
+      if (n >= 5) { why = `edited ${f} 5 times without the tests going green`; break; }
+    }
+  }
+  if (why) append(live, "events.jsonl", { ...base, unit: task, type: "escalate-needed", kind: "escalate-needed", target: why, why: "", result: "" });
+}
+
 // The main session's model family: the last assistant message.model in its transcript's final 256 KB.
 function sessionFamily(transcript) {
   let fd;
@@ -342,7 +387,8 @@ function runGate(p, box, live, cfg, base) {
     const plan = st.feature ? readText(path.join(box, st.feature, "plan.md")) : "";
     const env = process.env, forced = env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE && !/^(0|false)$/i.test(env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE);
     const force = forced ? (env.CLAUDE_CODE_SUBAGENT_MODEL && env.CLAUDE_CODE_SUBAGENT_MODEL !== "inherit" ? env.CLAUDE_CODE_SUBAGENT_MODEL : "inherit") : "";
-    d = routing.gateDecision({ input, mode: cfg.models, force, tasks: routing.parsePlanTasks(plan), session: sessionFamily(p.transcript_path) });
+    const history = routing.builderHistory(readEvents(live, /"(gate|escalated|escalate-needed)"/));
+    d = routing.gateDecision({ input, mode: cfg.models, force, tasks: routing.parsePlanTasks(plan), history, session: sessionFamily(p.transcript_path) });
   } catch (err) {
     append(live, "events.jsonl", { ...base, type: "gate-error", kind: "gate-error", target: short(String(err && err.message), 200), why: "", result: "allowed" });
     return;
@@ -366,7 +412,7 @@ function main(event, raw, root) {
   const cfg = parseConfig(readText(path.join(box, "config.md")));
   const stage = readJSON(path.join(live, "stage.json")) || {};
   const agent = detectAgent(p);
-  const base = { ts: new Date().toISOString(), session: p.session_id || "", agent, lane: laneFor(p, stage.stage), unit: stage.unit || "" };
+  const base = { ts: new Date().toISOString(), session: p.session_id || "", agent, lane: laneFor(p, stage.stage), unit: stage.unit || "", ...(p.agent_id ? { sub: p.agent_id } : {}) };
   const tool = p.tool_name || "";
 
   switch (event) {
@@ -410,6 +456,7 @@ function main(event, raw, root) {
       }
       const edits = editedPaths(tool, p.tool_input || {}, root);
       if (edits.length) e.edits = edits;
+      if (edits.length && p.agent_id && agent === "claude-code") checkTriggers(p, live, box, edits, base);
       if (event === "PostToolUse" && (c.kind === "page" || c.kind === "edit")) {
         const inf = inferStage(c.target, readJSON(path.join(live, "stage.json")), Date.now(), Date.parse(readText(path.join(live, "session-start"))) || 0);
         if (inf) {
@@ -454,7 +501,8 @@ function main(event, raw, root) {
     case "SubagentStart":
     case "SubagentStop": {
       const lane = laneFor({ agent_id: p.agent_id || "sub", agent_type: p.agent_type }, stage.stage);
-      append(live, "events.jsonl", { ...base, lane, type: "crew", kind: "crew", target: p.agent_type || "subagent", why: stage.why || "", result: event === "SubagentStart" ? "started" : "finished", sub: p.agent_id || "" });
+      const task = event === "SubagentStart" ? subagentTask(p, live) : "";
+      append(live, "events.jsonl", { ...base, ...(task ? { unit: task } : {}), lane, type: "crew", kind: "crew", target: p.agent_type || "subagent", why: stage.why || "", result: event === "SubagentStart" ? "started" : "finished", sub: p.agent_id || "" });
       if (event === "SubagentStop" && p.agent_transcript_path) {
         append(live, "sessions.jsonl", { session: p.session_id || "", agent, transcript: p.agent_transcript_path, sub: p.agent_id || "", started: base.ts });
       }

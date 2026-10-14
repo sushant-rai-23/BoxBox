@@ -145,3 +145,35 @@ test("gate: FORCE on or models: auto turns the gate off, with the reason", () =>
   // no FORCE (a plain CLAUDE_CODE_SUBAGENT_MODEL is only a default): the passed model still wins, so the gate judges
   assert.equal(R.gateDecision({ ...base, mode: "balanced", force: "" }).decision, "deny");
 });
+
+test("gate: after two recorded failures a sonnet builder retry is denied", () => {
+  const ev = (ts, kind, unit, extra = {}) => ({ ts: `2026-10-14T10:0${ts}:00Z`, kind, unit, target: "boxbox:boxbox-builder", result: "allow", ...extra });
+  const tasks = R.parsePlanTasks("## E2 x\n- [ ] E2.1 a | size: S | risk: no\n");
+  const input = model => ({ subagent_type: "boxbox:boxbox-builder", description: "E2.1 a", model });
+  const decide = (events, model) => R.gateDecision({ input: input(model), mode: "balanced", session: "opus", tasks, history: R.builderHistory(events) });
+
+  const twice = [ev(1, "gate", "E2.1"), ev(2, "gate", "E2.1")];
+  const d = decide(twice, "sonnet");
+  assert.equal(d.decision, "deny");
+  assert.equal(d.reason, 'E2.1 failed twice: run say escalated "failed twice" --unit E2.1, then boxbox-builder with model opus');
+  assert.equal(decide(twice, "opus").decision, "deny", "escalation must be recorded first");
+  // once escalated, the retry runs on the session model, once
+  const escalated = [...twice, { ts: "2026-10-14T10:03:00Z", kind: "escalated", unit: "E2.1", target: "failed twice" }];
+  assert.equal(decide(escalated, "opus").decision, "allow");
+  assert.match(decide(escalated, "sonnet").reason, /E2\.1 is escalated, run boxbox-builder with model opus/);
+  const again = [...escalated, ev(4, "gate", "E2.1")];
+  assert.equal(decide(again, "opus").reason, "E2.1 was escalated and failed again: stop and tell the developer");
+  // a denied call is not a run; other tasks do not count
+  assert.equal(decide([ev(1, "gate", "E2.1"), ev(2, "gate", "E2.1", { result: "deny" }), ev(3, "gate", "E2.2")], "sonnet").decision, "allow");
+});
+
+test("gate: an early trigger requires escalation before the next builder run", () => {
+  const tasks = new Map();
+  const h = R.builderHistory([{ ts: "2026-10-14T10:01:00Z", kind: "gate", unit: "E2.1", target: "boxbox:boxbox-builder", result: "allow" },
+                             { ts: "2026-10-14T10:02:00Z", kind: "escalate-needed", unit: "E2.1", target: "edited app/x.py, outside its brief" }]);
+  const d = R.gateDecision({ input: { subagent_type: "boxbox:boxbox-builder", description: "E2.1 a", model: "sonnet" }, mode: "balanced", session: "opus", tasks, history: h });
+  assert.equal(d.reason, 'E2.1 edited app/x.py, outside its brief: run say escalated "edited app/x.py, outside its brief" --unit E2.1, then boxbox-builder with model opus');
+  // the session model is already the builder's: nothing to escalate to
+  const best = R.gateDecision({ input: { subagent_type: "boxbox:boxbox-builder", description: "E2.1 a", model: "opus" }, mode: "best", session: "opus", tasks, history: h });
+  assert.equal(best.reason, "E2.1 edited app/x.py, outside its brief, and it already runs on the session model: stop and tell the developer");
+});
