@@ -72,6 +72,18 @@ function matchAny(p, globs) {
   });
 }
 
+// A task's brief as a link the pit wall can open: a plain .md path inside .boxbox, served under /b/.
+function briefHref(brief) {
+  const p = String(brief || "");
+  return /^[\w.-]+(\/[\w.-]+)*\.md$/.test(p) && !p.split("/").includes("..") ? "/b/" + p : null;
+}
+
+// "claude-opus-5-5[1m]" -> "opus" (the same rule as hooks/routing.js; the kit cannot load the hooks).
+function familyOf(model) {
+  const m = String(model || "").toLowerCase().match(/^(?:claude-)?(opus|sonnet|haiku|fable)(?:\b|-)/);
+  return m ? m[1] : null;
+}
+
 function usageTotal(e) { return e.input + e.output + e.cacheWrite5m + e.cacheWrite1h + e.cacheRead; }
 
 // Claude Code writes one assistant message on several lines while it streams, with usage
@@ -123,6 +135,7 @@ function ingestCodexLines(st, lines, meta) {
 
 function priceFor(model, prices) {
   const table = (prices && prices.models) || {};
+  model = String(model || "").replace(/\[[^\]]*\]$/, "");   // "claude-opus-5-5[1m]": the tag names the context window, not another model
   const keys = Object.keys(table).sort((a, b) => b.length - a.length);
   // Exact id, or the id plus a date suffix. "claude-opus-5-7" must not take "claude-opus-5"'s price.
   const k = keys.find(k => model === k || (model.startsWith(k) && /^[-@]\d{6,}$/.test(model.slice(k.length))));
@@ -149,6 +162,40 @@ function add(row, e, prices, unpriced) {
   const c = costOf(e, priceFor(e.model, prices));
   if (c === null) { row.priced = false; if (unpriced && e.model) unpriced.add(e.model); }
   else row.cost += c;
+}
+
+// A unit row's tokens and cost per model: { "claude-opus-5-5": { tokens, cost } }.
+function addModel(row, e, prices) {
+  row.models = row.models || {};
+  const m = row.models[e.model || "unknown"] = row.models[e.model || "unknown"] || blank();
+  add(m, e, prices, null);
+}
+
+// "Saved versus all on the session model": every subagent's tokens re-priced at the model its session
+// was running when the subagent started (the main transcript's model at the subagent's first message).
+// The main session's own tokens are not re-priced. An estimate: the session model might have used
+// fewer tokens for the same work.
+function savings(entries, prices) {
+  const main = new Map(), firstOfSub = new Map();
+  for (const e of entries) {
+    if (e.agent && e.agent !== "claude-code") continue;
+    if (!e.sub) { if (e.model) (main.get(e.session) || main.set(e.session, []).get(e.session)).push(e); }
+    else if (!firstOfSub.has(e.sub) || e.ts < firstOfSub.get(e.sub)) firstOfSub.set(e.sub, e.ts);
+  }
+  for (const list of main.values()) list.sort((a, b) => (a.ts < b.ts ? -1 : 1));
+  const modelAt = (session, ts) => { let m = ""; for (const e of main.get(session) || []) { if (e.ts <= ts) m = e.model; else break; } return m || ((main.get(session) || [])[0] || {}).model || ""; };
+  let actual = 0, atSession = 0, priced = true, note = "";
+  const used = new Set();
+  for (const e of entries) {
+    if (!e.sub || (e.agent && e.agent !== "claude-code")) continue;
+    const sm = modelAt(e.session, firstOfSub.get(e.sub));
+    if (!sm) { priced = false; note = "a subagent's session has no main transcript registered"; continue; }
+    const a = costOf(e, priceFor(e.model, prices)), b = costOf(e, priceFor(sm, prices));
+    if (a === null || b === null) { priced = false; note = note || "a model has no price"; continue; }
+    used.add(sm); actual += a; atSession += b;
+  }
+  const sessionModels = [...used];
+  return { estimate: true, sessionModel: sessionModels[0] || "", sessionModels, actual, atSessionModel: atSession, saved: atSession - actual, priced, note };
 }
 
 function totals(entries, prices) {
@@ -195,19 +242,93 @@ function activeMilestone(board) {
   return ms.find(m => m.status === "in_progress" || m.status === "review" || m.status === "changes") || ms[ms.length - 1] || null;
 }
 
-function aggregate(entries, timeline, prices, board, now) {
+// Which task each subagent worked on: the hook tags its crew events with the task of the Agent call
+// that started it. A subagent's tokens go to that task, even while another unit's stage is current.
+function subagentUnits(events) {
+  // The start event wins: it is written while the Agent call is fresh; a stop event falls back to the
+  // current stage's unit when the call can no longer be found.
+  const out = new Map(), fromStart = new Set();
+  for (const e of events || []) {
+    if (!e || e.kind !== "crew" || !e.sub || !/^E\d+\.\d+$/.test(e.unit || "") || fromStart.has(e.sub)) continue;
+    out.set(e.sub, e.unit);
+    if (e.result === "started") fromStart.add(e.sub);
+  }
+  return out;
+}
+
+// Each event's model: a subagent's events take its transcript's model; the main session's events take
+// the model of its latest message at that moment. Set as `ranOn` (a gate event's own `model` is the
+// model that was asked for).
+function withModels(events, entries) {
+  const bySub = new Map(), bySession = new Map();
+  for (const e of entries) {
+    if (!e.model) continue;
+    if (e.sub) bySub.set(e.sub, e.model);
+    else (bySession.get(e.session) || bySession.set(e.session, []).get(e.session)).push(e);
+  }
+  for (const l of bySession.values()) l.sort((a, b) => (a.ts < b.ts ? -1 : 1));
+  return events.map(ev => {
+    let m = ev.sub ? bySub.get(ev.sub) : "";
+    if (!m && !ev.sub) for (const e of bySession.get(ev.session) || []) { if (e.ts <= ev.ts) m = e.model; else break; }
+    return m ? { ...ev, ranOn: m } : ev;
+  });
+}
+
+// The routing readout for Home: the mode, whether the gate is on (and why not), the Boxbox agents
+// running now, and the escalations so far.
+function routingState(configText, events, now = Date.now()) {
+  // The same rule as parseModels in the plugin's hooks/routing.js (the kit cannot load the hooks):
+  // a missing line is auto, a value Boxbox does not know runs as balanced.
+  const m = String(configText || "").match(/^models:[ \t]*([^\s#]*)/m);
+  const v = m && m[1] ? m[1].toLowerCase() : "";
+  const known = ["best", "balanced", "save", "auto"].includes(v);
+  const mode = known ? v : v ? "balanced" : "auto";
+  const open = new Map(), lastSeen = new Map(), ended = new Map();
+  let gateOff = "", escalations = [];
+  for (const e of events || []) {
+    if (e.sub) lastSeen.set(e.sub, Date.parse(e.ts) || 0);
+    if (e.type === "session-end" || e.kind === "session-end") ended.set(e.session, Date.parse(e.ts) || 0);
+    if (e.kind === "crew" && e.sub && /^boxbox:boxbox-/.test(e.target || "")) {
+      if (e.result === "started") open.set(e.sub, { agent: e.target.replace("boxbox:boxbox-", ""), unit: e.unit || "", sub: e.sub, since: e.ts, session: e.session || "" });
+      else open.delete(e.sub);
+    }
+    if (e.kind === "gate") gateOff = e.result === "off" ? e.why || "off" : "";
+    if (e.kind === "escalated" || e.kind === "escalate-needed" || (e.kind === "gate" && e.result === "deny") || e.kind === "gate-error") escalations.push(e);
+  }
+  // A subagent whose stop never arrived (interrupted, crashed) is not running: its session ended,
+  // or it has been quiet for 30 minutes.
+  const active = [...open.values()].filter(a => !(ended.get(a.session) >= Date.parse(a.since)) && now - (lastSeen.get(a.sub) || 0) < 30 * 60000);
+  if (mode === "auto") gateOff = "models: auto: Boxbox uses no agents of its own, Claude Code decides";
+  else if (/^models: auto/.test(gateOff)) gateOff = "";                       // from before the mode changed
+  else if (gateOff) gateOff += " (as of the last subagent call)";             // FORCE is only seen at call time
+  const esc = escalations.filter(e => e.kind === "escalated");
+  return { mode, warning: v && !known ? `models: "${m[1]}" is not one of best, balanced, save, auto; using balanced` : "",
+           gate: { state: gateOff ? "off" : "on", reason: gateOff }, active,
+           lastEscalation: esc[esc.length - 1] || null, escalations: escalations.slice(-20) };
+}
+
+function aggregate(entries, timeline, prices, board, now, subUnits = new Map()) {
   const ms = activeMilestone(board);
   const epicTitle = id => { const e = ms && (ms.epics || []).find(x => x.id === id); return e ? e.title : GROUP_NAME[id] || id; };
   const taskTitle = id => { for (const e of (ms && ms.epics) || []) for (const t of e.tasks || []) if (t.id === id) return t.title; return ""; };
-  const byEpic = new Map(), byTask = new Map(), sessions = new Map(), unpriced = new Set();
+  const byEpic = new Map(), byTask = new Map(), sessions = new Map(), unpriced = new Set(), byModel = new Map();
   const all = blank("all", "All");
   for (const e of entries) {
-    const b = bucketOf(stageAt(Date.parse(e.ts), timeline));
+    // Per model: the raw counts too, for the cache-read share (cache reads over all input sent).
+    const mk = e.model || "unknown";
+    if (!byModel.has(mk)) byModel.set(mk, { ...blank(mk, mk), model: mk, family: familyOf(mk), input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+    const mr = byModel.get(mk);
+    add(mr, e, prices, null);
+    mr.input += e.input; mr.output += e.output; mr.cacheRead += e.cacheRead; mr.cacheWrite += e.cacheWrite5m + e.cacheWrite1h;
+    const own = e.sub && subUnits.get(e.sub);
+    const b = own ? bucketOf({ unit: own }) : bucketOf(stageAt(Date.parse(e.ts), timeline));
     if (!byEpic.has(b.epic)) byEpic.set(b.epic, blank(b.epic, epicTitle(b.epic)));
     add(byEpic.get(b.epic), e, prices, unpriced);
+    addModel(byEpic.get(b.epic), e, prices);
     if (b.task) {
       if (!byTask.has(b.task)) byTask.set(b.task, blank(b.task, taskTitle(b.task)));
       add(byTask.get(b.task), e, prices, null);
+      addModel(byTask.get(b.task), e, prices);
     }
     add(all, e, prices, null);
     const key = e.session || "unknown";
@@ -226,11 +347,14 @@ function aggregate(entries, timeline, prices, board, now) {
     if (byEpic.has(b.epic)) byEpic.get(b.epic).ms += ms2;
     if (b.task && byTask.has(b.task)) byTask.get(b.task).ms += ms2;
   }
-  const fin = r => ({ ...r, ...costFields(r) });
+  const fin = r => ({ ...r, ...costFields(r), ...(r.models ? { models: Object.fromEntries(Object.entries(r.models).map(([k, v]) => [k, { ...v, ...costFields(v) }])) } : {}) });
   return {
     total: { fresh: all.fresh, cache: all.cache, tokens: all.tokens, ...costFields(all), unpriced: [...unpriced] },
     byEpic: [...byEpic.values()].map(fin),
     byTask: [...byTask.values()].map(fin),
+    savings: savings(entries, prices),
+    byModel: [...byModel.values()].map(r => ({ ...fin(r), cacheReadShare: r.input + r.cacheWrite + r.cacheRead ? r.cacheRead / (r.input + r.cacheWrite + r.cacheRead) : 0 }))
+      .sort((a, b) => b.tokens - a.tokens),
     sessions: [...sessions.values()].map(s => ({ ...s, models: [...s.models], units: [...s.units], ...costFields(s) }))
       .sort((a, b) => (a.first < b.first ? -1 : 1))
   };
@@ -380,6 +504,14 @@ class Live {
     for (const l of lines) {
       const s = safeJSON(l);
       if (!s || !s.transcript) continue;
+      // A subagent is registered at start (a path the hook builds) and at stop (Claude Code's own
+      // string): one transcript per session and subagent id, however the path is spelled.
+      if (s.sub) {
+        const key = `${s.session}\u0000${s.sub}`;
+        this.subKeys = this.subKeys || new Set();
+        if (this.subKeys.has(key)) continue;
+        this.subKeys.add(key);
+      }
       if (!this.transcripts.has(s.transcript)) {
         const kind = s.agent === "codex" ? "codex" : "claude";
         this.transcripts.set(s.transcript, { tail: new Tail(), kind, session: s.session, sub: s.sub || "", byId: new Map(), state: {}, entries: [] });
@@ -469,6 +601,7 @@ class Live {
     this.refresh();
     this.refreshGarage(false);
     const board = parseBoard(readText(path.join(this.box, "board-data.js")));
+    for (const m of (board && board.milestones) || []) for (const e of m.epics || []) for (const t of e.tasks || []) t.briefHref = briefHref(t.brief);
     const st = parseState(readText(path.join(this.box, "state.md")));
     const stage = currentStage(readJSON(path.join(this.live, "stage.json")), this.events);
     const unit = stage.unit || (stage.last && stage.last.unit) || "";
@@ -483,9 +616,10 @@ class Live {
       state: st, stage,
       waiting: readJSON(path.join(this.live, "waiting.json")),
       paused: { requested: fs.existsSync(path.join(this.live, "PAUSE")), held: fs.existsSync(path.join(this.live, "held")) },
-      events: this.events.slice(-200),
+      events: withModels(this.events.slice(-200), this.entries()),
       timeline: timeline.slice(-60).map(s => ({ ts: new Date(s.t).toISOString(), stage: s.stage, unit: s.unit, why: s.why })),
-      tokens: aggregate(this.entries(), timeline, readPrices(), board, now),
+      tokens: aggregate(this.entries(), timeline, readPrices(), board, now, subagentUnits(this.events)),
+      routing: routingState(readText(path.join(this.box, "config.md")), this.events),
       drift: drift(board, this.events, unit, now),
       verification: verification(board, this.events),
       garage: this.garage.docs,
@@ -654,11 +788,18 @@ function summary(unit) {
   if (!row) console.log(`Cost: no tokens recorded for ${unit}.`);
   else console.log(`Cost: ${fmt(row.tokens)} tokens for ${unit} (${fmt(row.fresh)} new, ${fmt(row.cache)} from cache)` +
     (row.cost === null ? ", no price for this model" : `, about $${row.cost.toFixed(2)}`) + (row.priced ? "" : " (some models have no price)") + ".");
+  if (row && row.models) {
+    // The family name ("opus") unless two ids of one family are in the unit; then the full ids.
+    const fam = Object.keys(row.models).map(m => familyOf(m) || m);
+    const label = m => (fam.filter(f => f === (familyOf(m) || m)).length > 1 ? m : familyOf(m) || m);
+    const parts = Object.entries(row.models).map(([m, r]) => ({ m: label(m), r })).sort((a, b) => (b.r.cost || 0) - (a.r.cost || 0) || b.r.tokens - a.r.tokens);
+    console.log("By model: " + parts.map(({ m, r }) => `${m} ${fmt(r.tokens)} tokens ` + (r.priced ? `$${r.cost.toFixed(2)}` : "no price")).join(", ") + ".");
+  }
   const outside = st.drift.outside.filter(o => o.epic === epic);
   console.log(outside.length ? "Edited outside scope: " + outside.map(o => o.path).join(", ") : "Edited outside scope: none.");
 }
 
-module.exports = { parseBoard, parseState, globToRegExp, matchAny, ingestClaudeLines, ingestCodexLines, priceFor, costOf, totals, stageTimeline, aggregate, drift, verification, currentStage, Live };
+module.exports = { parseBoard, parseState, briefHref, globToRegExp, matchAny, ingestClaudeLines, ingestCodexLines, priceFor, costOf, totals, stageTimeline, subagentUnits, withModels, routingState, aggregate, drift, verification, currentStage, Live };
 
 if (require.main === module) {
   const args = process.argv.slice(2);

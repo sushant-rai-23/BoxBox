@@ -194,18 +194,18 @@
         </ol>
       </article>
       <article class="epic" id="e8">
-        <span class="status">to do</span>
+        <span class="status" data-st="done">done</span>
         <h3><data>E8</data>Release 0.7.0</h3>
         <p>README explains routing with a Claude Code vs Codex table and marks live-only checks as not yet verified in a live session (D5); version is 0.7.0 everywhere; all tests and <code>claude plugin validate .</code> pass.</p>
         <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e8-release</code></dd><dt>Depends on</dt><dd>E1, E2, E3, E4, E5, E6, E7</dd><dt>Design stop</dt><dd>no</dd></dl>
         <h4>Done when</h4>
         <ul class="accept"><li>README: a routing section, a feature/Claude Code/Codex table, and the live-only items listed as "not yet verified in a live session"</li><li>0.7.0 in all four manifests and the README</li><li>Full suite green; <code>claude plugin validate .</code> passes; a Codex fixture run through the hook errors nowhere</li></ul>
         <ol class="tasks">
-          <li data-st="todo"><b>E8.1</b>Codex regression: the Codex fixture through every changed hook path behaves as in 0.6
+          <li data-st="done"><b>E8.1</b>Codex regression: the Codex fixture through every changed hook path behaves as in 0.6
             <dl><dt>First test</dt><dd><code>hook: a Codex PreToolUse never reaches the routing gate</code></dd><dt>Fails when</dt><dd>a Codex payload (with <code>turn_id</code>) reaches the routing gate or errors in a changed hook path</dd><dt>Files</dt><dd><code>README.md</code>, <code>.claude-plugin/**</code>, <code>.codex-plugin/**</code>, <code>.cursor-plugin/**</code>, <code>docs/routing-spike.md</code>, <code>tests/pitwall/**</code></dd></dl></li>
-          <li data-st="todo"><b>E8.2</b>README table, routing section, live-only caveats, and docs/routing-spike.md linked
+          <li data-st="done"><b>E8.2</b>README table, routing section, live-only caveats, and docs/routing-spike.md linked
             <dl><dt>First test</dt><dd>No cheap test. Verify: read the README section against the spec's Part 7</dd><dt>Fails when</dt><dd>a live-only item is listed without "not yet verified in a live session"</dd><dt>Files</dt><dd><code>README.md</code>, <code>.claude-plugin/**</code>, <code>.codex-plugin/**</code>, <code>.cursor-plugin/**</code>, <code>docs/routing-spike.md</code>, <code>tests/pitwall/**</code></dd></dl></li>
-          <li data-st="todo"><b>E8.3</b>Version 0.7.0 everywhere and the release checks
+          <li data-st="done"><b>E8.3</b>Version 0.7.0 everywhere and the release checks
             <dl><dt>First test</dt><dd><code>release: every manifest says 0.7.0</code></dd><dt>Fails when</dt><dd>one of the four manifests or the README still says another version</dd><dt>Files</dt><dd><code>README.md</code>, <code>.claude-plugin/**</code>, <code>.codex-plugin/**</code>, <code>.cursor-plugin/**</code>, <code>docs/routing-spike.md</code>, <code>tests/pitwall/**</code></dd></dl></li>
         </ol>
       </article>

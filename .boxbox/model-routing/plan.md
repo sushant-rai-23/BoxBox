@@ -170,7 +170,7 @@ tasks:
 - [x] E7.2 Base-branch check and setup step | test: `routing: parallel is refused when worktree.baseRef is not head` | done: test green | deps: E7.1
 - [x] E7.3 Build skill: worktree builders, ordered merge, fallback | no cheap test, verify: skill text covers order, one commit per task, full suite once, fallback and report | deps: E7.1, E7.2
 
-## E8 Release 0.7.0  [todo]
+## E8 Release 0.7.0  [done]
 outcome: README explains routing with a Claude Code vs Codex table and marks live-only checks as not yet verified in a live session (D5); version is 0.7.0 everywhere; all tests and `claude plugin validate .` pass.
 branch: model-routing-e8-release
 depends: E1, E2, E3, E4, E5, E6, E7
@@ -181,9 +181,9 @@ accept:
 - 0.7.0 in all four manifests and the README
 - Full suite green; `claude plugin validate .` passes; a Codex fixture run through the hook errors nowhere
 tasks:
-- [ ] E8.1 Codex regression: the Codex fixture through every changed hook path behaves as in 0.6 | test: `hook: a Codex PreToolUse never reaches the routing gate` | done: test green | deps: none
-- [ ] E8.2 README table, routing section, live-only caveats, and docs/routing-spike.md linked | no cheap test, verify: read the README section against the spec's Part 7 | deps: none
-- [ ] E8.3 Version 0.7.0 everywhere and the release checks | test: `release: every manifest says 0.7.0` | done: suite green, validate passes | deps: E8.1, E8.2
+- [x] E8.1 Codex regression: the Codex fixture through every changed hook path behaves as in 0.6 | test: `hook: a Codex PreToolUse never reaches the routing gate` | done: test green | deps: none
+- [x] E8.2 README table, routing section, live-only caveats, and docs/routing-spike.md linked | no cheap test, verify: read the README section against the spec's Part 7 | deps: none
+- [x] E8.3 Version 0.7.0 everywhere and the release checks | test: `release: every manifest says 0.7.0` | done: suite green, validate passes | deps: E8.1, E8.2
 
 ## Only the developer can do
 - Before tagging: decide whether to run the deferred live checks on a scratch repo (spec "done means" 2, 3 live, 4, 5 live, 8, 9).
