@@ -376,3 +376,19 @@ test("gate: normal test-first work does not trip the 5-edit trigger", () => {
   assert.ok(!evs.some(e => e.kind === "escalate-needed"), JSON.stringify(evs.filter(e => e.kind === "escalate-needed")));
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("hook: a session the pit wall never saw start is registered on its first event", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bblate-"));
+  fs.mkdirSync(path.join(root, ".boxbox", "live"), { recursive: true });
+  const run = (event, p) => spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), event], { input: JSON.stringify({ session_id: "late", transcript_path: "/p/late.jsonl", hook_event_name: event, ...p }), env: { ...process.env, BOXBOX_ROOT: root } });
+  run("PostToolUse", { tool_name: "Read", tool_input: { file_path: "/x" }, tool_response: {} });
+  run("PostToolUse", { tool_name: "Read", tool_input: { file_path: "/y" }, tool_response: {} });
+  run("PreToolUse", { tool_name: "Read", tool_input: { file_path: "/z" } });
+  const reg = fs.readFileSync(path.join(root, ".boxbox", "live", "sessions.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+  assert.deepEqual(reg.map(r => [r.session, r.transcript, r.sub || ""]), [["late", "/p/late.jsonl", ""]], "registered once");
+  // a subagent's own events never register it as a main session
+  run("PostToolUse", { session_id: "late", agent_id: "a1", tool_name: "Read", tool_input: { file_path: "/x" }, tool_response: {} });
+  assert.equal(fs.readFileSync(path.join(root, ".boxbox", "live", "sessions.jsonl"), "utf8").trim().split("\n").length, 1);
+  fs.rmSync(root, { recursive: true, force: true });
+});

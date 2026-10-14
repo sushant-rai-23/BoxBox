@@ -433,6 +433,13 @@ function main(event, raw, root) {
   const base = { ts: new Date().toISOString(), session: p.session_id || "", agent, lane: laneFor(p, stage.stage), unit: stage.unit || "", ...(p.agent_id ? { sub: p.agent_id } : {}) };
   const tool = p.tool_name || "";
 
+  // A session that started before .boxbox existed never had its SessionStart logged: register its
+  // transcript on its first event, so its tokens are counted (decision A20).
+  if (event !== "SessionStart" && agent === "claude-code" && !p.agent_id && p.session_id && p.transcript_path &&
+      readText(path.join(live, "sessions.jsonl")).indexOf(`"transcript":${JSON.stringify(p.transcript_path)}`) < 0) {
+    append(live, "sessions.jsonl", { session: p.session_id, agent, transcript: p.transcript_path, started: base.ts, late: true });
+  }
+
   switch (event) {
     case "SessionStart": {
       if (p.source === "startup" || p.source === "resume" || p.source === undefined) fs.writeFileSync(path.join(live, "session-start"), base.ts);
