@@ -7,6 +7,7 @@
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
+const routing = require("./routing.js");
 
 const MAX_EVENTS_BYTES = 5 * 1024 * 1024;
 // The plugin's own pit wall files. Hooks only ever run these, never the repo's copies.
@@ -238,7 +239,8 @@ function parseConfig(text) {
   const tm = t.match(/^\s+test:\s*(.+?)\s*$/m);
   const pm = t.match(/^pitwall:\s*(\w+)/m);
   const testCommand = tm && !/^(none|n\/a|-)$/i.test(tm[1]) ? tm[1].replace(/^`|`$/g, "") : "";
-  return { testCommand, pitwall: pm ? pm[1] : "open" };
+  const r = routing.parseModels(t);
+  return { testCommand, pitwall: pm ? pm[1] : "open", models: r.mode, parallel: r.parallel, modelsWarning: r.warning };
 }
 
 function parseState(text) {
@@ -253,13 +255,13 @@ function parseState(text) {
 // May this command skip the permission prompt? Three conditions, all required:
 //  1. No shell operator anywhere, even inside quotes: ; & | < > ` $ \ or a line break.
 //  2. The whole command is one of the plain forms below, with no other words:
-//       sh|bash [<repo>/].boxbox/pitwall/say stage|ask <words or quoted text>
+//       sh|bash [<repo>/].boxbox/pitwall/say stage|ask|escalated <words or quoted text>
 //       node [<repo>/].boxbox/pitwall/server.js --ensure [--open]
 //       node [<repo>/].boxbox/pitwall/server.js --summary <unit id>
 //       node [<repo>/].boxbox/pitwall/check-page.js [<repo>/].boxbox/<path>.html ...
 //     where <repo>/ is empty or this repo's own absolute path, and a page path never contains "..".
 //  3. The repo's script is byte-for-byte the plugin's own copy. A script the repo changed always asks.
-const SAY_FORM = /^(?:sh|bash) (\/\S+\/|)\.boxbox\/pitwall\/say (?:stage|ask)(?: (?:[^\s"']+|"[^"]*"|'[^']*'))+$/;
+const SAY_FORM = /^(?:sh|bash) (\/\S+\/|)\.boxbox\/pitwall\/say (?:stage|ask|escalated)(?: (?:[^\s"']+|"[^"]*"|'[^']*'))+$/;
 const SERVER_FORM = /^node (\/\S+\/|)\.boxbox\/pitwall\/server\.js (?:--ensure(?: --open)?|--summary [A-Za-z0-9.]+)$/;
 const CHECK_FORM = /^node (\/\S+\/|)\.boxbox\/pitwall\/check-page\.js((?: (?:\/\S+\/|)\.boxbox\/[\w./-]+\.html)+)$/;
 function approvalFor(cmd, root, kitDir) {
@@ -330,11 +332,14 @@ function main(event, raw, root) {
       if (p.source === "startup" || p.source === "resume" || p.source === undefined) fs.writeFileSync(path.join(live, "session-start"), base.ts);
       append(live, "sessions.jsonl", { session: p.session_id || "", agent, transcript: p.transcript_path || "", started: base.ts });
       append(live, "events.jsonl", { ...base, type: "session", kind: "session", target: `${agent === "codex" ? "Codex" : "Claude Code"} session ${p.source || "started"}`, why: "", result: "" });
-      if (cfg.pitwall === "off") return;
+      // A models: value Boxbox does not know runs as balanced; say so where the developer and the agent will see it.
+      const warn = agent === "claude-code" && cfg.modelsWarning ? `Boxbox config: ${cfg.modelsWarning}. Tell the developer once.` : "";
+      if (warn) append(live, "events.jsonl", { ...base, type: "warning", kind: "warning", target: cfg.modelsWarning, why: "", result: "" });
+      if (cfg.pitwall === "off") { if (warn) emitContext(warn); return; }
       const s = ensureServer(root, cfg.pitwall === "open" && (p.source === "startup" || p.source === undefined));
-      emitContext(s.url
+      emitContext((s.url
         ? `Boxbox pit wall (live view of this session for the developer): ${s.url}`
-        : `Boxbox pit wall: ${s.error} Use .boxbox/board.html instead.`);
+        : `Boxbox pit wall: ${s.error} Use .boxbox/board.html instead.`) + (warn ? ` ${warn}` : ""));
       return;
     }
     case "UserPromptSubmit":

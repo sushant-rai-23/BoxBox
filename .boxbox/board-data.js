@@ -7,7 +7,7 @@ window.BOXBOX_BOARD = {
   "updated": "2026-10-14",
   "unit": "epic",
   "decisionLevel": "what matters",
-  "waiting": null,
+  "waiting": { "what": "Review E1", "detail": "No pull request (gh not installed). Branch model-routing-e1-agents is on origin. Diff: git diff model-routing...model-routing-e1-agents -- . ':!.boxbox'", "label": "Open report", "href": "model-routing/e1-agents/report.html" },
   "knowledge": [ { "title": "Subagents and model routing", "href": "knowledge/subagent-model-routing.html" }, { "title": "Prompt caching and token accounting", "href": "knowledge/prompt-caching-and-token-accounting.html" }, { "title": "Git worktrees and merging", "href": "knowledge/git-worktrees-and-merging.html" } ],
   "modules": [
     { "name": "Entry and flow skills", "files": ["skills/boxbox/**", "skills/boxbox-resume/**", "skills/boxbox-lessons/**"], "role": "Pick the flow, resume work, record the developer's corrections." },
@@ -32,11 +32,13 @@ window.BOXBOX_BOARD = {
   "id": "E1",
   "title": "Routing config and fixed-model agents",
   "outcome": "In a Claude Code session, Boxbox builds tasks through boxbox-builder, searches through boxbox-scout, runs checks through boxbox-runner and fills pages through boxbox-writer, each on the model the repo's `models:` mode and the task's size and risk call for; escalation retries on the session model and is logged.",
-  "links": [ { "label": "Design", "href": "model-routing/e1-agents/design.html" } ],
-  "status": "todo",
+  "links": [ { "label": "Design", "href": "model-routing/e1-agents/design.html" }, { "label": "Report", "href": "model-routing/e1-agents/report.html" } ],
+  "status": "review",
   "branch": "model-routing-e1-agents",
   "files": [
    "agents/**",
+   "skills/boxbox/SKILL.md",
+   "tests/pitwall/agents.test.js",
    "hooks/boxbox-event.js",
    "hooks/routing.js",
    "skills/boxbox-setup/kit/GUIDE.md",
@@ -56,37 +58,37 @@ window.BOXBOX_BOARD = {
     "id": "E1.1",
     "title": "Ship the four agent files with strict prompts and minimal tools",
     "test": "`agents: four boxbox agents with expected models and tools` reads agents/*.md frontmatter",
-    "status": "todo"
+    "status": "done", "commit": "b27e74e"
    },
    {
     "id": "E1.2",
     "title": "Parse `models:` and `parallel:` and compute a call's expected model from mode, size, risk, epic override and escalation",
     "test": "`routing: balanced sends an M builder task to sonnet and a risky one to the session model`",
-    "status": "todo"
+    "status": "done", "commit": "40a4bec"
    },
    {
     "id": "E1.3",
     "title": "GUIDE config format and setup question for `models:`; `parallel:` mentioned, default off",
     "test": "no cheap test, verify: GUIDE config block and setup step read correctly; parseConfig test on the GUIDE example",
-    "status": "todo"
+    "status": "done", "commit": "c41917c"
    },
    {
     "id": "E1.4",
     "title": "boxbox-plan tags tasks `size`/`risk` and records epic `model: opus`; a plan.md parser reads them",
     "test": "`routing: plan parser reads size, risk and epic model override from a plan.md`",
-    "status": "todo"
+    "status": "done", "commit": "b6f3433"
    },
    {
     "id": "E1.5",
     "title": "boxbox-build routes tasks to the agents with `model` and the task id, applies escalation, and `say escalated` logs it",
     "test": "`say escalated writes an escalated event with unit and reason`",
-    "status": "todo"
+    "status": "done", "commit": "b5095cc"
    },
    {
     "id": "E1.6",
     "title": "Hand template work to boxbox-writer in report, lessons and setup refresh; keep inspect, fact-check and decisions on the session model",
     "test": "no cheap test, verify: skill text names boxbox-writer only for template filling and never for judgement steps",
-    "status": "todo"
+    "status": "done", "commit": "a0ea52c"
    }
   ]
  },

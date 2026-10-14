@@ -113,8 +113,15 @@ test("detects the agent and the lane", () => {
 
 test("reads the test command and pitwall setting from config.md", () => {
   const cfg = "# Boxbox config\nproject: x\ncommands:\n  test: npm test\n  lint: none\npitwall: start\n";
-  assert.deepEqual(h.parseConfig(cfg), { testCommand: "npm test", pitwall: "start" });
-  assert.deepEqual(h.parseConfig("commands:\n  test: none\n"), { testCommand: "", pitwall: "open" });
+  assert.deepEqual(h.parseConfig(cfg), { testCommand: "npm test", pitwall: "start", models: "auto", parallel: false, modelsWarning: null });
+  assert.deepEqual(h.parseConfig("commands:\n  test: none\n"), { testCommand: "", pitwall: "open", models: "auto", parallel: false, modelsWarning: null });
+});
+
+test("reads models and parallel from config.md through the routing rule", () => {
+  const c = h.parseConfig("commands:\n  test: npm test\nmodels: save\nparallel: on\npitwall: open\n");
+  assert.equal(c.models, "save");
+  assert.equal(c.parallel, true);
+  assert.match(h.parseConfig("models: cheapest\n").modelsWarning, /cheapest/);
 });
 
 test("pit wall commands are pre-approved only when the repo's script is the plugin's own copy", () => {
@@ -135,6 +142,7 @@ test("pit wall commands are pre-approved only when the repo's script is the plug
   assert.equal(ok("node .boxbox/pitwall/server.js --ensure"), true);
   assert.equal(ok("node .boxbox/pitwall/server.js --ensure --open"), true);
   assert.equal(ok("node .boxbox/pitwall/server.js --summary E2.3"), true);
+  assert.equal(ok('sh .boxbox/pitwall/say escalated "builder failed twice" --unit E2.3'), true);
 
   // rejected: each operator, anywhere in the command, quoted or not
   const rejected = {
@@ -244,4 +252,60 @@ test("an inferred stage never moves the flow backwards within the same unit", ()
   assert.equal(JSON.parse(fs.readFileSync(path.join(live, "stage.json"), "utf8")).stage, "build", "ticking a task in plan.md mid-build is not the plan stage");
   h.main("PostToolUse", JSON.stringify({ session_id: "s1", tool_name: "Write", tool_input: { file_path: path.join(root, ".boxbox/f/e1-x/report.md"), content: "x" }, tool_use_id: "b", tool_response: {} }), root);
   assert.equal(JSON.parse(fs.readFileSync(path.join(live, "stage.json"), "utf8")).stage, "report", "forward is fine");
+});
+
+test("say escalated writes an escalated event with unit and reason", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const box = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "bbsay-")), ".boxbox");
+  fs.mkdirSync(path.join(box, "pitwall"), { recursive: true });
+  fs.copyFileSync(path.join(__dirname, "../../skills/boxbox-setup/kit/pitwall/say"), path.join(box, "pitwall", "say"));
+  const r = spawnSync("sh", [path.join(box, "pitwall", "say"), "escalated", 'diff 4x the "M" estimate', "--unit", "E2.3"], { encoding: "utf8" });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, "");
+  const ev = JSON.parse(fs.readFileSync(path.join(box, "live", "events.jsonl"), "utf8").trim().split("\n").pop());
+  assert.equal(ev.type, "escalated");
+  assert.equal(ev.kind, "escalated");
+  assert.equal(ev.unit, "E2.3");
+  assert.equal(ev.target, 'diff 4x the "M" estimate');
+  assert.equal(ev.lane, "driver");
+  assert.ok(!fs.existsSync(path.join(box, "live", "stage.json")), "an escalation does not move the stage");
+});
+
+test("an unknown models: value is reported at session start, as an event and to the agent", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbwarn-"));
+  fs.mkdirSync(path.join(root, ".boxbox"), { recursive: true });
+  fs.writeFileSync(path.join(root, ".boxbox", "config.md"), "commands:\n  test: npm test\nmodels: cheapest\npitwall: off\n");
+  const payload = JSON.stringify({ session_id: "s1", transcript_path: "/x/s1.jsonl", hook_event_name: "SessionStart", source: "startup" });
+  const r = spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), "SessionStart"], { input: payload, encoding: "utf8", env: { ...process.env, BOXBOX_ROOT: root } });
+  const out = JSON.parse(r.stdout.trim());
+  assert.match(out.hookSpecificOutput.additionalContext, /models: "cheapest".*balanced/);
+  const ev = fs.readFileSync(path.join(root, ".boxbox", "live", "events.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+  const w = ev.find(e => e.kind === "warning");
+  assert.ok(w, "a warning event is written");
+  assert.match(w.target, /cheapest/);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("say always writes valid JSON, and refuses an escalation without a unit", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bbsay2-"));
+  const box = path.join(dir, ".boxbox");
+  fs.mkdirSync(path.join(box, "pitwall"), { recursive: true });
+  const say = path.join(box, "pitwall", "say");
+  fs.copyFileSync(path.join(__dirname, "../../skills/boxbox-setup/kit/pitwall/say"), say);
+  const run = (...a) => spawnSync("sh", [say, ...a], { encoding: "utf8" });
+  const long = "x".repeat(298) + '"\\ end';             // the cut lands inside an escape
+  run("escalated", long, "--unit", "E2.3");
+  run("escalated", "bell\x01and\x1ftab", "--unit", "E2.4");
+  run("stage", "build", "--unit", "E2.5", "--why", "y".repeat(299) + "\\");
+  run("escalated", "no unit given");
+  run("escalated", "--unit", "E2.6", "--why", "flags only");
+  const lines = fs.readFileSync(path.join(box, "live", "events.jsonl"), "utf8").trim().split("\n");
+  const ev = lines.map(l => JSON.parse(l));                 // throws on any invalid line
+  const esc = ev.filter(e => e.kind === "escalated");
+  assert.deepEqual(esc.map(e => e.unit), ["E2.3", "E2.4"], "escalations without a unit or a reason are not written");
+  assert.ok(esc[0].target.length <= 300);
+  assert.ok(!/[\x00-\x1f]/.test(esc[1].target));
+  fs.rmSync(dir, { recursive: true, force: true });
 });

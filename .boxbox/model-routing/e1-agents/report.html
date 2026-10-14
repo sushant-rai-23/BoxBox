@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="report">
+<title>Report: E1 Routing config and fixed-model agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../assets/boxbox.css">
+<script src="../../assets/boxbox.js"></script>
+</head>
+<body>
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="../../board.html">Board</a><a href="../plan.html">Boxbox 0.7.0 model routing</a><span aria-current="page">E1 report</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article" data-commit="3bcd3d1" data-range="75ad733..3bcd3d1" data-unit="E1">
+    <header class="doc-head">
+      <h1>E1 is done: Boxbox can pick a model for each subagent call</h1>
+      <p class="lede">Boxbox now ships four subagents with fixed models, reads a <code>models:</code> mode from <code>config.md</code>, and computes which model a build call should use from the mode, the task's size and risk, an epic override and whether the task was escalated. You can see it work by running the routing tests and asking the routing function for an answer. Nothing yet forces the main agent to obey the answer; that gate is E3.</p>
+      <dl class="metrics">
+        <div><dt>tests passed in the last run the pit wall saw</dt><dd class="metric" data-source="pitwall:tests">84<small>/84</small></dd></div>
+        <div><dt>commits</dt><dd class="metric" data-source="git:commits">10</dd></div>
+        <div><dt>tokens</dt><dd class="metric" data-source="pitwall:tokens">6.69M</dd></div>
+      </dl>
+    </header>
+    <aside class="callout" data-kind="move"><p><b>Your move.</b> The code is on branch <code data-source="git:branch">model-routing-e1-agents</code>, pushed to origin; there is no pull request because <code>gh</code> is not installed. Read it with <code>git diff model-routing...model-routing-e1-agents -- . ':!.boxbox'</code>. Approve it in chat, or say what to change.</p></aside>
+
+    <section data-section="exists" data-required="yes" data-min-words="120" id="exists">
+      <h2 data-short="What exists">What now exists, and how to see it working</h2>
+      <p data-evidence="code">A <b>subagent</b> is a second Claude conversation that the main conversation starts for one job. It sees only the prompt it is given, does the job, and returns a short answer. Each subagent can run on a different <b>model</b> (a family such as opus, sonnet or haiku; opus is the strongest and dearest, haiku the cheapest). <b>Model routing</b> means choosing that family per job so cheap work does not burn expensive tokens. Before E1, Boxbox left this to Claude Code. Now four agent files fix the models (builder sonnet, scout haiku, runner haiku, writer sonnet) and <code>hooks/routing.js</code> answers "which model for this call?".</p>
+      <p data-evidence="code">The answer depends on <code>models:</code> in <code>config.md</code>: <code>best</code> (everything on the session model), <code>balanced</code>, <code>save</code>, or <code>auto</code>. A missing line means <code>auto</code>, which makes Boxbox pass no model and use no Boxbox agent, so repos set up before 0.7 behave exactly as before.</p>
+      <p data-evidence="observed">The routing function returns the session model for a risky task under <code>balanced</code>. Run it:</p>
+<figure class="code wide" data-evidence="observed">
+<figcaption><span>Run in the repo root</span></figcaption>
+<pre><code>node -e 'const R=require("./hooks/routing.js");console.log(R.expectedModel({agent:"builder",mode:"balanced",session:"opus",risk:true}))'</code></pre>
+<pre class="output"><code>{ model: 'opus', why: 'risk: yes' }</code></pre>
+</figure>
+<figure class="code wide" data-evidence="observed">
+<figcaption><span>Run in the repo root</span></figcaption>
+<pre><code>node --test tests/pitwall/routing.test.js</code></pre>
+<pre class="output"><code>ℹ pass 9
+ℹ fail 0</code></pre>
+</figure>
+      <p data-evidence="observed">A headless Claude Code 2.1.296 session, started with <code>--plugin-dir</code> pointing at this repo and run in a scratch repo, showed the agents load and run on the routed model. <code>boxbox:boxbox-scout</code> called with model <code>haiku</code> ran on claude-haiku-5-5 and used only Glob and Grep. <code>boxbox:boxbox-runner</code> called with no model fell back to the model in its own file and also ran on claude-haiku-5-5. That session cost $0.244.</p>
+    </section>
+    <section data-section="path" data-required="yes" data-min-words="80" id="path">
+      <h2 data-short="Request path">The request path</h2>
+      <p data-evidence="code">A "request" here is the main agent preparing one subagent call during a build. Each step below hands its result to the next.</p>
+      <ol class="path" data-evidence="code">
+        <li><b>config.md holds the mode</b><span class="at">skills/boxbox-setup/kit/GUIDE.md:268</span><p>The developer sets <code>models: best | balanced | save | auto</code> and <code>parallel: off | on</code>. Setup asks for it; a missing line is read as <code>auto</code>.</p></li>
+        <li><b>parseModels reads the mode</b><span class="at">hooks/routing.js:17</span><p>Returns <code>{ mode, parallel, warning }</code>. An unknown value becomes <code>balanced</code> plus a warning, which the session-start hook shows (<code>hooks/boxbox-event.js:336</code>).</p></li>
+        <li><b>The plan carries size, risk and an epic model</b><span class="at">hooks/routing.js:33</span><p><code>parsePlanTasks</code> reads <code>| size: S | risk: no</code> from each task line and a <code>model:</code> line from each epic. A missing size is M, a missing risk is no, and a value that is not a Claude family is ignored.</p></li>
+        <li><b>expectedModel applies the rules</b><span class="at">hooks/routing.js:62</span><p>First match wins: auto, escalated, epic override, risk or L, then the table. It returns the family to pass, or null for no model.</p></li>
+        <li><b>The build skill makes the Agent call</b><span class="at">skills/boxbox-build/SKILL.md:35</span><p>The main agent follows this text: call <code>boxbox:boxbox-builder</code> with the family as <code>model</code> and the task id at the start of the description. The code does not make the call; a prompt tells the agent to.</p></li>
+        <li><b>The agent file fixes the fallback and the tools</b><span class="at">agents/boxbox-builder.md:4</span><p>If the caller passes no model, the file's <code>model: sonnet</code> runs. The <code>tools</code> line limits what the agent can do.</p></li>
+        <li><b>A failed task escalates through say</b><span class="at">skills/boxbox-setup/kit/pitwall/say:52</span><p>After two failures, or a diff three times too big, the main agent runs <code>say escalated</code> with the task id, then retries once on the session model. <code>escalatedTasks</code> (<code>hooks/routing.js:55</code>) turns those events into rule 2 on the next call. If the retry fails, the build stops.</p></li>
+      </ol>
+    </section>
+    <section data-section="files" data-required="yes" data-min-words="120" id="files">
+      <h2>File by file</h2>
+      <p data-evidence="code">Three ideas first. A <b>plugin</b> is a folder Claude Code loads to add skills (prompt files the agent reads), hooks (scripts Claude Code runs on events such as session start) and agents (subagent definitions). A <b>hook</b> here is a Node script that receives each event as JSON. <b>Escalation</b> means retrying a failed task on the stronger session model once, and recording that with <code>say</code>, a small bash script that appends a line to <code>events.jsonl</code> for the pit wall.</p>
+      <ul class="changes" data-evidence="code">
+<li class="change"><code>agents/boxbox-builder.md</code><span class="delta" data-source="git:diff" data-file="agents/boxbox-builder.md"><ins>+31</ins><del>−0</del></span><p><b>What:</b> New subagent: builds one task test-first on sonnet, tools Read Edit Write Bash Grep Glob.</p><p><b>Why:</b> A fixed file gives the builder a fixed model and a short list of tools it may use, so a cheap model cannot wander.</p></li>
+<li class="change"><code>agents/boxbox-scout.md</code><span class="delta" data-source="git:diff" data-file="agents/boxbox-scout.md"><ins>+24</ins><del>−0</del></span><p><b>What:</b> New read-only subagent on haiku: searches and reads, never edits.</p><p><b>Why:</b> Finding excerpts needs no strong model and no write access.</p></li>
+<li class="change"><code>agents/boxbox-runner.md</code><span class="delta" data-source="git:diff" data-file="agents/boxbox-runner.md"><ins>+25</ins><del>−0</del></span><p><b>What:</b> New subagent on haiku: runs checks and fixes only mechanical failures.</p><p><b>Why:</b> Running a test command is cheap work; keeping it off the session model saves tokens.</p></li>
+<li class="change"><code>agents/boxbox-writer.md</code><span class="delta" data-source="git:diff" data-file="agents/boxbox-writer.md"><ins>+24</ins><del>−0</del></span><p><b>What:</b> New subagent on sonnet: fills page templates from facts it is handed.</p><p><b>Why:</b> Page filling is long and mechanical, and the checker catches its mistakes.</p></li>
+<li class="change"><code>hooks/boxbox-event.js</code><span class="delta" data-source="git:diff" data-file="hooks/boxbox-event.js"><ins>+11</ins><del>−6</del></span><p><b>What:</b> parseConfig now returns models, parallel and modelsWarning; session start reports an unknown value; the hook pre-approves <code>say escalated</code>.</p><p><b>Why:</b> The developer must see a misspelt <code>models:</code> value, and an escalation must not stop on a permission prompt.</p></li>
+<li class="change"><code>hooks/routing.js</code><span class="delta" data-source="git:diff" data-file="hooks/routing.js"><ins>+90</ins><del>−0</del></span><p><b>What:</b> New pure module: the routing rule and the parsers for config and plan.</p><p><b>Why:</b> One file holds the rule, so tests, the build skill and the later gate (E3) all read the same answer.</p></li>
+<li class="change"><code>skills/boxbox-build/SKILL.md</code><span class="delta" data-source="git:diff" data-file="skills/boxbox-build/SKILL.md"><ins>+4</ins><del>−0</del></span><p><b>What:</b> Step 1 now says how to call the Boxbox agents, which model to pass, when to escalate, and that the builder's commit is the task's commit.</p><p><b>Why:</b> The main agent follows this prose; the code only computes the answer.</p></li>
+<li class="change"><code>skills/boxbox-inspect/SKILL.md</code><span class="delta" data-source="git:diff" data-file="skills/boxbox-inspect/SKILL.md"><ins>+1</ins><del>−1</del></span><p><b>What:</b> One line: reviews run on the session model.</p><p><b>Why:</b> Review quality must not drop with the build model.</p></li>
+<li class="change"><code>skills/boxbox-plan/SKILL.md</code><span class="delta" data-source="git:diff" data-file="skills/boxbox-plan/SKILL.md"><ins>+4</ins><del>−2</del></span><p><b>What:</b> Tasks carry <code>size</code> and <code>risk</code> tags; an epic may carry <code>model:</code>.</p><p><b>Why:</b> The tags are the inputs the routing rule needs.</p></li>
+<li class="change"><code>skills/boxbox-report/SKILL.md</code><span class="delta" data-source="git:diff" data-file="skills/boxbox-report/SKILL.md"><ins>+2</ins><del>−0</del></span><p><b>What:</b> Report pages are handed to boxbox-writer.</p><p><b>Why:</b> Page filling is the writer's job; the fact-check is not.</p></li>
+<li class="change"><code>skills/boxbox-setup/SKILL.md</code><span class="delta" data-source="git:diff" data-file="skills/boxbox-setup/SKILL.md"><ins>+3</ins><del>−2</del></span><p><b>What:</b> A new setup question 6 asks for the <code>models:</code> mode.</p><p><b>Why:</b> New repos get a mode instead of silently using auto.</p></li>
+<li class="change"><code>skills/boxbox-setup/kit/GUIDE.md</code><span class="delta" data-source="git:diff" data-file="skills/boxbox-setup/kit/GUIDE.md"><ins>+29</ins><del>−4</del></span><p><b>What:</b> Config lines <code>models:</code> and <code>parallel:</code>, and a new Model routing section with the table, the rule order and escalation.</p><p><b>Why:</b> Agents read the GUIDE, so the rule must be written there as well as in code.</p></li>
+<li class="change"><code>skills/boxbox-setup/kit/pitwall/say</code><span class="delta" data-source="git:diff" data-file="skills/boxbox-setup/kit/pitwall/say"><ins>+15</ins><del>−2</del></span><p><b>What:</b> New verb <code>escalated</code>; escape now strips control characters and cuts before escaping.</p><p><b>Why:</b> An event line with a stray backslash is invalid JSON and would break the pit wall.</p></li>
+<li class="change"><code>skills/boxbox/SKILL.md</code><span class="delta" data-source="git:diff" data-file="skills/boxbox/SKILL.md"><ins>+1</ins><del>−0</del></span><p><b>What:</b> One line: how to read a request like "use opus for E3".</p><p><b>Why:</b> It becomes the epic's <code>model:</code> line.</p></li>
+<li class="change"><code>tests/pitwall/agents.test.js</code><span class="delta" data-source="git:diff" data-file="tests/pitwall/agents.test.js"><ins>+44</ins><del>−0</del></span><p><b>What:</b> New test over the four agent files.</p><p><b>Why:</b> Pins each agent's model and tools.</p></li>
+<li class="change"><code>tests/pitwall/hook.test.js</code><span class="delta" data-source="git:diff" data-file="tests/pitwall/hook.test.js"><ins>+66</ins><del>−2</del></span><p><b>What:</b> Four new tests (config parsing, the warning, and two for say), plus updated assertions in two existing tests.<code>say</code>.</p><p><b>Why:</b> These are the hook's and script's contract.</p></li>
+<li class="change"><code>tests/pitwall/routing.test.js</code><span class="delta" data-source="git:diff" data-file="tests/pitwall/routing.test.js"><ins>+98</ins><del>−0</del></span><p><b>What:</b> New: nine tests of the routing module.</p><p><b>Why:</b> Pins the mode table, the rule order and the parsers.</p></li>
+      </ul>
+      <h3>The mode table</h3>
+      <p data-evidence="code">The table is data, not branching code, so adding a mode is adding a row.</p>
+<figure class="code" data-evidence="code">
+<figcaption><code>hooks/routing.js</code><span>lines 8 to 13</span></figcaption>
+<pre data-quote="hooks/routing.js:8-13"><code>// The mode table: rule 5 below. "session" means the main conversation's model.
+const TABLE = {
+  best:     { builder: "session", scout: "session", runner: "session", writer: "session" },
+  balanced: { builder: "sonnet",  scout: "haiku",   runner: "haiku",   writer: "sonnet" },
+  save:     { builder: "sonnet",  scout: "haiku",   runner: "haiku",   writer: "haiku" }
+};</code></pre>
+<ol class="code-notes"><li>The three rows are the three modes that name models. <code>auto</code> has no row because it names none.</li><li><code>"session"</code> is not a model. It stands for whatever model the main conversation runs on, and is replaced when the call is worked out.</li></ol>
+</figure>
+      <h3>Reading the mode</h3>
+      <p data-evidence="code">The failure choice is deliberate: an unknown word is treated as <code>balanced</code> with a warning, and a missing line as <code>auto</code>. Missing means "this repo predates the feature", so it must not change behaviour.</p>
+<figure class="code" data-evidence="code">
+<figcaption><code>hooks/routing.js</code><span>lines 17 to 28</span></figcaption>
+<pre data-quote="hooks/routing.js:17-28"><code>function parseModels(configText) {
+  const t = String(configText || "");
+  const m = t.match(/^models:[ \t]*([^\s#]*)/m);
+  const p = t.match(/^parallel:[ \t]*([^\s#]*)/m);
+  let mode = "auto", warning = null;
+  if (m &amp;&amp; m[1]) {
+    const v = m[1].toLowerCase();
+    if (MODES.includes(v)) mode = v;
+    else { mode = "balanced"; warning = `models: "${m[1]}" is not one of ${MODES.join(", ")}; using balanced`; }
+  }
+  return { mode, parallel: !!(p &amp;&amp; p[1].toLowerCase() === "on"), warning };
+}</code></pre>
+<ol class="code-notes"><li>The regular expression <code>^models:</code> with the <code>m</code> flag finds a line that starts with <code>models:</code> anywhere in the file.</li><li>A missing line leaves <code>mode</code> at <code>auto</code>. This is why a repo set up before 0.7 behaves as before.</li><li>A value that is not in <code>MODES</code> becomes <code>balanced</code> and a warning text, which the hook shows at session start.</li><li><code>parallel</code> is only true for the exact word <code>on</code>; anything else is off.</li></ol>
+</figure>
+      <h3>The rule</h3>
+      <p data-evidence="code">This is the whole decision. It is a pure function: the same input gives the same output and it touches no file, which is why nine small tests can pin it down.</p>
+<figure class="code" data-evidence="code">
+<figcaption><code>hooks/routing.js</code><span>lines 62 to 76</span></figcaption>
+<pre data-quote="hooks/routing.js:62-76"><code>function expectedModel(q) {
+  const { agent, mode, session } = q;
+  if (mode === "auto") return { model: null, why: "models: auto" };
+  if (agent === "builder") {
+    if (q.escalated) return { model: session, why: "escalated" };
+    if (q.epicModel) return { model: q.epicModel, why: "epic override" };
+    if (q.risk || q.size === "L") {
+      const why = q.risk ? "risk: yes" : "size: L";
+      return { model: mode === "save" ? "sonnet" : session, why };
+    }
+  }
+  const m = (TABLE[mode] || TABLE.balanced)[agent];
+  if (!m) return { model: null, why: "not a Boxbox agent" };
+  return { model: m === "session" ? session : m, why: `models: ${mode}` };
+}</code></pre>
+<ol class="code-notes"><li>Rule 1 runs first: under <code>auto</code> the answer is no model at all, whatever the agent.</li><li>Rules 2 to 4 apply to the builder only. Scout, runner and writer go straight to the table.</li><li>The first <code>return</code> that matches wins, which is how "first match wins" is implemented: no scoring, only order.</li><li>Under <code>save</code> a risky task gets sonnet, not the session model, because <code>save</code> exists to spend less.</li><li>An agent that is not one of the four gets <code>model: null</code>, so a plain <code>Explore</code> call is never judged.</li></ol>
+</figure>
+      <h3>The agent file</h3>
+      <p data-evidence="code">An agent file is a Markdown file with a header (frontmatter) between two <code>---</code> lines, then the prompt. The header is what Claude Code reads for the name, the fallback model and the tool list.</p>
+<figure class="code" data-evidence="code">
+<figcaption><code>agents/boxbox-builder.md</code><span>lines 1 to 6</span></figcaption>
+<pre data-quote="agents/boxbox-builder.md:1-6"><code>---
+name: boxbox-builder
+description: Use to build one approved Boxbox task test-first from a complete brief, when the main agent wants the code written and committed in a fresh context.
+model: sonnet
+tools: Read, Edit, Write, Bash, Grep, Glob
+---</code></pre>
+<ol class="code-notes"><li><code>model: sonnet</code> is the fallback. If the caller passes no <code>model</code>, this value runs.</li><li><code>tools</code> is a whitelist. The builder has no web access and no ability to start further subagents.</li></ol>
+</figure>
+      <h3>The build skill instruction</h3>
+      <p data-evidence="code">A skill is prose the agent follows. The routing rule only has effect because this line tells the main agent to use it.</p>
+<figure class="code" data-evidence="code">
+<figcaption><code>skills/boxbox-build/SKILL.md</code><span>lines 35 to 35</span></figcaption>
+<pre data-quote="skills/boxbox-build/SKILL.md:35-35"><code>   - **In Claude Code, use Boxbox's agents and route them** (see "Model routing" in `GUIDE.md`), unless `config.md` says `models: auto` or has no `models:` line: then use a plain fresh subagent as above, pass no model, and skip escalation. Otherwise build with `boxbox:boxbox-builder`; send searches for excerpts to `boxbox:boxbox-scout` and check runs to `boxbox:boxbox-runner`. Work out each call's model from `models:`, the task's `size` and `risk` tags, its epic's `model:` line and whether it was escalated, and pass it as `model`. Start every description with the task id: `"E1.2 tokens expire"`. Ask for a foreground run (`run_in_background: false`) unless the task can wait.</code></pre>
+<ol class="code-notes"><li>This one line is the whole instruction to the main agent: use the Boxbox agents, work out the model, pass it as <code>model</code>, and start the description with the task id.</li></ol>
+</figure>
+      <h3>say escalated</h3>
+      <p data-evidence="code">The script is bash. The line <code>case "$text" in ""|--*) exit 0 ;; esac</code> is a shell pattern match; <code>exit 0</code> means quit quietly with success.</p>
+<figure class="code" data-evidence="code">
+<figcaption><code>skills/boxbox-setup/kit/pitwall/say</code><span>lines 52 to 58</span></figcaption>
+<pre data-quote="skills/boxbox-setup/kit/pitwall/say:52-58"><code>  escalated)
+    # Never without a task: the routing gate counts escalations per unit.
+    case "$text" in ""|--*) exit 0 ;; esac
+    [ -n "$unit" ] || exit 0
+    printf '{"ts":"%s","session":"","agent":"","lane":"driver","type":"escalated","kind":"escalated","target":"%s","why":"","result":"","unit":"%s"}\n' \
+      "$ts" "$(esc "$text")" "$(esc "$unit")" &gt;&gt; "$live/events.jsonl"
+    ;;</code></pre>
+<ol class="code-notes"><li>The first <code>case</code> rejects empty text and text that begins with <code>--</code>, which means a flag was passed where the reason should be.</li><li><code>[ -n "$unit" ] || exit 0</code>: with no <code>--unit</code> the script writes nothing. Escalation is counted per task, so an event with no task is useless.</li><li>The script always ends with <code>exit 0</code>: it must never fail a build.</li></ol>
+</figure>
+    </section>
+    <section data-section="tests" data-required="yes" data-min-words="60" id="tests">
+      <h2 data-short="Tests">Tests and what they prove</h2>
+      <p data-evidence="observed">The full suite ran 84 pass and 0 fail (<code>node --test tests/pitwall/*.test.js</code>). The pit wall saw this run, and the metric at the top shows it. These are the tests E1 added.</p>
+      <div class="table" data-evidence="code"><table>
+        <thead><tr><th>Test</th><th>What it proves</th></tr></thead>
+        <tbody>
+          <tr><td><code data-test>agents: four boxbox agents with expected models and tools</code></td><td>The four agent files exist, each with the planned model and tools, a body under 60 lines and a line starting with Never.</td></tr>
+          <tr><td><code data-test>routing: balanced sends an M builder task to sonnet and a risky one to the session model</code></td><td>The first example of the rule works end to end.</td></tr>
+          <tr><td><code data-test>routing: the mode table for every agent, session opus</code></td><td>Every cell of the mode table matches the GUIDE.</td></tr>
+          <tr><td><code data-test>routing: risky or L builder tasks go to the session model, or sonnet under save</code></td><td>Rule 4, including the save exception.</td></tr>
+          <tr><td><code data-test>routing: first match wins: auto, then escalated, then epic override, then risk</code></td><td>The order of rules 1 to 4.</td></tr>
+          <tr><td><code data-test>routing: parseModels reads mode and parallel; missing is auto, unknown is balanced with a warning</code></td><td>Config parsing, the missing case and the unknown case.</td></tr>
+          <tr><td><code data-test>routing: familyOf and agentOf</code></td><td>Model ids and agent names are mapped to families and Boxbox agents, and nothing else is.</td></tr>
+          <tr><td><code data-test>routing: plan parser reads size, risk and epic model override from a plan.md</code></td><td>Tags and the epic <code>model:</code> line are read; defaults are M and no.</td></tr>
+          <tr><td><code data-test>routing: escalatedTasks collects escalated units from events</code></td><td>Only <code>escalated</code> events with a unit count.</td></tr>
+          <tr><td><code data-test>routing: an agent that is not Boxbox's has no expected model</code></td><td>Other agents get null, so they are not judged.</td></tr>
+          <tr><td><code data-test>reads models and parallel from config.md through the routing rule</code></td><td>The hook's <code>parseConfig</code> exposes the routing result.</td></tr>
+          <tr><td><code data-test>say escalated writes an escalated event with unit and reason</code></td><td>The event line has the right type, unit and reason.</td></tr>
+          <tr><td><code data-test>an unknown models: value is reported at session start, as an event and to the agent</code></td><td>The real hook, run on SessionStart, writes a warning event and tells the agent.</td></tr>
+          <tr><td><code data-test>say always writes valid JSON, and refuses an escalation without a unit</code></td><td>Long, quoted or control-character text still gives valid JSON, and an escalation with no unit writes nothing.</td></tr>
+        </tbody>
+      </table></div>
+      <p data-evidence="inferred">The tests do not prove that a live main agent follows the build skill's prose, that the setup question reads well in a real setup, or that anything blocks a wrong model. They check the rule, the parsers and the scripts.</p>
+      <p data-evidence="observed">The pit wall marks E1.1 verified and E1.2 to E1.6 claimed. It did see passing runs of the full suite during E1. It recorded no edit events for E1.2 to E1.6, because I made those edits through shell commands (heredocs and small Python scripts), and the hook only records edits made with the Edit and Write tools. With no recorded edit, its rule (<code>skills/boxbox-setup/kit/pitwall/server.js:312</code>) always says claimed. E1.1 was built by a subagent with Write, so its edit and the later passing run were both seen. From E2 on, I edit with the Edit and Write tools.</p>
+      <ol class="tasks" data-evidence="observed">
+        <li><b>E1.1</b>Four Boxbox subagents with fixed models and minimal tools <span class="status" data-st="verified" data-source="pitwall:task" data-task="E1.1">verified</span></li>
+        <li><b>E1.2</b>Routing rule and models/parallel config <span class="status" data-st="claimed" data-source="pitwall:task" data-task="E1.2">claimed</span></li>
+        <li><b>E1.3</b>Config format, routing rules and setup question in the GUIDE <span class="status" data-st="claimed" data-source="pitwall:task" data-task="E1.3">claimed</span></li>
+        <li><b>E1.4</b>Size and risk tags and epic model override in plans <span class="status" data-st="claimed" data-source="pitwall:task" data-task="E1.4">claimed</span></li>
+        <li><b>E1.5</b>Build routes tasks to Boxbox agents and escalates once <span class="status" data-st="claimed" data-source="pitwall:task" data-task="E1.5">claimed</span></li>
+        <li><b>E1.6</b>Report pages go to boxbox-writer <span class="status" data-st="claimed" data-source="pitwall:task" data-task="E1.6">claimed</span></li>
+      </ol>
+    </section>
+    <section data-section="decisions" data-required="yes" data-min-words="40" id="decisions">
+      <h2 data-short="Decisions">Decisions made while building</h2>
+      <ul data-evidence="code">
+        <li><strong>A12:</strong> an agent test in <code>tests/pitwall/agents.test.js</code>, over no test: the four files are the contract, so a wrong model fails a test.</li>
+        <li><strong>A13:</strong> setup refresh copies go to boxbox-runner, not the writer: copying files is mechanical, and the runner is cheaper.</li>
+        <li><strong>A14:</strong> boxbox-lessons stays on the session model: it judges what to remember, which is not mechanical.</li>
+        <li><strong>A15</strong> (replaces A1): every description starts with the unit served, a task id, an epic id or <code>setup</code>, so the pit wall can attribute tokens to a unit.</li>
+        <li><strong>A16</strong> (replaces A3's form): <code>say escalated "&lt;reason&gt;" --unit &lt;id&gt;</code>, and with no unit nothing is written, because escalations are counted per task.</li>
+        <li><strong>A17</strong> (replaces an earlier idea that auto meant "Claude Code decides"): <code>auto</code> or no line means no Boxbox agents, no model and no escalation. With no model passed, a Boxbox agent runs on the model in its own file (observed in the spike), so auto would have meant a fixed model after all.</li>
+      </ul>
+    </section>
+    <section data-section="tradeoffs" data-required="yes" data-min-words="60" id="tradeoffs">
+      <h2 data-short="Trade-offs">Trade-offs and rejected alternatives</h2>
+      <div class="table" data-evidence="code"><table>
+        <thead><tr><th>Option</th><th>Gains</th><th>Costs</th></tr></thead>
+        <tbody>
+          <tr class="chosen"><td>A pure rule in <code>routing.js</code>, followed by prose in the build skill</td><td>Testable with no Claude session; E3 can reuse it for a gate.</td><td>Nothing enforces it yet: the main agent can pass a wrong model until E3.</td></tr>
+          <tr><td>Put the rule only in skill prose</td><td>No code.</td><td>Untestable, and a gate in E3 would need the rule in code anyway.</td></tr>
+          <tr><td><code>auto</code> uses the Boxbox agents and passes no model</td><td>Agents still isolate context.</td><td>The file's model runs, so "auto" would silently mean sonnet or haiku. Rejected for A17.</td></tr>
+          <tr><td>Pass full model ids</td><td>Exact.</td><td>Ids change with releases; the family alias is the form the Agent tool accepts.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+    <section data-section="risks" data-required="yes" data-min-words="50" id="risks">
+      <h2 data-short="Risks">Risks and edge cases not covered</h2>
+      <p data-evidence="observed">A separate agent on the session model reviewed the unit and found 2 must-fix and 6 should-fix problems. All were fixed in <code>600ac87</code>, <code>3efb026</code> and <code>3bcd3d1</code>; <code>c81df65</code> was found while verifying. These were left alone on purpose.</p>
+      <ul class="findings">
+        <li data-st="move" data-evidence="code"><span class="status" data-st="move">medium</span><b>No enforcement</b><p>Nothing stops a main agent passing the wrong model. E3 adds the gate. Until then the rule is followed only because the prompt says so.</p></li>
+        <li data-st="move" data-evidence="code"><span class="status" data-st="move">medium</span><b>A risky task under a Haiku session goes to haiku</b><p>Rule 4 returns "session", and under a haiku session that is below the sonnet a normal task gets. The spec says "session model", so it was kept as written.</p></li>
+        <li data-st="move" data-evidence="code"><span class="status" data-st="move">medium</span><b>An unknown epic <code>model:</code> value is silently ignored</b><p><code>familyOf</code> returns null for it (<code>hooks/routing.js:40</code>), so the epic falls back to the table with no warning.</p></li>
+        <li data-evidence="code"><span class="status">low</span><b><code>parallel: yes</code> means off</b><p>Only the exact word <code>on</code> turns it on (<code>hooks/routing.js:27</code>), and no warning is shown.</p></li>
+        <li data-evidence="code"><span class="status">low</span><b>Escalations show as a generic run row on the pit wall</b><p>The pit wall has no escalation display until E5. The event is recorded.</p></li>
+        <li data-evidence="code"><span class="status">low</span><b>The builder prompt describes a full brief that exists only from E2</b><p>Until E2 the main agent writes a shorter brief by hand.</p></li>
+        <li data-evidence="code"><span class="status">low</span><b>One test leaves a temp directory behind</b><p>It creates a folder under the system temp directory and does not remove it; the operating system clears it.</p></li>
+        <li data-evidence="observed"><span class="status">low</span><b>Old Claude Code versions reject <code>claude plugin validate agents</code></b><p>Claude Code 2.1.296, the version the VS Code extension runs, prints "Validation passed" for <code>agents</code>, for <code>.claude-plugin/plugin.json</code> and for <code>.</code>. The Homebrew <code>claude</code> on this machine is 2.1.100 and fails on <code>agents</code> with "No manifest found in directory". Run <code>claude --version</code> before trusting a validate result.</p></li>
+        <li data-evidence="unknown"><span class="status">low</span><b>A live Boxbox build has not been run</b><p>No real build followed the new build skill, and no live escalation or setup question has run (deferred as D5). Whether the prose reliably leads a fresh agent to route correctly is unknown; the reviewer read it but nobody ran it.</p></li>
+      </ul>
+    </section>
+    <section data-section="manual" data-required="yes" data-min-words="30" id="manual">
+      <h2 data-short="By hand">Test it by hand</h2>
+      <ul class="checklist">
+        <li><label><input type="checkbox"><div>Run <code>node --test tests/pitwall/routing.test.js</code>.<span>It reports pass 9, fail 0.</span></div></label></li>
+        <li><label><input type="checkbox"><div>Run the <code>expectedModel</code> command from the first section.<span>It prints <code>{ model: 'opus', why: 'risk: yes' }</code>.</span></div></label></li>
+        <li><label><input type="checkbox"><div>Check <code>claude --version</code> is 2.1.296 or later, then run <code>claude plugin validate agents</code> and <code>claude plugin validate .claude-plugin/plugin.json</code>.<span>Both print Validation passed.</span></div></label></li>
+        <li><label><input type="checkbox"><div>Copy <code>skills/boxbox-setup/kit/pitwall/say</code> into a temp folder's <code>.boxbox/pitwall/</code> and run <code>sh .boxbox/pitwall/say escalated "no unit"</code> there, then the same with <code>--unit E1.1</code>.<span>The first writes nothing; the second adds one line of type <code>escalated</code> to <code>.boxbox/live/events.jsonl</code>.</span></div></label></li>
+      </ul>
+    </section>
+    <section data-section="rollback" data-required="yes" data-min-words="30" id="rollback">
+      <h2 data-short="Roll back">How to roll back</h2>
+      <p data-evidence="code">The feature branch <code>model-routing</code> does not contain E1 yet, so rolling back means staying on it. Nothing outside git changed. Only if you ask, drop the epic branch as well.</p>
+<figure class="code"><pre><code>git checkout model-routing
+git branch -D model-routing-e1-agents</code></pre></figure>
+    </section>
+    <section data-section="cost" data-required="yes" data-min-words="10" id="cost">
+      <h2>Cost</h2>
+      <dl class="metrics" data-evidence="observed">
+        <div><dt>tokens</dt><dd class="metric" data-source="pitwall:tokens">6.69M</dd></div>
+        <div><dt>approximate cost</dt><dd class="metric" data-source="pitwall:cost">$2.85</dd></div>
+        <div><dt>wall-clock time</dt><dd class="metric" data-source="pitwall:time">25 min</dd></div>
+      </dl>
+      <p data-evidence="observed">The time is wall-clock from the unit's first stage to the next unit, waits included. Of the 2.43M tokens, 233k were new and 2.19M were read from the prompt cache (cheaper repeats of text already sent). The figure is approximate and covers subagents only: this session's own transcript was never registered, because <code>.boxbox/</code> was created after the session started.</p>
+    </section>
+    <section data-section="check" data-required="yes" data-min-words="40" data-min-items="2" id="check">
+      <h2>Check yourself</h2>
+      <ol class="checks">
+        <li><details><summary>Why does <code>models: auto</code> mean no Boxbox agents at all, rather than "let Claude Code choose"?</summary><div>With no <code>model</code> passed, a Boxbox agent runs on the model in its own file, so a builder would quietly run on sonnet. Under <code>auto</code> the build skill uses plain subagents (<code>skills/boxbox-build/SKILL.md:35</code>) and <code>expectedModel</code> returns null at <code>hooks/routing.js:64</code>.</div></details></li>
+        <li><details><summary>What happens if the builder fails a task on the session model after an escalation?</summary><div>Nothing is retried. The skill says to update <code>state.md</code>, tell the developer what was tried, and wait. A task is escalated at most once, and a builder already on the session model has nothing to escalate to.</div></details></li>
+        <li><details><summary>Why does <code>say escalated</code> exit quietly when <code>--unit</code> is missing?</summary><div>The gate counts escalations per task, so an event with no unit cannot be used. Exiting 0 keeps <code>say</code> from ever failing a build (<code>skills/boxbox-setup/kit/pitwall/say:54-55</code>).</div></details></li>
+      </ol>
+    </section>
+    <section data-section="verify" data-required="yes" data-min-words="20" data-min-items="3" data-max-items="3" id="verify">
+      <h2 data-short="Verify yourself">Verify these yourself</h2>
+      <aside class="callout" data-kind="verify" data-evidence="code">
+        <ol>
+          <li><b>The mode table in code matches the GUIDE and the spec.</b><span>Compare <code>hooks/routing.js:9-13</code> with the table at <code>skills/boxbox-setup/kit/GUIDE.md:166-171</code>, then run <code>node --test tests/pitwall/routing.test.js</code>. I read both and ran the tests; they agree.</span></li>
+          <li><b>Under <code>models: auto</code> the build skill uses no Boxbox agents.</b><span>Read <code>skills/boxbox-build/SKILL.md:35</code>: "unless <code>config.md</code> says <code>models: auto</code> or has no <code>models:</code> line: then use a plain fresh subagent".</span></li>
+          <li><b><code>say escalated</code> without <code>--unit</code> writes nothing.</b><span>Copy <code>skills/boxbox-setup/kit/pitwall/say</code> (the plugin's copy; this repo's own <code>.boxbox/pitwall/say</code> only matches it from the report commit on) into a temp folder's <code>.boxbox/pitwall/</code>, run <code>sh .boxbox/pitwall/say escalated "no unit"</code>, then the same with <code>--unit E1.1</code>, and check that <code>.boxbox/live/events.jsonl</code> was not created or grown. I ran it that way and no file appeared.</span></li>
+        </ol>
+      </aside>
+    </section>
+
+    <footer class="pagefoot">
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="../plan.html">Plan</a><a class="pagelink" href="../context.html">Context</a><a class="pagelink" href="../decisions.html">Decisions</a><a class="pagelink" href="../../knowledge/subagent-model-routing.html">Subagent model routing</a></nav>
+      <p>Source for the agent: report.md</p>
+    </footer>
+  </article>
+</div>
+</body>
+</html>

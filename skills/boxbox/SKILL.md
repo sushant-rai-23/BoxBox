@@ -66,6 +66,7 @@ If the short flow turns out to need a design choice or more than one task, say s
 - "review ...": help them review someone else's branch or pull request with **boxbox-review**, then return to the stop.
 - "inspect this": have the current diff checked by a separate reviewer with **boxbox-inspect**, then return to the stop.
 - "grill the plan" or "grill me": challenge it with **boxbox-grill**, then return to the stop.
+- "use opus for E3" (Claude Code): add `model: opus` under that epic in `plan.md`; its builder tasks then run on that model.
 - "design E2 first": set `design: yes` on that epic in `plan.md` and show it on `plan.html`; **boxbox-design** then runs before that epic is built.
 - "approved" at a design stop: finish **boxbox-design** (its last step), then build.
 - "pause": write `state.md` and stop cleanly. The developer can also press Pause on the pit wall: your next tool call is held, and if it is denied as paused, do the same.

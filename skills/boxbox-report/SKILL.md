@@ -55,6 +55,8 @@ pr: <url or none>
 
 Copy it with `cp .boxbox/templates/report.html .boxbox/<feature>/<unit>/report.html` and fill its sections following "Pages" in `GUIDE.md`. `{{ROOT}}` is `../../`. Then run `node .boxbox/pitwall/check-page.js .boxbox/<feature>/<unit>/report.html` and fix everything it reports, until it prints `OK`. Then fact-check it with **boxbox-inspect** in page mode, fix what it finds, and only then show the page.
 
+**In Claude Code, hand the page-filling to `boxbox:boxbox-writer`** (with `model` from "Model routing" in `GUIDE.md`). Give it the page path and the facts, in this order: the fixed part (the "Pages" and "Writing for the developer" sections of `GUIDE.md`, the developer's `known` and `new` lists), then `report.md`, the diff (`git diff <base>...HEAD -- . ':!.boxbox'`), the `--summary` output and the test output. It fills and checks the page; you stay responsible for it. Read what it returns, especially every claim it marked `unknown`. The fact-check is never handed to the writer: it runs on the session model.
+
 - **Order the pieces the way a request meets them**, not the order you wrote them.
 - **Use the real code** from the diff, trimmed to what matters, with its path.
 - **Depth follows the developer.** For anything `config.md` marks as new, explain the concept before the code and define each term. For what they know, one line is enough. Where it helps, compare with a stack they know.
