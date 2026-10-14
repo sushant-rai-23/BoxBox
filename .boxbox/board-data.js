@@ -271,7 +271,7 @@ window.BOXBOX_BOARD = {
   "id": "E6",
   "title": "Status line",
   "outcome": "Under the prompt, Claude Code CLI shows one line like `E2.3 \u00b7 builder sonnet \u00b7 $0.42 \u00b7 14/14 tests`, or `PAUSED`, or `Your move: D3`, installed only after the developer agrees.",
-  "status": "todo",
+  "status": "done",
   "branch": "model-routing-e6-statusline",
   "files": [
    "skills/boxbox-setup/kit/pitwall/statusline",
@@ -279,18 +279,19 @@ window.BOXBOX_BOARD = {
    "hooks/boxbox-event.js",
    "tests/pitwall/statusline.test.js"
   ],
+  "links": [ { "label": "Report (agent)", "href": "model-routing/e6-statusline/report.md" } ],
   "tasks": [
    {
     "id": "E6.1",
     "title": "Status line script from live data",
     "test": "`statusline: prints task, model, cost and tests from live files in under 50 ms`",
-    "status": "todo"
+    "status": "done", "commit": "02a0b53"
    },
    {
     "id": "E6.2",
     "title": "Setup offers to install it into project settings",
     "test": "no cheap test, verify: setup text asks first, merges one key, shows an existing statusLine",
-    "status": "todo"
+    "status": "done", "commit": "43d83f9"
    }
   ]
  },

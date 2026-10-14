@@ -474,6 +474,8 @@ function main(event, raw, root) {
     case "PostToolUse":
     case "PostToolUseFailure": {
       if (isSayCommand(p.tool_input && p.tool_input.command)) return;
+      // An answer given in the question tool fires no UserPromptSubmit: clear the waiting card here.
+      if (event === "PostToolUse" && tool === "AskUserQuestion") { try { fs.unlinkSync(path.join(live, "waiting.json")); } catch {} }
       const c = classify(tool, p.tool_input, { root, testCommand: cfg.testCommand });
       const e = { ...base, type: "action", id: p.tool_use_id || "", tool, ...c, why: stage.why || "", result: resultLine(tool, p) };
       if (event === "PostToolUseFailure") {
