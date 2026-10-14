@@ -477,6 +477,10 @@ if (require.main === module) {
   process.stdin.on("end", () => {
     try { main(event, raw, root); } catch (err) {
       try { fs.appendFileSync(path.join(root, ".boxbox", "live", "hook-errors.log"), `${new Date().toISOString()} ${event} ${err && err.message}\n`); } catch {}
+      // A subagent call the gate could not judge still runs (D4); the pit wall says so.
+      if (event === "PreToolUse" && /"tool_name":"(Agent|Task)"/.test(raw)) {
+        try { append(path.join(root, ".boxbox", "live"), "events.jsonl", { ts: new Date().toISOString(), session: "", agent: "claude-code", lane: "driver", unit: "", type: "gate-error", kind: "gate-error", target: short(String(err && err.message), 200), why: "", result: "allowed" }); } catch {}
+      }
     }
   });
 }

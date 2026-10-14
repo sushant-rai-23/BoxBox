@@ -142,3 +142,19 @@ test("gate: FORCE on allows any model and logs gate-off with the reason", () => 
   assert.equal(agentCall(d2, { subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "haiku", prompt: "p" }, { CLAUDE_CODE_SUBAGENT_MODEL_FORCE: "1" }).stdout, "");
   assert.match(events(d2).find(e => e.kind === "gate").why, /ignores the model passed on a call/);
 });
+
+test("gate: an unparsable plan.md allows the call and logs gate-error", () => {
+  // The plan is unreadable, then the payload itself is cut off: either way the call goes through.
+  const d = routedRepo();
+  fs.rmSync(path.join(d, ".boxbox/resets/plan.md"));
+  fs.mkdirSync(path.join(d, ".boxbox/resets/plan.md"));
+  const r1 = agentCall(d, { subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "sonnet", prompt: "p" });
+  assert.equal(r1.stdout, "", "no plan: the task counts as size M, risk no, and sonnet is allowed");
+  const cut = '{"session_id":"s1","hook_event_name":"PreToolUse","tool_name":"Agent","tool_input":{"subagent_type":"boxbox:boxbox-bui';
+  const r2 = spawnSync("bash", [HOOK, "PreToolUse"], { input: cut, encoding: "utf8", env: { ...process.env, CLAUDE_PROJECT_DIR: d } });
+  assert.equal(r2.status, 0);
+  assert.equal(r2.stdout, "", "a broken gate never denies");
+  const e = events(d).find(x => x.kind === "gate-error");
+  assert.ok(e, "the failure shows on the pit wall");
+  assert.equal(e.result, "allowed");
+});
