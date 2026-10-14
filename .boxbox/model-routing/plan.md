@@ -134,7 +134,7 @@ tasks:
 - [x] E5.3 Timing by model, escalations and savings | no cheap test, verify: `?demo` page shows the three new blocks with values from the state payload | deps: none
 - [x] E5.4 Home routing readout with gate-off reason | test: `server: state reports mode, active agents, last escalation and gate-off reason` | done: test green; demo shows the readout | deps: none
 
-## E6 Status line  [todo]
+## E6 Status line  [done]
 outcome: Under the prompt, Claude Code CLI shows one line like `E2.3 · builder sonnet · $0.42 · 14/14 tests`, or `PAUSED`, or `Your move: D3`, installed only after the developer agrees.
 branch: model-routing-e6-statusline
 depends: E4
@@ -148,8 +148,8 @@ fails:
 - Missing or partial live files: prints nothing (E6.1)
 - An existing statusLine in project settings: setup shows it and asks before replacing (E6.2)
 tasks:
-- [ ] E6.1 Status line script from live data | test: `statusline: prints task, model, cost and tests from live files in under 50 ms` | done: test green | deps: none
-- [ ] E6.2 Setup offers to install it into project settings | no cheap test, verify: setup text asks first, merges one key, shows an existing statusLine | deps: E6.1
+- [x] E6.1 Status line script from live data | test: `statusline: prints task, model, cost and tests from live files in under 50 ms` | done: test green | deps: none
+- [x] E6.2 Setup offers to install it into project settings | no cheap test, verify: setup text asks first, merges one key, shows an existing statusLine | deps: E6.1
 
 ## E7 Parallel tasks  [todo]
 outcome: With `parallel: on` and `worktree.baseRef: "head"`, independent tasks of one epic build at once in worktree builders (at most 3), merge back in plan order with one commit per task, and fall back to one at a time on any conflict or red suite.

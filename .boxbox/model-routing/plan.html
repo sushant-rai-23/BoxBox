@@ -164,16 +164,16 @@
         </ol>
       </article>
       <article class="epic" id="e6">
-        <span class="status">to do</span>
+        <span class="status" data-st="done">done</span>
         <h3><data>E6</data>Status line</h3>
         <p>Under the prompt, Claude Code CLI shows one line like <code>E2.3 · builder sonnet · $0.42 · 14/14 tests</code>, or <code>PAUSED</code>, or <code>Your move: D3</code>, installed only after the developer agrees.</p>
         <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e6-statusline</code></dd><dt>Depends on</dt><dd>E4</dd><dt>Design stop</dt><dd>no</dd></dl>
         <h4>Done when</h4>
         <ul class="accept"><li>Reads <code>.boxbox/live/</code> only and finishes in under 50 ms; prints nothing on any error</li><li>Setup asks before writing <code>statusLine</code> into the project's <code>.claude/settings.json</code>, merging rather than overwriting, and never touches user settings</li><li>The status line command is pre-approved like <code>say</code></li></ul>
         <ol class="tasks">
-          <li data-st="todo"><b>E6.1</b>Status line script from live data
+          <li data-st="done"><b>E6.1</b>Status line script from live data
             <dl><dt>First test</dt><dd><code>statusline: prints task, model, cost and tests from live files in under 50 ms</code></dd><dt>Fails when</dt><dd>Missing or partial live files: prints nothing</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/statusline</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/statusline.test.js</code></dd></dl></li>
-          <li data-st="todo"><b>E6.2</b>Setup offers to install it into project settings
+          <li data-st="done"><b>E6.2</b>Setup offers to install it into project settings
             <dl><dt>First test</dt><dd>No cheap test. Verify: setup text asks first, merges one key, shows an existing statusLine</dd><dt>Fails when</dt><dd>An existing statusLine in project settings: setup shows it and asks before replacing</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/statusline</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/statusline.test.js</code></dd></dl></li>
         </ol>
       </article>
