@@ -78,6 +78,12 @@ function briefHref(brief) {
   return /^[\w.-]+(\/[\w.-]+)*\.md$/.test(p) && !p.split("/").includes("..") ? "/b/" + p : null;
 }
 
+// "claude-opus-5-5[1m]" -> "opus" (the same rule as hooks/routing.js; the kit cannot load the hooks).
+function familyOf(model) {
+  const m = String(model || "").toLowerCase().match(/^(?:claude-)?(opus|sonnet|haiku|fable)(?:\b|-)/);
+  return m ? m[1] : null;
+}
+
 function usageTotal(e) { return e.input + e.output + e.cacheWrite5m + e.cacheWrite1h + e.cacheRead; }
 
 // Claude Code writes one assistant message on several lines while it streams, with usage
@@ -214,9 +220,15 @@ function aggregate(entries, timeline, prices, board, now, subUnits = new Map()) 
   const ms = activeMilestone(board);
   const epicTitle = id => { const e = ms && (ms.epics || []).find(x => x.id === id); return e ? e.title : GROUP_NAME[id] || id; };
   const taskTitle = id => { for (const e of (ms && ms.epics) || []) for (const t of e.tasks || []) if (t.id === id) return t.title; return ""; };
-  const byEpic = new Map(), byTask = new Map(), sessions = new Map(), unpriced = new Set();
+  const byEpic = new Map(), byTask = new Map(), sessions = new Map(), unpriced = new Set(), byModel = new Map();
   const all = blank("all", "All");
   for (const e of entries) {
+    // Per model: the raw counts too, for the cache-read share (cache reads over all input sent).
+    const mk = e.model || "unknown";
+    if (!byModel.has(mk)) byModel.set(mk, { ...blank(mk, mk), model: mk, family: familyOf(mk), input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+    const mr = byModel.get(mk);
+    add(mr, e, prices, null);
+    mr.input += e.input; mr.output += e.output; mr.cacheRead += e.cacheRead; mr.cacheWrite += e.cacheWrite5m + e.cacheWrite1h;
     const own = e.sub && subUnits.get(e.sub);
     const b = own ? bucketOf({ unit: own }) : bucketOf(stageAt(Date.parse(e.ts), timeline));
     if (!byEpic.has(b.epic)) byEpic.set(b.epic, blank(b.epic, epicTitle(b.epic)));
@@ -247,6 +259,8 @@ function aggregate(entries, timeline, prices, board, now, subUnits = new Map()) 
     total: { fresh: all.fresh, cache: all.cache, tokens: all.tokens, ...costFields(all), unpriced: [...unpriced] },
     byEpic: [...byEpic.values()].map(fin),
     byTask: [...byTask.values()].map(fin),
+    byModel: [...byModel.values()].map(r => ({ ...fin(r), cacheReadShare: r.input + r.cacheWrite + r.cacheRead ? r.cacheRead / (r.input + r.cacheWrite + r.cacheRead) : 0 }))
+      .sort((a, b) => b.tokens - a.tokens),
     sessions: [...sessions.values()].map(s => ({ ...s, models: [...s.models], units: [...s.units], ...costFields(s) }))
       .sort((a, b) => (a.first < b.first ? -1 : 1))
   };

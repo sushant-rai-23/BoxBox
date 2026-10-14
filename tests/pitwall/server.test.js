@@ -252,3 +252,32 @@ test("hook: SubagentStart registers the subagent's transcript at once", () => {
   const reg = fs.readFileSync(path.join(root, ".boxbox", "live", "sessions.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
   assert.deepEqual(reg.map(r => [r.transcript, r.sub]), [["/p/proj/s1/subagents/agent-a7.jsonl", "a7"]]);
 });
+
+test("server: per-model totals match a hand count of the spike fixtures", () => {
+  const box = fixtureBox();
+  const t = new s.Live(box).state().tokens;
+  const by = Object.fromEntries(t.byModel.map(r => [r.model, r]));
+  // Claude Code's own modelUsage for this session (docs/routing-spike.md, run "a"): exact for Opus and Sonnet.
+  assert.deepEqual([by["claude-opus-5-5"].input, by["claude-opus-5-5"].output, by["claude-opus-5-5"].cacheRead, by["claude-opus-5-5"].cacheWrite], [8, 457, 161881, 26666]);
+  assert.deepEqual([by["claude-sonnet-5-5"].input, by["claude-sonnet-5-5"].output, by["claude-sonnet-5-5"].cacheRead, by["claude-sonnet-5-5"].cacheWrite], [2, 4, 0, 4462]);
+  // Haiku: a hand count of the two Haiku subagent transcripts (Claude Code's own title calls are in no transcript).
+  let hand = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  const fx = path.join(__dirname, "fixtures", "routing-session", "subagents");
+  for (const f of fs.readdirSync(fx).filter(f => f.endsWith(".jsonl")))
+    for (const l of fs.readFileSync(path.join(fx, f), "utf8").trim().split("\n")) {
+      const m = JSON.parse(l).message;
+      if (m.model !== "claude-haiku-5-5") continue;
+      hand.input += m.usage.input_tokens; hand.output += m.usage.output_tokens;
+      hand.cacheRead += m.usage.cache_read_input_tokens; hand.cacheWrite += m.usage.cache_creation_input_tokens;
+    }
+  const h = by["claude-haiku-5-5"];
+  assert.deepEqual([h.input, h.output, h.cacheRead, h.cacheWrite], [hand.input, hand.output, hand.cacheRead, hand.cacheWrite]);
+  // cache-read share: cache reads over everything sent in (fresh input + cache writes + cache reads)
+  assert.equal(h.cacheReadShare, hand.cacheRead / (hand.input + hand.cacheWrite + hand.cacheRead));
+  assert.equal(by["claude-sonnet-5-5"].cacheReadShare, 0);
+  // Opus cost equals Claude Code's own: $0.2548762
+  assert.equal(Number(by["claude-opus-5-5"].cost.toFixed(7)), 0.2548762);
+  assert.equal(by["claude-opus-5-5"].family, "opus");
+  // the per-model rows add up to the total
+  assert.equal(t.byModel.reduce((n, r) => n + r.tokens, 0), t.total.tokens);
+});
