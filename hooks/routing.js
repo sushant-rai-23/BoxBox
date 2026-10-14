@@ -96,6 +96,22 @@ function expectedModel(q) {
   return { model: m === "session" ? session : m, why: `models: ${mode}` };
 }
 
+// The unit a subagent call serves, from the start of its description: "E2.3 hash it" -> "E2.3".
+function taskOfDescription(description) {
+  const m = String(description || "").match(/^\s*(E\d+(?:\.\d+)?|setup)\b/i);
+  return m ? (m[1].toLowerCase() === "setup" ? "setup" : m[1].toUpperCase()) : "";
+}
+
+// The routing gate: may this Agent call run as asked? See .boxbox/model-routing/e3-gate/design.md.
+// Returns skip (not a Boxbox agent), off (routing is not Boxbox's to enforce), allow or deny.
+function gateDecision(q) {
+  const input = q.input || {};
+  const agent = agentOf(input.subagent_type);
+  if (!agent) return { decision: "skip", reason: "not a Boxbox agent", task: "", expected: null };
+  const task = taskOfDescription(input.description);
+  return { decision: "allow", reason: "", task, expected: null };
+}
+
 // "claude-opus-5-5[1m]" -> "opus". Null for anything that is not a Claude model id or alias.
 function familyOf(modelId) {
   const m = String(modelId || "").toLowerCase().match(/^(?:claude-)?(opus|sonnet|haiku|fable)(?:\b|-)/);
@@ -108,4 +124,4 @@ function agentOf(subagentType) {
   return m ? m[1] : null;
 }
 
-module.exports = { MODES, SIZE_LINES, parseModels, parsePlanTasks, parseBrief, escalatedTasks, expectedModel, familyOf, agentOf };
+module.exports = { MODES, SIZE_LINES, parseModels, parsePlanTasks, parseBrief, escalatedTasks, taskOfDescription, gateDecision, expectedModel, familyOf, agentOf };

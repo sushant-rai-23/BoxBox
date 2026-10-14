@@ -312,6 +312,26 @@ function ensureServer(root, open) {
   return /^http:\/\//.test(url) ? { url } : { error: "The pit wall did not start: " + short(r.stderr || "no output", 200) };
 }
 
+// The routing gate for one Claude Code Agent (or Task) call. Prints a deny when the call breaks the
+// routing rules and logs a "gate" event; prints nothing on allow, so the developer's permission
+// prompts still apply. Any error allows the call and logs "gate-error" (decision D4).
+function runGate(p, box, live, cfg, base) {
+  const input = p.tool_input || {};
+  let d;
+  try {
+    const st = parseState(readText(path.join(box, "state.md")));
+    const plan = st.feature ? readText(path.join(box, st.feature, "plan.md")) : "";
+    d = routing.gateDecision({ input, mode: cfg.models, tasks: routing.parsePlanTasks(plan) });
+  } catch (err) {
+    append(live, "events.jsonl", { ...base, type: "gate-error", kind: "gate-error", target: short(String(err && err.message), 200), why: "", result: "allowed" });
+    return;
+  }
+  if (d.decision === "skip") return;
+  append(live, "events.jsonl", { ...base, unit: d.task || base.unit, type: "gate", kind: "gate", id: p.tool_use_id || "", target: input.subagent_type || "",
+    result: d.decision, why: d.reason, model: input.model || "", expected: d.expected || "" });
+  if (d.decision === "deny") process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "Boxbox routing: " + d.reason } }) + "\n");
+}
+
 function emitContext(text) {
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: text } }) + "\n");
 }
@@ -347,6 +367,7 @@ function main(event, raw, root) {
       append(live, "events.jsonl", { ...base, type: "prompt", kind: "prompt", target: "You replied in chat", why: "", result: "" });
       return;
     case "PreToolUse": {
+      if ((tool === "Agent" || tool === "Task") && agent === "claude-code") runGate(p, box, live, cfg, base);
       if (tool === "Bash" && agent === "claude-code" && approvalFor(p.tool_input && p.tool_input.command, root, KIT)) {
         process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "allow", permissionDecisionReason: "Boxbox pit wall command" } }) + "\n");
       }

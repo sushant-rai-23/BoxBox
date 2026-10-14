@@ -78,3 +78,34 @@ test("not paused: logs the action in the background", async () => {
   assert.equal(e.kind, "run");
   assert.equal(e.target, "echo hi");
 });
+
+// A repo set up for routing: config, state naming the feature, and a plan with one risky task.
+function routedRepo(models = "balanced") {
+  const d = repo(true);
+  fs.writeFileSync(path.join(d, ".boxbox/config.md"), `commands:\n  test: npm test\nmodels: ${models}\npitwall: off\n`);
+  fs.writeFileSync(path.join(d, ".boxbox/state.md"), "# State\nfeature: resets\n");
+  fs.mkdirSync(path.join(d, ".boxbox/resets"), { recursive: true });
+  fs.writeFileSync(path.join(d, ".boxbox/resets/plan.md"), "## E2 Set a password  [in_progress]\ntasks:\n- [ ] E2.1 accept the link | size: S | risk: no | test: x\n- [ ] E2.3 hash it | size: M | risk: yes | test: y\n");
+  return d;
+}
+function agentCall(d, input, env = {}) {
+  const payload = JSON.stringify({ session_id: "s1", transcript_path: "/nonexistent/s1.jsonl", cwd: d, hook_event_name: "PreToolUse", tool_name: "Agent", tool_input: input, tool_use_id: "tu1" });
+  return spawnSync("bash", [HOOK, "PreToolUse"], { input: payload, encoding: "utf8", env: { ...process.env, CLAUDE_PROJECT_DIR: d, CLAUDE_CODE_SUBAGENT_MODEL: "", CLAUDE_CODE_SUBAGENT_MODEL_FORCE: "", ...env } });
+}
+const events = d => { try { return fs.readFileSync(path.join(d, ".boxbox/live/events.jsonl"), "utf8").trim().split("\n").filter(Boolean).map(JSON.parse); } catch { return []; } };
+
+test("gate: an Agent call reaches the gate synchronously and a Bash call stays in the background", () => {
+  const d = routedRepo();
+  const r = agentCall(d, { subagent_type: "boxbox:boxbox-builder", description: "E2.1 accept the link", model: "sonnet", prompt: "p" });
+  assert.equal(r.status, 0);
+  const g = events(d).find(e => e.kind === "gate");
+  assert.ok(g, "the gate event is written before the hook returns");
+  assert.equal(g.result, "allow");
+  assert.equal(g.unit, "E2.1");
+  assert.equal(r.stdout, "", "an allowed call prints nothing, so permission prompts still apply");
+  // A Bash call still goes to the background: the hook returns before node has written anything.
+  const t = process.hrtime.bigint();
+  const b = run(d, "PreToolUse");
+  assert.ok(Number(process.hrtime.bigint() - t) / 1e6 < 40, "a Bash call does not wait for node");
+  assert.equal(b.stdout, "");
+});
