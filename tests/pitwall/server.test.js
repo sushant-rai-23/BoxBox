@@ -360,3 +360,38 @@ test("server: an unpriced model has no cost anywhere, never $0", () => {
   assert.equal(t.byModel[0].cost, null);
   assert.equal(t.byTask[0].models["<synthetic>"].cost, null);
 });
+
+test("server: events carry the model that made them", () => {
+  const entries = [
+    { ts: "2026-10-14T10:00:00Z", model: "claude-opus-5-5", session: "s", sub: "" },
+    { ts: "2026-10-14T10:05:00Z", model: "claude-sonnet-5-5", session: "s", sub: "" },
+    { ts: "2026-10-14T10:01:00Z", model: "claude-haiku-5-5", session: "s", sub: "a1" }
+  ];
+  const ev = s.withModels([
+    { ts: "2026-10-14T10:02:00Z", session: "s", lane: "driver", kind: "read" },
+    { ts: "2026-10-14T10:06:00Z", session: "s", lane: "driver", kind: "read" },
+    { ts: "2026-10-14T10:01:30Z", session: "s", sub: "a1", lane: "scout", kind: "search" },
+    { ts: "2026-10-14T09:00:00Z", session: "other", kind: "read" }
+  ], entries);
+  assert.deepEqual(ev.map(e => e.ranOn || ""), ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", ""]);
+});
+
+test("server: state reports mode, active agents, last escalation and gate-off reason", () => {
+  const r = s.routingState("models: balanced\n", [
+    { ts: "1", kind: "crew", result: "started", sub: "a1", target: "boxbox:boxbox-builder", unit: "E2.1", lane: "builder" },
+    { ts: "2", kind: "crew", result: "started", sub: "a2", target: "boxbox:boxbox-scout", unit: "E2.2", lane: "scout" },
+    { ts: "3", kind: "crew", result: "finished", sub: "a2", target: "boxbox:boxbox-scout", unit: "E2.2", lane: "scout" },
+    { ts: "4", kind: "escalated", unit: "E2.1", target: "failed twice" },
+    { ts: "5", kind: "gate", result: "deny", unit: "E2.3", why: "E2.3 is risk: yes, run boxbox-builder with model opus" },
+    { ts: "6", kind: "gate", result: "off", why: "CLAUDE_CODE_SUBAGENT_MODEL_FORCE is on: every subagent runs on haiku", note: "" }
+  ]);
+  assert.equal(r.mode, "balanced");
+  assert.deepEqual(r.active.map(a => [a.agent, a.unit]), [["builder", "E2.1"]]);
+  assert.equal(r.lastEscalation.unit, "E2.1");
+  assert.equal(r.gate.state, "off");
+  assert.match(r.gate.reason, /FORCE is on/);
+  assert.deepEqual(r.escalations.map(e => e.kind), ["escalated", "gate"], "escalations and denials, newest last");
+  assert.equal(s.routingState("", []).gate.state, "off", "no models line: auto, the gate is off");
+  assert.match(s.routingState("", []).gate.reason, /models: auto/);
+  assert.equal(s.routingState("models: save\n", []).gate.state, "on");
+});
