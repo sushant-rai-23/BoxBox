@@ -286,3 +286,26 @@ test("an unknown models: value is reported at session start, as an event and to 
   assert.match(w.target, /cheapest/);
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("say always writes valid JSON, and refuses an escalation without a unit", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bbsay2-"));
+  const box = path.join(dir, ".boxbox");
+  fs.mkdirSync(path.join(box, "pitwall"), { recursive: true });
+  const say = path.join(box, "pitwall", "say");
+  fs.copyFileSync(path.join(__dirname, "../../skills/boxbox-setup/kit/pitwall/say"), say);
+  const run = (...a) => spawnSync("sh", [say, ...a], { encoding: "utf8" });
+  const long = "x".repeat(298) + '"\\ end';             // the cut lands inside an escape
+  run("escalated", long, "--unit", "E2.3");
+  run("escalated", "bell\x01and\x1ftab", "--unit", "E2.4");
+  run("stage", "build", "--unit", "E2.5", "--why", "y".repeat(299) + "\\");
+  run("escalated", "no unit given");
+  run("escalated", "--unit", "E2.6", "--why", "flags only");
+  const lines = fs.readFileSync(path.join(box, "live", "events.jsonl"), "utf8").trim().split("\n");
+  const ev = lines.map(l => JSON.parse(l));                 // throws on any invalid line
+  const esc = ev.filter(e => e.kind === "escalated");
+  assert.deepEqual(esc.map(e => e.unit), ["E2.3", "E2.4"], "escalations without a unit or a reason are not written");
+  assert.ok(esc[0].target.length <= 300);
+  assert.ok(!/[\x00-\x1f]/.test(esc[1].target));
+  fs.rmSync(dir, { recursive: true, force: true });
+});

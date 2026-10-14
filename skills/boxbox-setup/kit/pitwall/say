@@ -21,10 +21,15 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+# JSON-safe text: control characters dropped, cut to 300 characters before escaping, so a cut never
+# splits an escape and every line in events.jsonl stays valid JSON.
 esc() {
   local s="$1"
-  s="${s//\\/\\\\}"; s="${s//\"/\\\"}"; s="${s//$'\n'/ }"; s="${s//$'\r'/}"; s="${s//$'\t'/ }"
-  printf '%s' "${s:0:300}"
+  s="${s//$'\n'/ }"; s="${s//$'\t'/ }"
+  s="$(printf '%s' "$s" | LC_ALL=C tr -d '\000-\037\177')"
+  s="${s:0:300}"
+  s="${s//\\/\\\\}"; s="${s//\"/\\\"}"
+  printf '%s' "$s"
 }
 ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -45,6 +50,9 @@ case "$verb" in
       "$ts" "$(esc "$text")" "$(esc "$why")" "$(esc "$unit")" >> "$live/events.jsonl"
     ;;
   escalated)
+    # Never without a task: the routing gate counts escalations per unit.
+    case "$text" in ""|--*) exit 0 ;; esac
+    [ -n "$unit" ] || exit 0
     printf '{"ts":"%s","session":"","agent":"","lane":"driver","type":"escalated","kind":"escalated","target":"%s","why":"","result":"","unit":"%s"}\n' \
       "$ts" "$(esc "$text")" "$(esc "$unit")" >> "$live/events.jsonl"
     ;;
