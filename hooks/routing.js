@@ -109,7 +109,17 @@ function gateDecision(q) {
   const agent = agentOf(input.subagent_type);
   if (!agent) return { decision: "skip", reason: "not a Boxbox agent", task: "", expected: null };
   const task = taskOfDescription(input.description);
-  return { decision: "allow", reason: "", task, expected: null };
+  const deny = (reason, expected = null) => ({ decision: "deny", reason, task, expected });
+  if (agent === "builder" ? !/^E\d+\.\d+$/.test(task) : !task)
+    return deny(agent === "builder"
+      ? `start the description with the task id, like "E2.3 <what>", so the gate can find the task`
+      : `start the description with the unit it serves: a task id, an epic id or "setup", like "E2.3 <what>"`);
+  const t = (q.tasks && q.tasks.get(task)) || { size: "M", risk: false, epicModel: null };
+  const session = q.session || null;
+  const e = expectedModel({ agent, mode: q.mode, session: session || "session", size: t.size, risk: t.risk, epicModel: t.epicModel });
+  if (e.model === "session") return { decision: "allow", reason: `session model unknown, not checked (${e.why})`, task, expected: null };
+  if (familyOf(input.model) !== e.model) return deny(`${task} is ${e.why}, run boxbox-${agent} with model ${e.model}`, e.model);
+  return { decision: "allow", reason: e.why, task, expected: e.model };
 }
 
 // "claude-opus-5-5[1m]" -> "opus". Null for anything that is not a Claude model id or alias.

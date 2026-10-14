@@ -89,7 +89,9 @@ function routedRepo(models = "balanced") {
   return d;
 }
 function agentCall(d, input, env = {}) {
-  const payload = JSON.stringify({ session_id: "s1", transcript_path: "/nonexistent/s1.jsonl", cwd: d, hook_event_name: "PreToolUse", tool_name: "Agent", tool_input: input, tool_use_id: "tu1" });
+  const tr = path.join(d, "s1.jsonl");
+  if (!fs.existsSync(tr)) fs.writeFileSync(tr, JSON.stringify({ type: "assistant", message: { id: "m1", model: "claude-opus-5-5[1m]", usage: { input_tokens: 1, output_tokens: 1 } } }) + "\n");
+  const payload = JSON.stringify({ session_id: "s1", transcript_path: tr, cwd: d, hook_event_name: "PreToolUse", tool_name: "Agent", tool_input: input, tool_use_id: "tu1" });
   return spawnSync("bash", [HOOK, "PreToolUse"], { input: payload, encoding: "utf8", env: { ...process.env, CLAUDE_PROJECT_DIR: d, CLAUDE_CODE_SUBAGENT_MODEL: "", CLAUDE_CODE_SUBAGENT_MODEL_FORCE: "", ...env } });
 }
 const events = d => { try { return fs.readFileSync(path.join(d, ".boxbox/live/events.jsonl"), "utf8").trim().split("\n").filter(Boolean).map(JSON.parse); } catch { return []; } };
@@ -108,4 +110,21 @@ test("gate: an Agent call reaches the gate synchronously and a Bash call stays i
   const b = run(d, "PreToolUse");
   assert.ok(Number(process.hrtime.bigint() - t) / 1e6 < 40, "a Bash call does not wait for node");
   assert.equal(b.stdout, "");
+});
+
+test("gate: a wrong model is denied by the real hook with the reason", () => {
+  const d = routedRepo();
+  const r = agentCall(d, { subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "haiku", prompt: "p" });
+  const out = JSON.parse(r.stdout.trim());
+  assert.equal(out.hookSpecificOutput.permissionDecision, "deny");
+  assert.match(out.hookSpecificOutput.permissionDecisionReason, /E2\.3 is risk: yes, run boxbox-builder with model/);
+  assert.equal(events(d).find(e => e.kind === "gate").result, "deny");
+});
+
+test("gate: the session model is the transcript's message.model, never a tool input's model", () => {
+  const d = routedRepo();
+  const line = { type: "assistant", message: { id: "m2", model: "claude-opus-5-5", content: [{ type: "tool_use", name: "Agent", input: { subagent_type: "boxbox:boxbox-builder", model: "sonnet" } }], usage: { input_tokens: 1 } } };
+  fs.writeFileSync(path.join(d, "s1.jsonl"), "partial line cut by the 256 KB window\n" + JSON.stringify(line) + "\n");
+  const r = agentCall(d, { subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "sonnet", prompt: "p" });
+  assert.match(r.stdout, /E2\.3 is risk: yes, run boxbox-builder with model opus/);
 });

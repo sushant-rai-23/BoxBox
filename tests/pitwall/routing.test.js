@@ -96,3 +96,38 @@ test("routing: an agent that is not Boxbox's has no expected model", () => {
   assert.deepEqual(R.expectedModel({ agent: "Explore", mode: "balanced", session: "opus" }), { model: null, why: "not a Boxbox agent" });
   assert.deepEqual(R.expectedModel({ agent: undefined, mode: "best", session: "opus" }), { model: null, why: "not a Boxbox agent" });
 });
+
+test("gate: a risky task on sonnet is denied with \"run boxbox-builder with model opus\"", () => {
+  const tasks = R.parsePlanTasks("## E2 x\n- [ ] E2.1 a | size: S | risk: no\n- [ ] E2.3 b | size: M | risk: yes\n");
+  const g = input => R.gateDecision({ input, mode: "balanced", session: "opus", tasks, history: new Map() });
+  const risky = g({ subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "sonnet" });
+  assert.equal(risky.decision, "deny");
+  assert.equal(risky.reason, "E2.3 is risk: yes, run boxbox-builder with model opus");
+  assert.deepEqual(g({ subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "opus" }).decision, "allow");
+  assert.equal(g({ subagent_type: "boxbox:boxbox-builder", description: "E2.1 link", model: "sonnet" }).decision, "allow");
+  assert.equal(g({ subagent_type: "boxbox:boxbox-builder", description: "E2.1 link", model: "claude-sonnet-5-5" }).decision, "allow", "a full id counts by family");
+  // no model passed where one is expected
+  assert.equal(g({ subagent_type: "boxbox:boxbox-builder", description: "E2.1 link" }).reason, "E2.1 is models: balanced, run boxbox-builder with model sonnet");
+  // scout and runner follow the table, with a task id, an epic id or setup
+  assert.equal(g({ subagent_type: "boxbox:boxbox-scout", description: "E2.3 excerpts", model: "haiku" }).decision, "allow");
+  assert.equal(g({ subagent_type: "boxbox:boxbox-runner", description: "setup refresh kit", model: "sonnet" }).reason, "setup is models: balanced, run boxbox-runner with model haiku");
+  assert.equal(g({ subagent_type: "boxbox:boxbox-writer", description: "E2 report page", model: "sonnet" }).decision, "allow");
+  // not a Boxbox agent: not judged
+  assert.equal(g({ subagent_type: "Explore", description: "anything", model: "haiku" }).decision, "skip");
+});
+
+test("gate: a call without its unit first is denied; a builder needs a task id", () => {
+  const g = input => R.gateDecision({ input, mode: "balanced", session: "opus", tasks: new Map(), history: new Map() });
+  assert.match(g({ subagent_type: "boxbox:boxbox-builder", description: "hash the token", model: "sonnet" }).reason, /start the description with the task id, like "E2\.3 <what>"/);
+  assert.match(g({ subagent_type: "boxbox:boxbox-builder", description: "E2 everything", model: "sonnet" }).reason, /task id/);
+  assert.match(g({ subagent_type: "boxbox:boxbox-scout", description: "look around", model: "haiku" }).reason, /start the description with the unit/);
+  // a task the plan does not list is built as size M, risk no
+  assert.equal(g({ subagent_type: "boxbox:boxbox-builder", description: "E9.9 new", model: "sonnet" }).decision, "allow");
+});
+
+test("gate: an unknown session model fails open when the session model is expected", () => {
+  const tasks = R.parsePlanTasks("## E2 x\n- [ ] E2.3 b | size: M | risk: yes\n");
+  const d = R.gateDecision({ input: { subagent_type: "boxbox:boxbox-builder", description: "E2.3 b", model: "haiku" }, mode: "balanced", session: null, tasks, history: new Map() });
+  assert.equal(d.decision, "allow");
+  assert.match(d.reason, /session model unknown/);
+});

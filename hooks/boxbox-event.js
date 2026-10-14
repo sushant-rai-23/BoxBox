@@ -312,6 +312,25 @@ function ensureServer(root, open) {
   return /^http:\/\//.test(url) ? { url } : { error: "The pit wall did not start: " + short(r.stderr || "no output", 200) };
 }
 
+// The main session's model family: the last assistant message.model in its transcript's final 256 KB.
+function sessionFamily(transcript) {
+  let fd;
+  try {
+    fd = fs.openSync(transcript, "r");
+    const size = fs.fstatSync(fd).size, n = Math.min(size, 256 * 1024), buf = Buffer.alloc(n);
+    fs.readSync(fd, buf, 0, n, size - n);
+    // Parse whole lines: a tool_use input can carry its own "model" (the Agent call being judged).
+    const lines = buf.toString("utf8").split("\n");
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].indexOf('"assistant"') < 0) continue;
+      let d; try { d = JSON.parse(lines[i]); } catch { continue; }
+      const f = d && d.type === "assistant" && d.message && routing.familyOf(d.message.model);
+      if (f) return f;
+    }
+  } catch {} finally { if (fd !== undefined) try { fs.closeSync(fd); } catch {} }
+  return null;
+}
+
 // The routing gate for one Claude Code Agent (or Task) call. Prints a deny when the call breaks the
 // routing rules and logs a "gate" event; prints nothing on allow, so the developer's permission
 // prompts still apply. Any error allows the call and logs "gate-error" (decision D4).
@@ -321,7 +340,7 @@ function runGate(p, box, live, cfg, base) {
   try {
     const st = parseState(readText(path.join(box, "state.md")));
     const plan = st.feature ? readText(path.join(box, st.feature, "plan.md")) : "";
-    d = routing.gateDecision({ input, mode: cfg.models, tasks: routing.parsePlanTasks(plan) });
+    d = routing.gateDecision({ input, mode: cfg.models, tasks: routing.parsePlanTasks(plan), session: sessionFamily(p.transcript_path) });
   } catch (err) {
     append(live, "events.jsonl", { ...base, type: "gate-error", kind: "gate-error", target: short(String(err && err.message), 200), why: "", result: "allowed" });
     return;
