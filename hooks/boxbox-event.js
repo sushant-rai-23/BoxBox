@@ -357,7 +357,25 @@ function checkTriggers(p, live, box, edits, base) {
   if (why) append(live, "events.jsonl", { ...base, unit: task, type: "escalate-needed", kind: "escalate-needed", target: why, why: "", result: "" });
 }
 
-// The main session's model family: the last assistant message.model in its transcript's final 256 KB.
+// The main session's model family. Claude Code's hook input never says it, and the transcript can lag
+// (in a session's first turn its messages are not on disk yet), so: the transcript, then the model
+// recorded at the end of this session's last turn, then ANTHROPIC_MODEL, then the settings files,
+// in Claude Code's own order. Null when none says: the gate then fails open (decision D4).
+function sessionModel(p, root, live) {
+  const fromTranscript = sessionFamily(p.transcript_path);
+  if (fromTranscript) return fromTranscript;
+  const cached = readJSON(path.join(live, "session-model.json"));
+  if (cached && cached.session && cached.session === p.session_id && cached.family) return cached.family;
+  const env = routing.familyOf(process.env.ANTHROPIC_MODEL);
+  if (env) return env;
+  for (const f of [path.join(root, ".claude", "settings.local.json"), path.join(root, ".claude", "settings.json"), path.join(process.env.HOME || "", ".claude", "settings.json")]) {
+    const s = readJSON(f);
+    if (s && s.model) return routing.familyOf(s.model);
+  }
+  return null;
+}
+
+// The last assistant message.model in a transcript's final 256 KB, as a family.
 function sessionFamily(transcript) {
   let fd;
   try {
@@ -388,7 +406,7 @@ function runGate(p, box, live, cfg, base) {
     const env = process.env, forced = env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE && !/^(0|false)$/i.test(env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE);
     const force = forced ? (env.CLAUDE_CODE_SUBAGENT_MODEL && env.CLAUDE_CODE_SUBAGENT_MODEL !== "inherit" ? env.CLAUDE_CODE_SUBAGENT_MODEL : "inherit") : "";
     const history = routing.builderHistory(readEvents(live, /"(gate|escalated|escalate-needed)"/));
-    d = routing.gateDecision({ input, mode: cfg.models, force, tasks: routing.parsePlanTasks(plan), history, session: sessionFamily(p.transcript_path) });
+    d = routing.gateDecision({ input, mode: cfg.models, force, tasks: routing.parsePlanTasks(plan), history, session: sessionModel(p, path.dirname(box), live) });
   } catch (err) {
     append(live, "events.jsonl", { ...base, type: "gate-error", kind: "gate-error", target: short(String(err && err.message), 200), why: "", result: "allowed" });
     return;
@@ -490,6 +508,9 @@ function main(event, raw, root) {
       return;
     }
     case "Stop": {
+      // By the end of a turn the transcript is on disk: remember the model for the next turn's gate.
+      const fam = agent === "claude-code" ? sessionFamily(p.transcript_path) : null;
+      if (fam && p.session_id) writeJSON(live, "session-model.json", { session: p.session_id, family: fam });
       const st = parseState(readText(path.join(box, "state.md")));
       if (!/^yes/i.test(st.waiting_for_developer || "")) return;
       if (!fs.existsSync(path.join(live, "waiting.json"))) {

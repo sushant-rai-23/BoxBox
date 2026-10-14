@@ -172,3 +172,32 @@ test("gate: the real hook denies a third cheap builder run and allows the escala
   assert.equal(call("opus").stdout, "", "the escalated retry runs on the session model");
   assert.match(call("opus").stdout, /was escalated and failed again: stop and tell the developer/);
 });
+
+test("gate: with no flushed transcript yet, the session model comes from the turn cache, then ANTHROPIC_MODEL, then settings", () => {
+  const empty = d => fs.writeFileSync(path.join(d, "s1.jsonl"), "");
+  const risky = { subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "haiku", prompt: "p" };
+  // 1. settings
+  const d1 = routedRepo(); empty(d1);
+  fs.mkdirSync(path.join(d1, ".claude"));
+  fs.writeFileSync(path.join(d1, ".claude/settings.json"), JSON.stringify({ model: "opus" }));
+  assert.match(agentCall(d1, risky, { HOME: d1 }).stdout, /with model opus/);
+  // 2. ANTHROPIC_MODEL beats settings
+  assert.match(agentCall(d1, risky, { HOME: d1, ANTHROPIC_MODEL: "claude-sonnet-5-5" }).stdout, /with model sonnet/);
+  // 3. the cache written at the end of a turn beats both, for the same session only
+  const d2 = routedRepo(); empty(d2);
+  fs.writeFileSync(path.join(d2, ".boxbox/live/session-model.json"), JSON.stringify({ session: "s1", family: "fable" }));
+  assert.match(agentCall(d2, risky, { HOME: d2, ANTHROPIC_MODEL: "sonnet" }).stdout, /with model fable/);
+  fs.writeFileSync(path.join(d2, ".boxbox/live/session-model.json"), JSON.stringify({ session: "other", family: "fable" }));
+  assert.match(agentCall(d2, risky, { HOME: d2, ANTHROPIC_MODEL: "sonnet" }).stdout, /with model sonnet/);
+  // 4. nothing known: fail open
+  const d3 = routedRepo(); empty(d3);
+  assert.equal(agentCall(d3, risky, { HOME: d3, ANTHROPIC_MODEL: "" }).stdout, "");
+});
+
+test("the end of a turn records the session model for the gate", () => {
+  const d = routedRepo();
+  fs.writeFileSync(path.join(d, "s1.jsonl"), JSON.stringify({ type: "assistant", message: { model: "claude-opus-5-5" } }) + "\n");
+  const payload = JSON.stringify({ session_id: "s1", transcript_path: path.join(d, "s1.jsonl"), hook_event_name: "Stop" });
+  spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), "Stop"], { input: payload, encoding: "utf8", env: { ...process.env, BOXBOX_ROOT: d } });
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(d, ".boxbox/live/session-model.json"), "utf8")), { session: "s1", family: "opus" });
+});
