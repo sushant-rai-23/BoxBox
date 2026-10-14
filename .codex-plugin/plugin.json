@@ -1,6 +1,6 @@
 {
   "name": "boxbox",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Developer-in-control agentic coding: plan, decide with context, build one tested unit at a time, review each with a teaching report.",
   "author": { "name": "Sushant Rai" },
   "license": "MIT",
