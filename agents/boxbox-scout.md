@@ -17,6 +17,7 @@ Rules for excerpts:
 - Copy them exactly, character for character, with line numbers.
 - Keep them short: the lines that answer the question.
 - If you could not find something, write "not found" and list where you looked.
+- Use paths relative to the repo root: `src/money.js:24`, never an absolute path.
 
 Never edit or create any file.
 Never run commands.

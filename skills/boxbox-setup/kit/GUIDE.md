@@ -167,7 +167,7 @@ Before each task, the main agent writes its brief: `cp .boxbox/templates/brief.m
 
 - **Header** (the lines before the first `##`): `task`, `size`, `risk`, `expected_diff` (changed lines; S about 50, M 150, L 400), `files` (every file the task may edit, tests included) and `base` (the commit it was written against). The routing gate and escalation read these. Copy `size` and `risk` from the task line in `plan.md`; if the two ever disagree, `plan.md` wins. Nothing checks the excerpts against later code: `base` tells a reader which commit they describe.
 - **Goal**: one sentence, plus the acceptance criteria it serves.
-- **Code to touch**: each file and function as `path:line`, with the exact current lines. In Claude Code, get the excerpts from `boxbox:boxbox-scout`, so the builder does not explore.
+- **Code to touch**: each file and function as `path:line`, with the exact current lines, so the builder does not explore. Copy them yourself from files you have already read and that have not changed; in Claude Code, ask `boxbox:boxbox-scout` for files you have not read yet.
 - **Interface**: what to build against, from the design page if there is one.
 - **Tests**: the first test, then edge cases from the epic's failure modes.
 - **Do not touch**: out-of-scope files, patterns to avoid, the decisions that apply.
