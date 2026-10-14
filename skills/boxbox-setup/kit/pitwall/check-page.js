@@ -366,7 +366,12 @@ function checkPage(html, opts) {
     let body;
     try { body = fs.readFileSync(path.join(box, rel), "utf8"); } catch { once(e.line, `brief ${rel}: no such file in .boxbox`); return; }
     const norm = s => s.replace(/\s+/g, " ").trim();
-    if (!norm(body).includes(norm(decode(e.text)))) once(e.line, `quote does not match the brief ${rel}: copy the goal from the brief exactly`);
+    const quote = norm(decode(e.text));
+    if (!quote) { once(e.line, `the quote of brief ${rel} is empty: copy its Goal line`); return; }
+    const lines = body.split("\n").map(l => l.trim());
+    const at = lines.indexOf("## Goal");
+    const goal = at >= 0 ? norm(lines.slice(at + 1).find(Boolean) || "") : "";
+    if (!goal.includes(quote)) once(e.line, `quote does not match the brief ${rel}: copy the Goal line of the brief exactly`);
   }
   function checkTest(e) {
     const name = decode(e.text).trim();

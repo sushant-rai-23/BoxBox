@@ -57,7 +57,7 @@ const SIZE_LINES = { S: 50, M: 150, L: 400 };
 // The header of a task brief (.boxbox/<feature>/<epic>/tasks/<id>.md): the lines before the first
 // "## " heading. The gate and the build skill read the task's files and expected diff size from it.
 function parseBrief(text) {
-  const lines = String(text || "").split("\n");
+  const lines = String(text || "").split("\n").map(l => l.replace(/\s+$/, ""));
   const top = [], rest = [];
   for (const l of lines) (rest.length || /^## /.test(l) ? rest : top).push(l);
   const field = k => { const m = top.map(l => l.match(new RegExp(`^${k}:[ \\t]*(.*)$`))).find(Boolean); return m ? m[1].trim() : ""; };

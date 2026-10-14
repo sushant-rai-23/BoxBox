@@ -106,6 +106,7 @@ window.BOXBOX_BOARD = {
       "links": [ { "label": "Report", "href": "password-reset/e1-request-reset/report.html" } ],
       "tasks": [ { "id": "E1.1", "title": "Create and store a hashed token",
                    "test": "token row exists and raw token is not stored",
+                   "brief": "password-reset/e1-request-reset/tasks/E1.1.md",
                    "status": "done", "commit": "a1b2c3d" } ]
     } ]
   } ]
@@ -164,7 +165,7 @@ When you run the test command from `config.md`, the hook records the result it s
 
 Before each task, the main agent writes its brief: `cp .boxbox/templates/brief.md .boxbox/<feature>/<unit>/tasks/<task id>.md`, then fills it. Write it just before the task, from the plan line and the code as it is now, never at plan time: earlier tasks change the code it describes. A brief holds:
 
-- **Header** (the lines before the first `##`): `task`, `size`, `risk`, `expected_diff` (changed lines; S about 50, M 150, L 400), `files` (every file the task may edit, tests included) and `base` (the commit it was written against). The routing gate and escalation read these.
+- **Header** (the lines before the first `##`): `task`, `size`, `risk`, `expected_diff` (changed lines; S about 50, M 150, L 400), `files` (every file the task may edit, tests included) and `base` (the commit it was written against). The routing gate and escalation read these. Copy `size` and `risk` from the task line in `plan.md`; if the two ever disagree, `plan.md` wins. Nothing checks the excerpts against later code: `base` tells a reader which commit they describe.
 - **Goal**: one sentence, plus the acceptance criteria it serves.
 - **Code to touch**: each file and function as `path:line`, with the exact current lines. In Claude Code, get the excerpts from `boxbox:boxbox-scout`, so the builder does not explore.
 - **Interface**: what to build against, from the design page if there is one.
@@ -201,7 +202,7 @@ Boxbox ships four subagents in the plugin's `agents/` folder: `boxbox:boxbox-bui
 
 **Never routed down:** discover, decisions, plan, design, writing task briefs, inspect (code review), the page fact-check, and every approval stay on the session model.
 
-**Escalation** (not under `auto`). Retry a builder task once on the session model when the builder failed it twice, or earlier when its diff is more than 3 times the expected size (S 50, M 150, L 400 changed lines, or the brief's estimate), it edited a file outside the task's files, or it edited the same file 5 times without the test going green. Before the retry, run `sh .boxbox/pitwall/say escalated "<one-line reason>" --unit <task id>`. If it fails on the session model too, stop and tell the developer. If the builder already ran on the session model (`best`, a risky or `L` task, an epic override naming it), there is nothing to escalate to: stop and tell the developer at once. Never escalate the same task twice.
+**Escalation** (not under `auto`). Retry a builder task once on the session model when the builder failed it twice, or earlier when its diff is more than 3 times the expected size (S 50, M 150, L 400 changed lines, or the brief's estimate), it edited a file outside the brief's `files`, or it edited the same file 5 times without the test going green. Before the retry, run `sh .boxbox/pitwall/say escalated "<one-line reason>" --unit <task id>`. If it fails on the session model too, stop and tell the developer. If the builder already ran on the session model (`best`, a risky or `L` task, an epic override naming it), there is nothing to escalate to: stop and tell the developer at once. Never escalate the same task twice.
 
 Codex has no subagent models: under Codex, `models:` and `parallel:` are ignored and the main agent builds every task itself.
 

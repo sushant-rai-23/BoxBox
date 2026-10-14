@@ -108,6 +108,8 @@ test("check-page: a report brief quote must match the brief file", () => {
   assert.match(check(r, q("f/e1-x/tasks/E1.1.md", "A short token is 32 hex characters.")).join("\n"), /does not match the brief f\/e1-x\/tasks\/E1\.1\.md/);
   assert.match(check(r, q("f/e1-x/tasks/E1.9.md", "anything")).join("\n"), /brief f\/e1-x\/tasks\/E1\.9\.md: no such file/);
   assert.match(check(r, q("../outside.md", "anything")).join("\n"), /data-brief="\.\.\/outside\.md" must be a path inside \.boxbox/);
+  assert.match(check(r, q("f/e1-x/tasks/E1.1.md", "")).join("\n"), /empty/, "an empty quote proves nothing");
+  assert.match(check(r, q("f/e1-x/tasks/E1.1.md", "task: E1.1")).join("\n"), /does not match the brief/, "only the Goal line counts");
 });
 
 test("a commit hash must exist; a branch must exist", () => {
