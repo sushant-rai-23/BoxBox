@@ -127,7 +127,8 @@ function editedPaths(tool, input, root) {
   const out = [];
   for (const p of raw) {
     if (!p) continue;
-    const r = rel(p, root);
+    // A parallel builder edits its own worktree, .claude/worktrees/<name>/: the same repo file.
+    const r = rel(p, root).replace(/^\.claude\/worktrees\/[^/]+\//, "");
     if (path.isAbsolute(r) || r.startsWith(".boxbox/") || r === ".boxbox") continue;
     if (!out.includes(r)) out.push(r);
   }
@@ -408,7 +409,11 @@ function runGate(p, box, live, cfg, base) {
     const env = process.env, forced = env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE && !/^(0|false)$/i.test(env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE);
     const force = forced ? (env.CLAUDE_CODE_SUBAGENT_MODEL && env.CLAUDE_CODE_SUBAGENT_MODEL !== "inherit" ? env.CLAUDE_CODE_SUBAGENT_MODEL : "inherit") : "";
     const history = routing.builderHistory(readEvents(live, /"kind":"(crew|stage|escalated|escalate-needed)"/));
-    d = routing.gateDecision({ input, mode: cfg.models, force, tasks: routing.parsePlanTasks(plan), history, session: sessionModel(p, live) });
+    const root = path.dirname(box);
+    const parallel = input.isolation === "worktree"
+      ? routing.parallelReady({ parallel: cfg.parallel, settings: ["settings.local.json", "settings.json"].map(f => readText(path.join(root, ".claude", f))) })
+      : null;
+    d = routing.gateDecision({ input, mode: cfg.models, force, tasks: routing.parsePlanTasks(plan), history, parallel, session: sessionModel(p, live) });
   } catch (err) {
     append(live, "events.jsonl", { ...base, type: "gate-error", kind: "gate-error", target: short(String(err && err.message), 200), why: "", result: "allowed" });
     return;
@@ -432,7 +437,11 @@ function main(event, raw, root) {
   const cfg = parseConfig(readText(path.join(box, "config.md")));
   const stage = readJSON(path.join(live, "stage.json")) || {};
   const agent = detectAgent(p);
-  const base = { ts: new Date().toISOString(), session: p.session_id || "", agent, lane: laneFor(p, stage.stage), unit: stage.unit || "", ...(p.agent_id ? { sub: p.agent_id } : {}) };
+  // A subagent's events belong to its own task (parallel builders run several at once), which its
+  // crew start recorded; the main agent's belong to the current stage's unit.
+  const subUnit = p.agent_id && event !== "SubagentStart"
+    ? ((readEvents(live, `"sub":"${p.agent_id}"`).find(e => e.kind === "crew" && e.result === "started") || {}).unit || "") : "";
+  const base = { ts: new Date().toISOString(), session: p.session_id || "", agent, lane: laneFor(p, stage.stage), unit: subUnit || stage.unit || "", ...(p.agent_id ? { sub: p.agent_id } : {}) };
   const tool = p.tool_name || "";
 
   // A session that started before .boxbox existed never had its SessionStart logged: register its

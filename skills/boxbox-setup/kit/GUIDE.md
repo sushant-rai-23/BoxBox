@@ -206,6 +206,8 @@ Boxbox ships four subagents in the plugin's `agents/` folder: `boxbox:boxbox-bui
 
 **The gate.** In Claude Code, a hook checks every call to a Boxbox agent against these rules before it runs. A call that breaks them is denied with a reason that names the agent and model to use, or the step to take (`say escalated`, or stop and tell the developer): do exactly that, then call again. Under `models: auto`, or when `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set (to anything but `0` or `false`), the gate stands aside and the pit wall says why. If the gate cannot judge a call (no plan, an unknown session model, an error), the call runs and the pit wall says so. A task's history (finished builder runs, escalation) starts again at its `say stage build --unit <task id>`, so say that stage before each task, also when you rework a task after review. The gate does not see diffs: the 3-times-the-expected-size check is yours, from the builder's commit.
 
+**Parallel tasks** (`parallel: on`, off by default): independent tasks of one epic build at once in worktree builders, at most 3, then merge back in plan order, one commit per task, with the full suite run once. It needs `"worktree": {"baseRef": "head"}` in the project's settings; any conflict or red suite falls back to one task at a time. The steps are in boxbox-build.
+
 Codex has no subagent models: under Codex, `models:` and `parallel:` are ignored and the main agent builds every task itself.
 
 ## Pages

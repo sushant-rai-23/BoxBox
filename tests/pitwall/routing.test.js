@@ -79,10 +79,10 @@ test("routing: plan parser reads size, risk and epic model override from a plan.
     "- [ ] E2.2 expire it | size: m | test: model: haiku in the text is not an override | done: green | deps: none"
   ].join("\n");
   const t = R.parsePlanTasks(plan);
-  assert.deepEqual(t.get("E1.1"), { epic: "E1", size: "S", risk: true, epicModel: null });
-  assert.deepEqual(t.get("E1.2"), { epic: "E1", size: "M", risk: false, epicModel: null });
-  assert.deepEqual(t.get("E2.1"), { epic: "E2", size: "L", risk: false, epicModel: "opus" });
-  assert.deepEqual(t.get("E2.2"), { epic: "E2", size: "M", risk: false, epicModel: "opus" });
+  assert.deepEqual(t.get("E1.1"), { epic: "E1", size: "S", risk: true, epicModel: null, deps: [] });
+  assert.deepEqual(t.get("E1.2"), { epic: "E1", size: "M", risk: false, epicModel: null, deps: ["E1.1"] });
+  assert.deepEqual(t.get("E2.1"), { epic: "E2", size: "L", risk: false, epicModel: "opus", deps: [] });
+  assert.deepEqual(t.get("E2.2"), { epic: "E2", size: "M", risk: false, epicModel: "opus", deps: [] });
   assert.equal(t.size, 4);
   assert.equal(R.parsePlanTasks("").size, 0);
 });
@@ -198,4 +198,52 @@ test("gate: an early trigger requires escalation before the next builder run", (
   // the session model is already the builder's: nothing to escalate to
   const best = R.gateDecision({ input: { subagent_type: "boxbox:boxbox-builder", description: "E2.1 a", model: "opus" }, mode: "best", session: "opus", tasks, history: h });
   assert.equal(best.reason, "E2.1 edited app/x.py, outside its brief, and it already runs on the session model: stop and tell the developer");
+});
+
+test("routing: two tasks sharing a brief file are never scheduled together", () => {
+  const plan = "## E2 x  [in_progress]\ntasks:\n" +
+    "- [x] E2.1 a | size: S | risk: no | test: t | deps: none\n" +
+    "- [ ] E2.2 b | size: S | risk: no | test: t | deps: E2.1\n" +
+    "- [ ] E2.3 c | size: S | risk: no | test: t | deps: none\n" +
+    "- [ ] E2.4 d | size: S | risk: no | test: t | deps: E2.3\n" +
+    "- [ ] E2.5 e | size: S | risk: no | test: t | deps: none\n" +
+    "- [ ] E2.6 f | size: S | risk: no | test: t | deps: none\n" +
+    "## E3 y  [todo]\ntasks:\n- [ ] E3.1 g | size: S | risk: no | test: t | deps: none\n";
+  const files = { "E2.2": ["app/a.py", "tests/test_a.py"], "E2.3": ["app/b.py"], "E2.5": ["app/a.py"], "E2.6": ["app/c.py"], "E3.1": ["app/d.py"] };
+  const batch = R.parallelBatch(R.parsePlanTasks(plan), "E2", new Set(["E2.1"]), files);
+  // plan order; E2.4 waits for E2.3; E2.5 shares app/a.py with E2.2; other epics never join
+  assert.deepEqual(batch, ["E2.2", "E2.3", "E2.6"]);
+  // at most 3, and a task with no brief yet is not scheduled
+  assert.deepEqual(R.parallelBatch(R.parsePlanTasks(plan), "E2", new Set(["E2.1"]), { ...files, "E2.6": undefined }), ["E2.2", "E2.3"]);
+  // one task is not parallel work
+  assert.deepEqual(R.parallelBatch(R.parsePlanTasks(plan), "E3", new Set(), files), ["E3.1"]);
+});
+
+test("routing: parallel is refused when worktree.baseRef is not head", () => {
+  assert.deepEqual(R.parallelReady({ parallel: false }), { ok: false, reason: "parallel: off in config.md" });
+  assert.match(R.parallelReady({ parallel: true, settings: [] }).reason, /worktree\.baseRef/);
+  assert.match(R.parallelReady({ parallel: true, settings: ['{"worktree":{"baseRef":"default"}}'] }).reason, /worktree\.baseRef/);
+  assert.deepEqual(R.parallelReady({ parallel: true, settings: ['{"other":1}', '{"worktree":{"baseRef":"head"}}'] }), { ok: true, reason: "" });
+  assert.equal(R.parallelReady({ parallel: true, settings: ["not json"] }).ok, false);
+  // the gate holds a worktree builder to the same rule
+  const tasks = R.parsePlanTasks("## E2 x\n- [ ] E2.1 a | size: S | risk: no\n");
+  const input = { subagent_type: "boxbox:boxbox-builder", description: "E2.1 a", model: "sonnet", isolation: "worktree" };
+  const no = R.gateDecision({ input, mode: "balanced", session: "opus", tasks, history: new Map(), parallel: R.parallelReady({ parallel: true, settings: [] }) });
+  assert.match(no.reason, /^E2\.1 asks for a worktree, but parallel builds are not ready: /);
+  assert.equal(R.gateDecision({ input, mode: "balanced", session: "opus", tasks, history: new Map(), parallel: { ok: true } }).decision, "allow");
+});
+
+test("routing: parallel readiness follows Claude Code's settings order, and briefs' paths are compared as paths", () => {
+  // settings.local.json first: its baseRef wins over the project's
+  assert.equal(R.parallelReady({ parallel: true, settings: ['{"worktree":{"baseRef":"fresh"}}', '{"worktree":{"baseRef":"head"}}'] }).ok, false);
+  assert.equal(R.parallelReady({ parallel: true, settings: ['{"model":"opus"}', '{"worktree":{"baseRef":"head"}}'] }).ok, true);
+  assert.match(R.parallelReady({ parallel: true, settings: ["{oops", '{"worktree":{"baseRef":"head"}}'] }).reason, /cannot be read/);
+  const tasks = R.parsePlanTasks("## E2 x\n- [ ] E2.1 a | deps: none\n- [ ] E2.2 b | deps: none\n- [ ] E2.3 c | deps: none\n");
+  assert.deepEqual(R.parallelBatch(tasks, "E2", new Set(), { "E2.1": ["app/a.py"], "E2.2": ["./app/a.py"], "E2.3": ["lib/x.js"] }), ["E2.1", "E2.3"]);
+  assert.deepEqual(R.parallelBatch(tasks, "E2", new Set(), { "E2.1": ["app/"], "E2.2": ["app/models/user.py"], "E2.3": ["lib/x.js"] }), ["E2.1", "E2.3"], "a folder covers the files in it");
+});
+
+test("gate: a worktree builder is checked even when there is no plan", () => {
+  const input = { subagent_type: "boxbox:boxbox-builder", description: "E2.1 a", model: "sonnet", isolation: "worktree" };
+  assert.equal(R.gateDecision({ input, mode: "balanced", session: "opus", tasks: new Map(), history: new Map(), parallel: { ok: false, reason: "parallel: off in config.md" } }).decision, "deny");
 });

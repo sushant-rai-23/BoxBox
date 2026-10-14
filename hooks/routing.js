@@ -46,7 +46,9 @@ function parsePlanTasks(planText) {
       if (kv) fields[kv[1].toLowerCase()] = kv[2];
     }
     const size = /^[SML]$/i.test(fields.size || "") ? fields.size.toUpperCase() : "M";
-    tasks.set(t[1], { epic: epic || t[1].split(".")[0], size, risk: /^yes$/i.test(fields.risk || ""), epicModel });
+    const dm = t[2].match(/\|\s*deps:\s*([^|]*)/i);
+    const deps = dm ? (dm[1].match(/E\d+\.\d+/g) || []) : [];
+    tasks.set(t[1], { epic: epic || t[1].split(".")[0], size, risk: /^yes$/i.test(fields.risk || ""), epicModel, deps });
   }
   return tasks;
 }
@@ -70,6 +72,41 @@ function parseBrief(text) {
   const goal = g >= 0 ? (rest.slice(g + 1).find(l => l.trim()) || "").trim() : "";
   return { task: field("task"), size, risk: /^yes$/i.test(field("risk")), expectedDiff: n > 0 ? n : SIZE_LINES[size],
            files, base: field("base"), goal };
+}
+
+// Parallel mode: the tasks of one epic that may build at the same time, in plan order. A task joins
+// when every task it depends on is done, its brief is written (so its files are known), and it shares
+// no file with a task already in the batch. At most three.
+function parallelBatch(tasks, epic, done, briefFiles) {
+  const batch = [], taken = [];
+  // Paths as paths: "./app/a.py" is "app/a.py", and a folder ("app/") covers every file in it.
+  const norm = f => String(f).trim().replace(/^\.\//, "").replace(/\/+/g, "/");
+  const clash = (a, b) => a === b || (a.endsWith("/") && b.startsWith(a)) || (b.endsWith("/") && a.startsWith(b));
+  for (const [id, t] of tasks) {
+    if (batch.length >= 3) break;
+    if (t.epic !== epic || done.has(id) || !(t.deps || []).every(d => done.has(d))) continue;
+    const files = (briefFiles[id] || []).map(norm).filter(Boolean);
+    if (!files.length || files.some(f => taken.some(g => clash(f, g)))) continue;
+    taken.push(...files);
+    batch.push(id);
+  }
+  return batch;
+}
+
+// May builders run in worktrees? Only with `parallel: on` and worktree.baseRef "head" in a project
+// settings file (decision D3): otherwise Claude Code branches worktrees from the default branch,
+// and the epic's earlier commits would be missing (docs/routing-spike.md, section 7).
+// `settings`: the texts of .claude/settings.local.json then .claude/settings.json, Claude Code's own
+// order: the first file that sets worktree.baseRef decides.
+function parallelReady({ parallel, settings = [] }) {
+  if (!parallel) return { ok: false, reason: "parallel: off in config.md" };
+  for (const text of settings) {
+    if (!String(text || "").trim()) continue;
+    let s; try { s = JSON.parse(text); } catch { return { ok: false, reason: "a .claude/settings file cannot be read as JSON, so worktree.baseRef is unknown" }; }
+    if (s && s.worktree && "baseRef" in s.worktree) return s.worktree.baseRef === "head" ? { ok: true, reason: "" }
+      : { ok: false, reason: `worktree.baseRef is "${s.worktree.baseRef}", not "head": worktrees would start from the default branch without the epic's commits` };
+  }
+  return { ok: false, reason: 'worktree.baseRef is not "head": set "worktree": {"baseRef": "head"} in .claude/settings.json, or worktrees start from the default branch without the epic\'s commits' };
 }
 
 // Tasks that were escalated to the session model: every `say escalated` event names one.
@@ -140,6 +177,7 @@ function gateDecision(q) {
     return deny(agent === "builder"
       ? `start the description with the task id, like "E2.3 <what>", so the gate can find the task`
       : `start the description with the unit it serves: a task id, an epic id or "setup", like "E2.3 <what>"`);
+  if (input.isolation === "worktree" && q.parallel && !q.parallel.ok) return deny(`${task} asks for a worktree, but parallel builds are not ready: ${q.parallel.reason}. Build it without isolation`);
   const known = q.tasks && q.tasks.size > 0;
   if (agent === "builder" && !known) return { decision: "allow", reason: "not checked: no tasks in plan.md for the current feature", task, expected: null };
   if (agent === "builder" && !q.tasks.get(task)) return deny(`${task} is not a task in plan.md: start the description with the task's id from the plan`);
@@ -175,4 +213,4 @@ function agentOf(subagentType) {
   return m ? m[1] : null;
 }
 
-module.exports = { MODES, SIZE_LINES, parseModels, parsePlanTasks, parseBrief, escalatedTasks, taskOfDescription, builderHistory, gateDecision, expectedModel, familyOf, agentOf };
+module.exports = { MODES, SIZE_LINES, parseModels, parsePlanTasks, parseBrief, parallelBatch, parallelReady, escalatedTasks, taskOfDescription, builderHistory, gateDecision, expectedModel, familyOf, agentOf };

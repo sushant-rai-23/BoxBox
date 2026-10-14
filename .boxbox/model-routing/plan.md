@@ -151,7 +151,7 @@ tasks:
 - [x] E6.1 Status line script from live data | test: `statusline: prints task, model, cost and tests from live files in under 50 ms` | done: test green | deps: none
 - [x] E6.2 Setup offers to install it into project settings | no cheap test, verify: setup text asks first, merges one key, shows an existing statusLine | deps: E6.1
 
-## E7 Parallel tasks  [todo]
+## E7 Parallel tasks  [done]
 outcome: With `parallel: on` and `worktree.baseRef: "head"`, independent tasks of one epic build at once in worktree builders (at most 3), merge back in plan order with one commit per task, and fall back to one at a time on any conflict or red suite.
 branch: model-routing-e7-parallel
 depends: E2, E5
@@ -166,9 +166,9 @@ fails:
 - Wrong base branch: refuse (E7.2)
 - Conflict or red suite: fall back (E7.3)
 tasks:
-- [ ] E7.1 Choose tasks that can build together | test: `routing: two tasks sharing a brief file are never scheduled together` | done: test green | deps: none
-- [ ] E7.2 Base-branch check and setup step | test: `routing: parallel is refused when worktree.baseRef is not head` | done: test green | deps: E7.1
-- [ ] E7.3 Build skill: worktree builders, ordered merge, fallback | no cheap test, verify: skill text covers order, one commit per task, full suite once, fallback and report | deps: E7.1, E7.2
+- [x] E7.1 Choose tasks that can build together | test: `routing: two tasks sharing a brief file are never scheduled together` | done: test green | deps: none
+- [x] E7.2 Base-branch check and setup step | test: `routing: parallel is refused when worktree.baseRef is not head` | done: test green | deps: E7.1
+- [x] E7.3 Build skill: worktree builders, ordered merge, fallback | no cheap test, verify: skill text covers order, one commit per task, full suite once, fallback and report | deps: E7.1, E7.2
 
 ## E8 Release 0.7.0  [todo]
 outcome: README explains routing with a Claude Code vs Codex table and marks live-only checks as not yet verified in a live session (D5); version is 0.7.0 everywhere; all tests and `claude plugin validate .` pass.

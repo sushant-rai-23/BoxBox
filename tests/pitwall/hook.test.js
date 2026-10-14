@@ -411,3 +411,24 @@ test("hook: an answer in the question tool clears the waiting card", () => {
   assert.ok(!fs.existsSync(path.join(root, ".boxbox", "live", "waiting.json")));
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("an edit made in a worktree counts as the same repo file", () => {
+  const root = "/r";
+  assert.deepEqual(h.editedPaths("Write", { file_path: "/r/.claude/worktrees/agent-a2133/app/a.py" }, root), ["app/a.py"]);
+  assert.deepEqual(h.editedPaths("Edit", { file_path: "/r/.claude/worktrees/agent-a2133/.boxbox/plan.md" }, root), [], "Boxbox's own files stay out, in a worktree too");
+  assert.deepEqual(h.editedPaths("Edit", { file_path: "/r/app/a.py" }, root), ["app/a.py"]);
+});
+
+test("a subagent's events carry its own task, not the last stage's unit", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbunit-"));
+  const live = path.join(root, ".boxbox", "live");
+  fs.mkdirSync(live, { recursive: true });
+  fs.writeFileSync(path.join(live, "stage.json"), JSON.stringify({ stage: "build", unit: "E2.4" }));   // the last task said
+  fs.writeFileSync(path.join(live, "events.jsonl"), JSON.stringify({ kind: "crew", result: "started", sub: "b1", unit: "E2.3", target: "boxbox:boxbox-builder" }) + "\n");
+  const p = { session_id: "s1", transcript_path: "/p/s1.jsonl", hook_event_name: "PostToolUse", agent_id: "b1", agent_type: "boxbox:boxbox-builder", tool_name: "Read", tool_input: { file_path: "/x" }, tool_response: {} };
+  spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), "PostToolUse"], { input: JSON.stringify(p), env: { ...process.env, BOXBOX_ROOT: root } });
+  const last = fs.readFileSync(path.join(live, "events.jsonl"), "utf8").trim().split("\n").map(JSON.parse).pop();
+  assert.equal(last.unit, "E2.3");
+  fs.rmSync(root, { recursive: true, force: true });
+});

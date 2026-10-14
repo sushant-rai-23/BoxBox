@@ -45,6 +45,28 @@ From here until the review stop, `.boxbox/` changes stay uncommitted. Task commi
 
 A task with no cheap test: do it, verify it the way the plan says, and record exactly what you observed.
 
+## Parallel tasks (Claude Code, `parallel: on`)
+
+Off by default. When `config.md` says `parallel: on` (and `models:` is not `auto`), independent tasks of the current epic can build at the same time, each in its own worktree. See "Git worktrees and merging" in `.boxbox/knowledge/` if it exists.
+
+1. **Check it can run.** `"worktree": {"baseRef": "head"}` must be set in `.claude/settings.local.json`, or in `.claude/settings.json` when the local file does not set `baseRef` (Claude Code reads the local file first). Without it, worktrees start from the default branch and miss the epic's earlier commits, and the routing gate denies worktree builders. If it is missing, say so once and build one task at a time.
+2. **Pick the batch.** In parallel mode only, write the briefs of the candidate tasks before starting them: this is the one exception to "never write briefs ahead", and each brief is still written from the code as it is now. A batch is the tasks, in plan order, whose `deps` are all done and whose briefs' `files` share no file and no folder, at most 3. Apply this rule by hand; it is `parallelBatch` in the plugin's `hooks/routing.js`. One task is not a batch: build it as usual.
+3. **Start them together.** For each task: `say stage build --unit <task id>`, then one `boxbox:boxbox-builder` call with `isolation: "worktree"`, its `model`, and the task id first in the description, all in the same message so they run at once. Each builder commits on its own branch; the Agent result names `worktreeBranch` and `worktreePath`. The pit wall shows each one as its own lane.
+4. **Check each builder before merging anything.** Note the epic branch's commit, `<base>`. For each task, as in step 1 above: read its diff, check its size against the brief and that it stayed in the brief's `files`. Then check its branch:
+   - `git merge-base --is-ancestor <base> <task branch>` must succeed: the worktree started from the epic. If not, the base setting did not hold: stop parallel mode and say so.
+   - `git rev-list --count <base>..<task branch>` must be `1`. `0` means the builder failed: that task leaves the batch and is built one at a time later (it counts as one failure for escalation). More than `1`: leave the task out the same way, never cherry-pick part of it.
+5. **Merge back in plan order, without rewriting anything.** The tasks that passed step 4:
+   ```
+   git switch -c <epic branch>-batch
+   git cherry-pick <task branch>        # once per task, in plan order: one commit per task
+   <full test command from config.md>
+   git switch <epic branch> && git merge --ff-only <epic branch>-batch && git branch -d <epic branch>-batch
+   ```
+   The epic branch only moves forward. The `-batch` branch is a local scratch copy, never pushed, so deleting it is not rewriting history and needs no question.
+6. **On any conflict or a red suite:** `git cherry-pick --abort` if one is in progress, switch back to the epic branch, delete the `-batch` branch (`git branch -D`), and stop parallel mode for this epic: build the rest one task at a time, including every task of the failed batch, from their briefs, on the epic branch as usual (escalation then works as above). Record it as a gotcha in the report: which tasks, which file conflicted or which test failed.
+7. **Tidy up.** After the batch is merged or abandoned, `git worktree remove <worktreePath>` for each task. If git refuses because the worktree has leftover files, leave it and list it in the report. Keep the `worktree-agent-*` branches; the report lists them, and deleting them after approval is the developer's call.
+8. Escalation, the gate and ticking off work per task exactly as above. A task built in a batch that later fails is rebuilt one at a time, never in a new batch.
+
 ## When something goes wrong
 
 - A test fails and you do not know why: use **boxbox-debug**. Do not guess at fixes.

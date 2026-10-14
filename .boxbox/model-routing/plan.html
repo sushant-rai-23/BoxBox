@@ -178,18 +178,18 @@
         </ol>
       </article>
       <article class="epic" id="e7">
-        <span class="status">to do</span>
+        <span class="status" data-st="done">done</span>
         <h3><data>E7</data>Parallel tasks</h3>
         <p>With <code>parallel: on</code> and <code>worktree.baseRef: "head"</code>, independent tasks of one epic build at once in worktree builders (at most 3), merge back in plan order with one commit per task, and fall back to one at a time on any conflict or red suite.</p>
         <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e7-parallel</code></dd><dt>Depends on</dt><dd>E2, E5</dd><dt>Design stop</dt><dd>no</dd></dl>
         <h4>Done when</h4>
         <ul class="accept"><li>A pure function picks tasks that can run together: same epic, no dependency between them, no overlapping brief files, at most 3</li><li>Parallel refuses to start without <code>worktree.baseRef: "head"</code> and says why (D3); setup asks to set it and ignores .claude/worktrees/ (A7)</li><li>boxbox-build merges task branches in plan order (one commit per task), runs the full suite once, and on a conflict or red suite stops parallel for the epic and reports it</li></ul>
         <ol class="tasks">
-          <li data-st="todo"><b>E7.1</b>Choose tasks that can build together
+          <li data-st="done"><b>E7.1</b>Choose tasks that can build together
             <dl><dt>First test</dt><dd><code>routing: two tasks sharing a brief file are never scheduled together</code></dd><dt>Fails when</dt><dd>Overlapping files: never scheduled together</dd><dt>Files</dt><dd><code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>agents/boxbox-builder.md</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
-          <li data-st="todo"><b>E7.2</b>Base-branch check and setup step
+          <li data-st="done"><b>E7.2</b>Base-branch check and setup step
             <dl><dt>First test</dt><dd><code>routing: parallel is refused when worktree.baseRef is not head</code></dd><dt>Fails when</dt><dd>Wrong base branch: refuse</dd><dt>Files</dt><dd><code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>agents/boxbox-builder.md</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
-          <li data-st="todo"><b>E7.3</b>Build skill: worktree builders, ordered merge, fallback
+          <li data-st="done"><b>E7.3</b>Build skill: worktree builders, ordered merge, fallback
             <dl><dt>First test</dt><dd>No cheap test. Verify: skill text covers order, one commit per task, full suite once, fallback and report</dd><dt>Fails when</dt><dd>Conflict or red suite: fall back</dd><dt>Files</dt><dd><code>skills/boxbox-build/SKILL.md</code>, <code>skills/boxbox-setup/SKILL.md</code>, <code>skills/boxbox-setup/kit/GUIDE.md</code>, <code>agents/boxbox-builder.md</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
         </ol>
       </article>
