@@ -309,3 +309,70 @@ test("say always writes valid JSON, and refuses an escalation without a unit", (
   assert.ok(!/[\x00-\x1f]/.test(esc[1].target));
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test("gate: a builder that edits outside its brief, or one file 5 times, needs escalation", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbtrig-"));
+  const box = path.join(root, ".boxbox"), live = path.join(box, "live");
+  fs.mkdirSync(path.join(box, "resets", "e2-pw", "tasks"), { recursive: true });
+  fs.mkdirSync(live, { recursive: true });
+  fs.writeFileSync(path.join(box, "config.md"), "commands:\n  test: npm test\nmodels: balanced\npitwall: off\n");
+  fs.writeFileSync(path.join(box, "state.md"), "# State\nfeature: resets\n");
+  fs.writeFileSync(path.join(box, "resets", "e2-pw", "tasks", "E2.1.md"), "task: E2.1\nfiles:\n- app/pw.py\n- tests/test_pw.py\n\n## Goal\nx\n");
+  // The gate let the builder run; Claude Code wrote the subagent's meta file with that call's id.
+  fs.writeFileSync(path.join(live, "events.jsonl"), JSON.stringify({ ts: "2026-10-14T10:00:00Z", kind: "gate", id: "tu9", unit: "E2.1", target: "boxbox:boxbox-builder", result: "allow" }) + "\n");
+  const tdir = path.join(root, "proj"), sub = path.join(tdir, "s1", "subagents");
+  fs.mkdirSync(sub, { recursive: true });
+  fs.writeFileSync(path.join(sub, "agent-a1.meta.json"), JSON.stringify({ agentType: "boxbox:boxbox-builder", toolUseId: "tu9" }));
+  const hook = (event, p) => spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), event], { input: JSON.stringify({ session_id: "s1", transcript_path: path.join(tdir, "s1.jsonl"), ...p }), encoding: "utf8", env: { ...process.env, BOXBOX_ROOT: root } });
+  const evs = () => fs.readFileSync(path.join(live, "events.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+
+  hook("SubagentStart", { hook_event_name: "SubagentStart", agent_id: "a1", agent_type: "boxbox:boxbox-builder" });
+  assert.equal(evs().find(e => e.kind === "crew" && e.result === "started").unit, "E2.1", "the subagent is tied to its task");
+
+  const edit = f => hook("PostToolUse", { hook_event_name: "PostToolUse", agent_id: "a1", agent_type: "boxbox:boxbox-builder", tool_name: "Edit", tool_input: { file_path: path.join(root, f), old_string: "a", new_string: "b" }, tool_response: {} });
+  edit("app/pw.py");
+  assert.ok(!evs().some(e => e.kind === "escalate-needed"), "an edit inside the brief is fine");
+  for (let i = 0; i < 4; i++) edit("app/pw.py");
+  const five = evs().filter(e => e.kind === "escalate-needed");
+  assert.equal(five.length, 1);
+  assert.equal(five[0].unit, "E2.1");
+  assert.equal(five[0].target, "edited app/pw.py 5 times without the tests going green");
+  edit("app/other.py");
+  assert.equal(evs().filter(e => e.kind === "escalate-needed").length, 1, "one trigger per task is enough");
+
+  // A second builder, on E2.2, edits outside its brief on its first edit.
+  fs.writeFileSync(path.join(box, "resets", "e2-pw", "tasks", "E2.2.md"), "task: E2.2\nfiles:\n- app/pw.py\n\n## Goal\ny\n");
+  fs.appendFileSync(path.join(live, "events.jsonl"), JSON.stringify({ ts: "2026-10-14T10:05:00Z", kind: "gate", id: "tu10", unit: "E2.2", target: "boxbox:boxbox-builder", result: "allow" }) + "\n");
+  fs.writeFileSync(path.join(sub, "agent-a2.meta.json"), JSON.stringify({ agentType: "boxbox:boxbox-builder", toolUseId: "tu10" }));
+  hook("SubagentStart", { hook_event_name: "SubagentStart", agent_id: "a2", agent_type: "boxbox:boxbox-builder" });
+  hook("PostToolUse", { hook_event_name: "PostToolUse", agent_id: "a2", agent_type: "boxbox:boxbox-builder", tool_name: "Write", tool_input: { file_path: path.join(root, "app/other.py"), content: "x" }, tool_response: {} });
+  assert.ok(evs().some(e => e.kind === "escalate-needed" && e.unit === "E2.2" && e.target === "edited app/other.py, outside its brief"));
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("gate: normal test-first work does not trip the 5-edit trigger", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbtdd-"));
+  const box = path.join(root, ".boxbox"), live = path.join(box, "live");
+  fs.mkdirSync(path.join(box, "f", "e1-x", "tasks"), { recursive: true });
+  fs.mkdirSync(live, { recursive: true });
+  fs.writeFileSync(path.join(box, "config.md"), "commands:\n  test: npm test\nmodels: balanced\npitwall: off\n");
+  fs.writeFileSync(path.join(box, "state.md"), "# State\nfeature: f\n");
+  fs.writeFileSync(path.join(box, "f", "e1-x", "tasks", "E1.1.md"), "task: E1.1\nfiles:\n- src/a.js\n- test/a.test.js\n\n## Goal\nx\n");
+  fs.writeFileSync(path.join(live, "events.jsonl"), JSON.stringify({ ts: "t", kind: "gate", id: "tu1", unit: "E1.1", target: "boxbox:boxbox-builder", result: "allow" }) + "\n");
+  const sub = path.join(root, "p", "s1", "subagents");
+  fs.mkdirSync(sub, { recursive: true });
+  fs.writeFileSync(path.join(sub, "agent-b1.meta.json"), JSON.stringify({ toolUseId: "tu1" }));
+  const hook = (event, extra) => spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), event], { input: JSON.stringify({ session_id: "s1", transcript_path: path.join(root, "p", "s1.jsonl"), hook_event_name: event, agent_id: "b1", agent_type: "boxbox:boxbox-builder", ...extra }), env: { ...process.env, BOXBOX_ROOT: root } });
+  const edit = (f, failed) => hook(failed ? "PostToolUseFailure" : "PostToolUse", { tool_name: "Edit", tool_input: { file_path: path.join(root, f), old_string: "a", new_string: "b" }, tool_response: {}, error: "x" });
+  hook("SubagentStart", {});
+  for (let i = 0; i < 6; i++) edit("test/a.test.js");            // adding test cases: test files do not count
+  for (let i = 0; i < 4; i++) edit("src/a.js");
+  hook("PostToolUse", { tool_name: "Bash", tool_input: { command: "node --test test/a.test.js" }, tool_response: {} });  // one test, exit 0
+  for (let i = 0; i < 4; i++) edit("src/a.js");
+  for (let i = 0; i < 3; i++) edit("src/a.js", true);             // failed edits change nothing
+  const evs = fs.readFileSync(path.join(live, "events.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+  assert.ok(!evs.some(e => e.kind === "escalate-needed"), JSON.stringify(evs.filter(e => e.kind === "escalate-needed")));
+  fs.rmSync(root, { recursive: true, force: true });
+});

@@ -96,6 +96,73 @@ function expectedModel(q) {
   return { model: m === "session" ? session : m, why: `models: ${mode}` };
 }
 
+// The unit a subagent call serves, from the start of its description: "E2.3 hash it" -> "E2.3".
+function taskOfDescription(description) {
+  const m = String(description || "").match(/^\s*(E\d+(?:\.\d+)?|setup)\b/i);
+  return m ? (m[1].toLowerCase() === "setup" ? "setup" : m[1].toUpperCase()) : "";
+}
+
+// Each builder task's history from events.jsonl, in file order (the true order: say stamps whole
+// seconds, so timestamps cannot order events in the same second). A run is a builder subagent that
+// finished on the task. The task's latest `build` stage starts its history again, so an earlier
+// feature's E1.1 and the runs before a review are not counted against a new attempt.
+function builderHistory(events) {
+  const out = new Map();
+  const fresh = () => ({ runs: 0, escalatedAt: "", runsAfterEscalation: 0, triggered: "" });
+  const get = u => { if (!out.has(u)) out.set(u, fresh()); return out.get(u); };
+  for (const e of events || []) {
+    if (!e || !e.unit) continue;
+    const unit = /^e\d/.test(e.unit) ? e.unit.toUpperCase() : e.unit;
+    if (e.kind === "stage" && e.target === "build") out.set(unit, fresh());
+    else if (e.kind === "crew" && e.result === "finished" && e.target === "boxbox:boxbox-builder") {
+      const h = get(unit); h.runs++;
+      if (h.escalatedAt) h.runsAfterEscalation++;
+    } else if (e.kind === "escalated") { const h = get(unit); if (!h.escalatedAt) h.escalatedAt = e.ts || "0"; }
+    else if (e.kind === "escalate-needed") { const h = get(unit); if (!h.triggered) h.triggered = e.target || "needs escalation"; }
+  }
+  return out;
+}
+
+// The routing gate: may this Agent call run as asked? See .boxbox/model-routing/e3-gate/design.md.
+// Returns skip (not a Boxbox agent), off (routing is not Boxbox's to enforce), allow or deny.
+function gateDecision(q) {
+  const input = q.input || {};
+  const agent = agentOf(input.subagent_type);
+  if (!agent) return { decision: "skip", reason: "not a Boxbox agent", task: "", expected: null };
+  const task = taskOfDescription(input.description);
+  // q.force: "" when CLAUDE_CODE_SUBAGENT_MODEL_FORCE is off, else CLAUDE_CODE_SUBAGENT_MODEL or "inherit".
+  if (q.force) return { decision: "off", task, expected: null, reason: q.force === "inherit"
+    ? "CLAUDE_CODE_SUBAGENT_MODEL_FORCE is on: Claude Code ignores the model passed on a call, and each agent file's model decides"
+    : `CLAUDE_CODE_SUBAGENT_MODEL_FORCE is on: every subagent runs on ${q.force}` };
+  if (q.mode === "auto") return { decision: "off", reason: "models: auto: Claude Code decides", task, expected: null };
+  const deny = (reason, expected = null) => ({ decision: "deny", reason, task, expected });
+  if (agent === "builder" ? !/^E\d+\.\d+$/.test(task) : !task)
+    return deny(agent === "builder"
+      ? `start the description with the task id, like "E2.3 <what>", so the gate can find the task`
+      : `start the description with the unit it serves: a task id, an epic id or "setup", like "E2.3 <what>"`);
+  const known = q.tasks && q.tasks.size > 0;
+  if (agent === "builder" && !known) return { decision: "allow", reason: "not checked: no tasks in plan.md for the current feature", task, expected: null };
+  if (agent === "builder" && !q.tasks.get(task)) return deny(`${task} is not a task in plan.md: start the description with the task's id from the plan`);
+  const t = (known && q.tasks.get(task)) || { size: "M", risk: false, epicModel: null };
+  const session = q.session || null;
+  const h = agent === "builder" ? (q.history && q.history.get(task)) || null : null;
+  const plain = expectedModel({ agent, mode: q.mode, session: session || "session", size: t.size, risk: t.risk, epicModel: t.epicModel });
+  if (h && h.escalatedAt && h.runsAfterEscalation >= 1) return deny(`${task} was escalated and failed again: stop and tell the developer`);
+  if (h && !h.escalatedAt && (h.runs >= 2 || h.triggered)) {
+    const why = h.triggered || "failed twice";
+    if (session && plain.model === session) return deny(`${task} ${why}, and it already runs on the session model: stop and tell the developer`);
+    // The agent may copy this command: keep file names and shell characters out of it.
+    const said = h.triggered ? h.triggered.replace(/^edited .*?(, outside its brief| \d+ times.*)$/, "edited a file$1").replace(/[^\w .,:\/-]/g, "") : why;
+    return deny(`${task} ${why.replace(/[$`\\]/g, "")}: run say escalated "${said}" --unit ${task}, then boxbox-builder with model ${session || "<the session model>"}`, session);
+  }
+  const e = h && h.escalatedAt
+    ? expectedModel({ agent, mode: q.mode, session: session || "session", escalated: true })
+    : plain;
+  if (e.model === "session") return { decision: "allow", reason: `session model unknown, not checked (${e.why})`, task, expected: null };
+  if (familyOf(input.model) !== e.model) return deny(`${task} is ${e.why}, run boxbox-${agent} with model ${e.model}`, e.model);
+  return { decision: "allow", reason: e.why, task, expected: e.model };
+}
+
 // "claude-opus-5-5[1m]" -> "opus". Null for anything that is not a Claude model id or alias.
 function familyOf(modelId) {
   const m = String(modelId || "").toLowerCase().match(/^(?:claude-)?(opus|sonnet|haiku|fable)(?:\b|-)/);
@@ -108,4 +175,4 @@ function agentOf(subagentType) {
   return m ? m[1] : null;
 }
 
-module.exports = { MODES, SIZE_LINES, parseModels, parsePlanTasks, parseBrief, escalatedTasks, expectedModel, familyOf, agentOf };
+module.exports = { MODES, SIZE_LINES, parseModels, parsePlanTasks, parseBrief, escalatedTasks, taskOfDescription, builderHistory, gateDecision, expectedModel, familyOf, agentOf };

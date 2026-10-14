@@ -142,7 +142,7 @@ window.BOXBOX_BOARD = {
   "id": "E3",
   "title": "Routing gate and escalation enforcement",
   "outcome": "A subagent call that breaks the routing rules is denied with a reason naming the right agent and model, and the agent retries; under `models: auto` or the FORCE override the gate stands aside and the pit wall says why.",
-  "status": "todo",
+  "status": "done",
   "branch": "model-routing-e3-gate",
   "files": [
    "hooks/boxbox-event",
@@ -151,36 +151,37 @@ window.BOXBOX_BOARD = {
    "tests/pitwall/gate.test.js",
    "tests/pitwall/routing.test.js"
   ],
+  "links": [ { "label": "Report (agent)", "href": "model-routing/e3-gate/report.md" } ],
   "tasks": [
    {
     "id": "E3.1",
     "title": "Synchronous gate path for Claude Code Agent/Task calls only",
     "test": "`gate: an Agent call reaches the gate synchronously and a Bash call stays in the background`",
-    "status": "todo"
+    "status": "done", "commit": "e9c4e78"
    },
    {
     "id": "E3.2",
     "title": "Deny wrong model or missing task id with a reason naming the right agent and model",
     "test": "`gate: a risky task on sonnet is denied with \"run boxbox-builder with model opus\"`",
-    "status": "todo"
+    "status": "done", "commit": "c59b87e"
    },
    {
     "id": "E3.3",
     "title": "Stand aside under `models: auto` and FORCE, and say why",
     "test": "`gate: FORCE on allows any model and logs gate-off with the reason`",
-    "status": "todo"
+    "status": "done", "commit": "bd70c15"
    },
    {
     "id": "E3.4",
     "title": "Fail open on internal errors with a gate-error event",
     "test": "`gate: an unparsable plan.md allows the call and logs gate-error`",
-    "status": "todo"
+    "status": "done", "commit": "b748fbd"
    },
    {
     "id": "E3.5",
     "title": "Escalation state: two failures or an early trigger require the session model for the task's next builder call",
     "test": "`gate: after two recorded failures a sonnet builder retry is denied`",
-    "status": "todo"
+    "status": "done", "commit": "81df492"
    }
   ]
  },

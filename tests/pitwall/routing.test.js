@@ -96,3 +96,106 @@ test("routing: an agent that is not Boxbox's has no expected model", () => {
   assert.deepEqual(R.expectedModel({ agent: "Explore", mode: "balanced", session: "opus" }), { model: null, why: "not a Boxbox agent" });
   assert.deepEqual(R.expectedModel({ agent: undefined, mode: "best", session: "opus" }), { model: null, why: "not a Boxbox agent" });
 });
+
+test("gate: a risky task on sonnet is denied with \"run boxbox-builder with model opus\"", () => {
+  const tasks = R.parsePlanTasks("## E2 x\n- [ ] E2.1 a | size: S | risk: no\n- [ ] E2.3 b | size: M | risk: yes\n");
+  const g = input => R.gateDecision({ input, mode: "balanced", session: "opus", tasks, history: new Map() });
+  const risky = g({ subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "sonnet" });
+  assert.equal(risky.decision, "deny");
+  assert.equal(risky.reason, "E2.3 is risk: yes, run boxbox-builder with model opus");
+  assert.deepEqual(g({ subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "opus" }).decision, "allow");
+  assert.equal(g({ subagent_type: "boxbox:boxbox-builder", description: "E2.1 link", model: "sonnet" }).decision, "allow");
+  assert.equal(g({ subagent_type: "boxbox:boxbox-builder", description: "E2.1 link", model: "claude-sonnet-5-5" }).decision, "allow", "a full id counts by family");
+  // no model passed where one is expected
+  assert.equal(g({ subagent_type: "boxbox:boxbox-builder", description: "E2.1 link" }).reason, "E2.1 is models: balanced, run boxbox-builder with model sonnet");
+  // scout and runner follow the table, with a task id, an epic id or setup
+  assert.equal(g({ subagent_type: "boxbox:boxbox-scout", description: "E2.3 excerpts", model: "haiku" }).decision, "allow");
+  assert.equal(g({ subagent_type: "boxbox:boxbox-runner", description: "setup refresh kit", model: "sonnet" }).reason, "setup is models: balanced, run boxbox-runner with model haiku");
+  assert.equal(g({ subagent_type: "boxbox:boxbox-writer", description: "E2 report page", model: "sonnet" }).decision, "allow");
+  // not a Boxbox agent: not judged
+  assert.equal(g({ subagent_type: "Explore", description: "anything", model: "haiku" }).decision, "skip");
+});
+
+test("gate: a call without its unit first is denied; a builder needs a task id", () => {
+  const g = input => R.gateDecision({ input, mode: "balanced", session: "opus", tasks: new Map(), history: new Map() });
+  assert.match(g({ subagent_type: "boxbox:boxbox-builder", description: "hash the token", model: "sonnet" }).reason, /start the description with the task id, like "E2\.3 <what>"/);
+  assert.match(g({ subagent_type: "boxbox:boxbox-builder", description: "E2 everything", model: "sonnet" }).reason, /task id/);
+  assert.match(g({ subagent_type: "boxbox:boxbox-scout", description: "look around", model: "haiku" }).reason, /start the description with the unit/);
+  // a task the plan does not list is built as size M, risk no
+  assert.equal(g({ subagent_type: "boxbox:boxbox-builder", description: "E9.9 new", model: "sonnet" }).decision, "allow");
+});
+
+test("gate: an unknown session model fails open when the session model is expected", () => {
+  const tasks = R.parsePlanTasks("## E2 x\n- [ ] E2.3 b | size: M | risk: yes\n");
+  const d = R.gateDecision({ input: { subagent_type: "boxbox:boxbox-builder", description: "E2.3 b", model: "haiku" }, mode: "balanced", session: null, tasks, history: new Map() });
+  assert.equal(d.decision, "allow");
+  assert.match(d.reason, /session model unknown/);
+});
+
+test("gate: FORCE on or models: auto turns the gate off, with the reason", () => {
+  const input = { subagent_type: "boxbox:boxbox-builder", description: "E2.3 b", model: "haiku" };
+  const base = { input, session: "opus", tasks: new Map([["E2.3", { size: "M", risk: false, epicModel: null }]]), history: new Map() };
+  const f = R.gateDecision({ ...base, mode: "balanced", force: "haiku" });
+  assert.equal(f.decision, "off");
+  assert.match(f.reason, /CLAUDE_CODE_SUBAGENT_MODEL_FORCE is on: every subagent runs on haiku/);
+  const a = R.gateDecision({ ...base, mode: "auto" });
+  assert.deepEqual([a.decision, a.reason], ["off", "models: auto: Claude Code decides"]);
+  // FORCE with no model to force: the call's model is ignored, the agent file decides
+  assert.match(R.gateDecision({ ...base, mode: "balanced", force: "inherit" }).reason, /ignores the model passed on a call/);
+  // no FORCE (a plain CLAUDE_CODE_SUBAGENT_MODEL is only a default): the passed model still wins, so the gate judges
+  assert.equal(R.gateDecision({ ...base, mode: "balanced", force: "" }).decision, "deny");
+});
+
+test("gate: after two recorded failures a sonnet builder retry is denied", () => {
+  // A run is a builder subagent that finished on the task (a "crew finished" event).
+  const ev = (ts, kind, unit, extra = {}) => ({ ts: `2026-10-14T10:0${ts}:00Z`, kind, unit, target: "boxbox:boxbox-builder", result: "finished", ...extra });
+  const tasks = R.parsePlanTasks("## E2 x\n- [ ] E2.1 a | size: S | risk: no\n- [ ] E2.2 b | size: S | risk: no\n");
+  const input = model => ({ subagent_type: "boxbox:boxbox-builder", description: "E2.1 a", model });
+  const decide = (events, model) => R.gateDecision({ input: input(model), mode: "balanced", session: "opus", tasks, history: R.builderHistory(events) });
+
+  const twice = [ev(1, "crew", "E2.1"), ev(2, "crew", "E2.1")];
+  const d = decide(twice, "sonnet");
+  assert.equal(d.decision, "deny");
+  assert.equal(d.reason, 'E2.1 failed twice: run say escalated "failed twice" --unit E2.1, then boxbox-builder with model opus');
+  assert.equal(decide(twice, "opus").decision, "deny", "escalation must be recorded first");
+  // once escalated, the retry runs on the session model, once
+  const escalated = [...twice, { ts: "2026-10-14T10:03:00Z", kind: "escalated", unit: "E2.1", target: "failed twice" }];
+  assert.equal(decide(escalated, "opus").decision, "allow");
+  assert.match(decide(escalated, "sonnet").reason, /E2\.1 is escalated, run boxbox-builder with model opus/);
+  const again = [...escalated, ev(4, "crew", "E2.1")];
+  assert.equal(decide(again, "opus").reason, "E2.1 was escalated and failed again: stop and tell the developer");
+  // a subagent that only started, another task, a lowercase id: none is a finished E2.1 run
+  assert.equal(decide([ev(1, "crew", "E2.1"), ev(2, "crew", "E2.1", { result: "started" }), ev(3, "crew", "E2.2")], "sonnet").decision, "allow");
+  assert.equal(decide([...twice, { ts: "x", kind: "escalated", unit: "e2.1", target: "t" }], "opus").decision, "allow", "a lowercase unit still counts");
+  // a new build stage for the task starts its history again: a later feature, or changes after review
+  const restarted = [...again, { ts: "2026-10-14T11:00:00Z", kind: "stage", target: "build", unit: "E2.1" }];
+  assert.equal(decide(restarted, "sonnet").decision, "allow");
+});
+
+test("gate: a missing plan is not checked; a task the plan does not list is denied", () => {
+  const input = { subagent_type: "boxbox:boxbox-builder", description: "E2.9 new", model: "opus" };
+  const none = R.gateDecision({ input, mode: "balanced", session: "opus", tasks: new Map(), history: new Map() });
+  assert.equal(none.decision, "allow");
+  assert.match(none.reason, /not checked: no tasks in plan\.md/);
+  const tasks = R.parsePlanTasks("## E2 x\n- [ ] E2.1 a | size: S | risk: no\n");
+  assert.equal(R.gateDecision({ input, mode: "balanced", session: "opus", tasks, history: new Map() }).reason,
+    "E2.9 is not a task in plan.md: start the description with the task's id from the plan");
+});
+
+test("gate: a deny reason never puts a file path into the command it suggests", () => {
+  const h = R.builderHistory([{ kind: "escalate-needed", unit: "E2.1", target: 'edited a"$(rm -rf ~)`x`.py, outside its brief' }]);
+  const d = R.gateDecision({ input: { subagent_type: "boxbox:boxbox-builder", description: "E2.1 a", model: "sonnet" }, mode: "balanced", session: "opus", tasks: new Map([["E2.1", { size: "S", risk: false, epicModel: null }]]), history: h });
+  assert.ok(!/[$`\\]/.test(d.reason), d.reason);
+  assert.match(d.reason, /: run say escalated "[\w .,:\/-]*" --unit E2\.1, then boxbox-builder with model opus$/);
+});
+
+test("gate: an early trigger requires escalation before the next builder run", () => {
+  const tasks = new Map([["E2.1", { size: "S", risk: false, epicModel: null }]]);
+  const h = R.builderHistory([{ ts: "2026-10-14T10:01:00Z", kind: "crew", unit: "E2.1", target: "boxbox:boxbox-builder", result: "finished" },
+                             { ts: "2026-10-14T10:02:00Z", kind: "escalate-needed", unit: "E2.1", target: "edited app/x.py, outside its brief" }]);
+  const d = R.gateDecision({ input: { subagent_type: "boxbox:boxbox-builder", description: "E2.1 a", model: "sonnet" }, mode: "balanced", session: "opus", tasks, history: h });
+  assert.equal(d.reason, 'E2.1 edited app/x.py, outside its brief: run say escalated "edited a file, outside its brief" --unit E2.1, then boxbox-builder with model opus');
+  // the session model is already the builder's: nothing to escalate to
+  const best = R.gateDecision({ input: { subagent_type: "boxbox:boxbox-builder", description: "E2.1 a", model: "opus" }, mode: "best", session: "opus", tasks, history: h });
+  assert.equal(best.reason, "E2.1 edited app/x.py, outside its brief, and it already runs on the session model: stop and tell the developer");
+});

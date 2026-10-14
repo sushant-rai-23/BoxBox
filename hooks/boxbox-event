@@ -46,8 +46,10 @@ if ! command -v node >/dev/null 2>&1; then
   exit 0
 fi
 
-# SessionStart prints context; a pit wall command from Claude Code may be pre-approved. Both wait for node.
-if [ "$event" = "SessionStart" ] || { [ "$event" = "PreToolUse" ] && [[ "$input" == *'.boxbox/pitwall/'* ]] && [[ "$input" != *'"turn_id"'* ]]; }; then
+# SessionStart prints context; a pit wall command from Claude Code may be pre-approved; a Claude Code
+# subagent call (Agent, formerly Task) passes the routing gate. These wait for node; all else is logged
+# in the background.
+if [ "$event" = "SessionStart" ] || { [ "$event" = "PreToolUse" ] && [[ "$input" != *'"turn_id"'* ]] && { [[ "$input" == *'.boxbox/pitwall/'* ]] || [[ "$input" == *'"tool_name":"Agent"'* ]] || [[ "$input" == *'"tool_name":"Task"'* ]]; }; }; then
   printf '%s' "$input" | BOXBOX_ROOT="$root" node "$here/boxbox-event.js" "$event"
 else
   ( printf '%s' "$input" | BOXBOX_ROOT="$root" node "$here/boxbox-event.js" "$event" >/dev/null 2>&1 & )
