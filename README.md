@@ -182,7 +182,16 @@ What each agent gets:
 | Status line | Yes (terminal) | No |
 | Parallel tasks | Yes, off by default | No |
 
-How the Claude Code features were checked is written up in [docs/routing-spike.md](docs/routing-spike.md). **Not yet verified in a live session** (tested with recorded real transcripts and unit tests only): a full build in `balanced` mode following the new skills, including briefs written by the main model and a report filled by the writer; a live escalation; a live parallel build and merge; the status line in a running CLI session; the new setup questions; and the brief links on a live board. Seen live in Claude Code 2.1.296: the agents loading from the plugin, the scout and the runner running on Haiku, a builder call denied on Haiku and run on Opus as the gate asked (the writer was not run live), a subagent tied to its task, and the worktree facts parallel mode relies on.
+How the Claude Code features were checked is written up in [docs/routing-spike.md](docs/routing-spike.md). **Seen live** in Claude Code 2.1.296, building a small app from an empty repo in `balanced` mode with Opus as the session model:
+- setup asking and writing `models:` and the status line;
+- a brief per task;
+- the three risky tasks built on Opus and the others on Sonnet;
+- the scout on Haiku and the writer on Sonnet, with reviews and fact-checks staying on Opus;
+- a forced double failure escalated once and passed on Opus;
+- two tasks built at the same time in worktrees and merged back in plan order, one commit each;
+- per-model token totals equal to Claude Code's own (Opus to the token, Sonnet within 0.01%).
+
+A gate denial and the agent's retry on the right model were seen in an earlier live check. **Not yet seen live:** a merge conflict in parallel mode falling back to one task at a time (tested with real git only), the runner (the main agent ran the checks itself), the status line drawn by a running CLI (its command was run on that session's live data), the brief links in a browser, and any Codex session.
 
 ## The skills and how to use them
 

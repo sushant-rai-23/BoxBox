@@ -110,3 +110,19 @@ Parallel mode must therefore set `worktree.baseRef: "head"` in the project setti
 - Subagents launched without `run_in_background` were recorded as `requestShape: "background"`, which is the default in this version. A foreground run needs `run_in_background: false`.
 - The headless spike runs cost $2.70 in total (summed from each result's `total_cost_usd`), almost all of it Opus main-session turns. The interactive status-line run used Haiku and is not included.
 - Caching between subagents works: in the first run, the `spike-sonnet` call wrote 4,462 cache tokens, the first Haiku call wrote 4,460, and the second Haiku call (`spike-haiku`) read those 4,460 from the cache (`cache_read_input_tokens: 4460`). The same fixed system prompt and agent text made the prefixes identical.
+
+## Live test of 0.7.0 (2026-10-15)
+
+A real Claude Code 2.1.296 session, with this plugin loaded through `--plugin-dir`, built `tipcalc` (a Node command-line tip calculator) from an empty repo through the whole Boxbox flow: setup, discover, plan, two epics, reports. `models: balanced`, Opus 5.5 as the session model, Boxbox 0.6 and other skill plugins disabled for the run. Two turns, $13.28 in total (Claude Code's own figure).
+
+- **Setup** wrote `models: balanced`, `parallel: off` and the status line into `.claude/settings.json`.
+- **Plan** tagged every task with size and risk (3 of 5 risky). Every task got a brief.
+- **E1, 5 tasks.** The risky tasks E1.1 to E1.3 ran on `boxbox-builder` with `opus`; E1.4 and E1.5 ran with `sonnet`. The report writer ran on `sonnet`. The code review and both fact-checks ran on Opus as plain subagents. Each `message.model` in the subagent transcripts matched the gate's expected model. No call was denied: every call was right the first time.
+- **E2, 3 tasks.**
+  - `boxbox-scout` ran twice on `claude-haiku-5-5`.
+  - E2.2 and E2.3 ran as a parallel batch in worktrees (`worktree.baseRef: "head"`), overlapping in time (18:24:55 to 18:25:40). Each made one commit, and they were cherry-picked in plan order.
+  - E2.1 was told to fail on purpose twice on `sonnet`. Then `say escalated` was logged, and the third attempt ran on `opus` and was allowed with reason "escalated".
+- **Cost.** The pit wall's per-model tokens equal a hand count of the main and 20 subagent transcripts exactly. Against Claude Code's own `modelUsage`: Opus 23,978,958 = 23,978,958; Sonnet 2,246,535 against 2,246,737 (0.009%); total $13.27 against $13.28. A resumed `-p` session reports cumulative usage, so the turns must not be added together.
+- **Status line.** Run on the session's live data, it printed `Your move: Stop 2: review E1 · session $7.47`.
+- **Not exercised:** `boxbox-runner` (the main agent ran checks itself) and a merge conflict in parallel mode.
+- **Found and fixed:** the plan wrote `deps: E1.1-E1.4`, and the parser read it as E1.1 and E1.4 only.
