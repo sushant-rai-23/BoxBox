@@ -82,6 +82,11 @@ An agent with `isolation: worktree` ran in `<repo>/.claude/worktrees/agent-<agen
 - Without a remote, it branched from the current HEAD.
 - With `"worktree": {"baseRef": "head"}` in `.claude/settings.json`, it branched from the current branch.
 
+Checked again while building E7, with `worktree.baseRef: "head"` and an Agent call passing `isolation: "worktree"`:
+
+- The `PreToolUse` hook saw `tool_input.isolation: "worktree"`, so a hook can tell a worktree call from a plain one.
+- The subagent's own hooks ran with their working directory set to the worktree (`.claude/worktrees/agent-<id>`), while `CLAUDE_PROJECT_DIR` still named the main checkout. Boxbox's hook finds `.boxbox/` from `CLAUDE_PROJECT_DIR`, so events still reach the main pit wall. File paths arrive under `.claude/worktrees/<name>/`, and the hook strips that prefix.
+
 Parallel mode must therefore set `worktree.baseRef: "head"` in the project settings (asked at setup) or refuse to run. Boxbox should also make sure `.claude/worktrees/` is ignored.
 
 ## 8. "opusplan"

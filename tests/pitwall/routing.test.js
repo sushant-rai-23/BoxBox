@@ -232,3 +232,18 @@ test("routing: parallel is refused when worktree.baseRef is not head", () => {
   assert.match(no.reason, /^E2\.1 asks for a worktree, but parallel builds are not ready: /);
   assert.equal(R.gateDecision({ input, mode: "balanced", session: "opus", tasks, history: new Map(), parallel: { ok: true } }).decision, "allow");
 });
+
+test("routing: parallel readiness follows Claude Code's settings order, and briefs' paths are compared as paths", () => {
+  // settings.local.json first: its baseRef wins over the project's
+  assert.equal(R.parallelReady({ parallel: true, settings: ['{"worktree":{"baseRef":"fresh"}}', '{"worktree":{"baseRef":"head"}}'] }).ok, false);
+  assert.equal(R.parallelReady({ parallel: true, settings: ['{"model":"opus"}', '{"worktree":{"baseRef":"head"}}'] }).ok, true);
+  assert.match(R.parallelReady({ parallel: true, settings: ["{oops", '{"worktree":{"baseRef":"head"}}'] }).reason, /cannot be read/);
+  const tasks = R.parsePlanTasks("## E2 x\n- [ ] E2.1 a | deps: none\n- [ ] E2.2 b | deps: none\n- [ ] E2.3 c | deps: none\n");
+  assert.deepEqual(R.parallelBatch(tasks, "E2", new Set(), { "E2.1": ["app/a.py"], "E2.2": ["./app/a.py"], "E2.3": ["lib/x.js"] }), ["E2.1", "E2.3"]);
+  assert.deepEqual(R.parallelBatch(tasks, "E2", new Set(), { "E2.1": ["app/"], "E2.2": ["app/models/user.py"], "E2.3": ["lib/x.js"] }), ["E2.1", "E2.3"], "a folder covers the files in it");
+});
+
+test("gate: a worktree builder is checked even when there is no plan", () => {
+  const input = { subagent_type: "boxbox:boxbox-builder", description: "E2.1 a", model: "sonnet", isolation: "worktree" };
+  assert.equal(R.gateDecision({ input, mode: "balanced", session: "opus", tasks: new Map(), history: new Map(), parallel: { ok: false, reason: "parallel: off in config.md" } }).decision, "deny");
+});

@@ -78,13 +78,16 @@ function parseBrief(text) {
 // when every task it depends on is done, its brief is written (so its files are known), and it shares
 // no file with a task already in the batch. At most three.
 function parallelBatch(tasks, epic, done, briefFiles) {
-  const batch = [], taken = new Set();
+  const batch = [], taken = [];
+  // Paths as paths: "./app/a.py" is "app/a.py", and a folder ("app/") covers every file in it.
+  const norm = f => String(f).trim().replace(/^\.\//, "").replace(/\/+/g, "/");
+  const clash = (a, b) => a === b || (a.endsWith("/") && b.startsWith(a)) || (b.endsWith("/") && a.startsWith(b));
   for (const [id, t] of tasks) {
     if (batch.length >= 3) break;
-    if (t.epic !== epic || done.has(id) || !t.deps.every(d => done.has(d))) continue;
-    const files = briefFiles[id];
-    if (!files || !files.length || files.some(f => taken.has(f))) continue;
-    files.forEach(f => taken.add(f));
+    if (t.epic !== epic || done.has(id) || !(t.deps || []).every(d => done.has(d))) continue;
+    const files = (briefFiles[id] || []).map(norm).filter(Boolean);
+    if (!files.length || files.some(f => taken.some(g => clash(f, g)))) continue;
+    taken.push(...files);
     batch.push(id);
   }
   return batch;
@@ -93,11 +96,15 @@ function parallelBatch(tasks, epic, done, briefFiles) {
 // May builders run in worktrees? Only with `parallel: on` and worktree.baseRef "head" in a project
 // settings file (decision D3): otherwise Claude Code branches worktrees from the default branch,
 // and the epic's earlier commits would be missing (docs/routing-spike.md, section 7).
+// `settings`: the texts of .claude/settings.local.json then .claude/settings.json, Claude Code's own
+// order: the first file that sets worktree.baseRef decides.
 function parallelReady({ parallel, settings = [] }) {
   if (!parallel) return { ok: false, reason: "parallel: off in config.md" };
   for (const text of settings) {
-    let s; try { s = JSON.parse(text); } catch { continue; }
-    if (s && s.worktree && s.worktree.baseRef === "head") return { ok: true, reason: "" };
+    if (!String(text || "").trim()) continue;
+    let s; try { s = JSON.parse(text); } catch { return { ok: false, reason: "a .claude/settings file cannot be read as JSON, so worktree.baseRef is unknown" }; }
+    if (s && s.worktree && "baseRef" in s.worktree) return s.worktree.baseRef === "head" ? { ok: true, reason: "" }
+      : { ok: false, reason: `worktree.baseRef is "${s.worktree.baseRef}", not "head": worktrees would start from the default branch without the epic's commits` };
   }
   return { ok: false, reason: 'worktree.baseRef is not "head": set "worktree": {"baseRef": "head"} in .claude/settings.json, or worktrees start from the default branch without the epic\'s commits' };
 }
@@ -170,10 +177,10 @@ function gateDecision(q) {
     return deny(agent === "builder"
       ? `start the description with the task id, like "E2.3 <what>", so the gate can find the task`
       : `start the description with the unit it serves: a task id, an epic id or "setup", like "E2.3 <what>"`);
+  if (input.isolation === "worktree" && q.parallel && !q.parallel.ok) return deny(`${task} asks for a worktree, but parallel builds are not ready: ${q.parallel.reason}. Build it without isolation`);
   const known = q.tasks && q.tasks.size > 0;
   if (agent === "builder" && !known) return { decision: "allow", reason: "not checked: no tasks in plan.md for the current feature", task, expected: null };
   if (agent === "builder" && !q.tasks.get(task)) return deny(`${task} is not a task in plan.md: start the description with the task's id from the plan`);
-  if (input.isolation === "worktree" && q.parallel && !q.parallel.ok) return deny(`${task} asks for a worktree, but parallel builds are not ready: ${q.parallel.reason}. Build it without isolation`);
   const t = (known && q.tasks.get(task)) || { size: "M", risk: false, epicModel: null };
   const session = q.session || null;
   const h = agent === "builder" ? (q.history && q.history.get(task)) || null : null;
