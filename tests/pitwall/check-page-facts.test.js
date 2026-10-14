@@ -99,6 +99,17 @@ test("a test name must exist in a test file", () => {
   assert.match(check(r, page(r, `<p data-evidence="code"><code data-test>test_token_is_random</code> proves it.</p>`)).join("\n"), /test "test_token_is_random" is not in any test file/);
 });
 
+test("check-page: a report brief quote must match the brief file", () => {
+  const r = makeRepo();
+  fs.mkdirSync(path.join(r.box, "f", "e1-x", "tasks"), { recursive: true });
+  fs.writeFileSync(path.join(r.box, "f", "e1-x", "tasks", "E1.1.md"), "# Brief: E1.1 short tokens\ntask: E1.1\n\n## Goal\nA short token is   16 hex characters. Serves: tokens.\n");
+  const q = (p, t) => page(r, `<p data-evidence="code">Goal: <q data-brief="${p}">${t}</q></p>`);
+  assert.deepEqual(check(r, q("f/e1-x/tasks/E1.1.md", "A short token is 16 hex characters.")), [], "whitespace is normalised; a part of the goal is enough");
+  assert.match(check(r, q("f/e1-x/tasks/E1.1.md", "A short token is 32 hex characters.")).join("\n"), /does not match the brief f\/e1-x\/tasks\/E1\.1\.md/);
+  assert.match(check(r, q("f/e1-x/tasks/E1.9.md", "anything")).join("\n"), /brief f\/e1-x\/tasks\/E1\.9\.md: no such file/);
+  assert.match(check(r, q("../outside.md", "anything")).join("\n"), /data-brief="\.\.\/outside\.md" must be a path inside \.boxbox/);
+});
+
 test("a commit hash must exist; a branch must exist", () => {
   const r = makeRepo();
   assert.deepEqual(check(r, page(r, `<p data-evidence="code">In <code data-source="git:commit">${r.first.slice(0, 7)}</code> on <code data-source="git:branch">feature-x</code>.</p>`)), []);

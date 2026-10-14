@@ -18,6 +18,7 @@
 //   - every <pre data-quote="path:first-last[@commit]"> matches those lines byte for byte (pins aside),
 //     and code captioned with a repo file is quoted that way
 //   - every <code data-test> names a test that exists in a test file
+//   - every <q data-brief="<path under .boxbox>"> quotes text that is in that task brief
 //   evidence
 //   - in the required sections of report, context, review and explain pages, every paragraph, list item,
 //     table row and definition carries data-evidence (observed | code | inferred | unknown | source), on
@@ -256,6 +257,7 @@ function checkPage(html, opts) {
     if (t.name === "svg") el.svg = { line: t.line, labelled: a["aria-hidden"] === "true" || (a.role === "img" && !!(a["aria-label"] || "").trim()) };
     if (t.name === "b" && cls.includes("pin")) el.pin = true;
     if (t.name === "pre" && a["data-quote"] != null) { el.capture = "quote"; el.text = ""; el.commit = near("data-commit", a); }
+    else if (a["data-brief"] != null) { el.capture = "brief"; el.text = ""; }
     else if (a["data-source"] != null) { el.capture = "fact"; el.text = ""; el.range = near("data-range", a); el.unit = near("data-unit", a); }
     else if (t.name === "code" && a["data-test"] != null) { el.capture = "test"; el.text = ""; el.commit = near("data-commit", a); }
     else if ((t.name === "code" && !inside("pre")) || (t.name === "span" && cls.includes("at"))) {
@@ -298,6 +300,7 @@ function checkPage(html, opts) {
     if (e.svg && !e.svg.labelled) add(e.svg.line, '<svg> has no text alternative: add role="img" and aria-label="what the diagram shows", or aria-hidden="true" if it is decoration');
     if (e.needSource && !e.hasSource) once(e.line, 'data-evidence="source" needs a link to the source in the same block: <a href="https://...">');
     if (e.capture === "quote") checkQuote(e);
+    else if (e.capture === "brief") checkBrief(e);
     else if (e.capture === "fact") checkFact(e);
     else if (e.capture === "test") checkTest(e);
     else if (e.capture === "ref") checkRef(e);
@@ -351,6 +354,19 @@ function checkPage(html, opts) {
     if (have.length !== want.length) { once(e.line, `quote of ${label} has ${have.length} lines, the repo has ${want.length} at ${short(got.c)}`); return; }
     const i = have.findIndex((l, k) => l !== want[k]);
     if (i >= 0) once(e.line, `quote of ${label} does not match the repo at ${short(got.c)}: line ${from + i} differs. Copy it exactly, or quote a different range`);
+  }
+  // A task's goal quoted from its brief: <q data-brief="<path under .boxbox>">. Briefs stay uncommitted
+  // while a unit is built, so the file is read from disk, not from git. Whitespace is normalised.
+  function checkBrief(e) {
+    const rel = e.attrs["data-brief"];
+    if (!/^[\w.-]+(\/[\w.-]+)*\.md$/.test(rel) || rel.split("/").includes("..")) { once(e.line, `data-brief="${rel}" must be a path inside .boxbox, like <feature>/<unit>/tasks/<task id>.md`); return; }
+    const r = repo();
+    const box = r && r.box;
+    if (!box) return;
+    let body;
+    try { body = fs.readFileSync(path.join(box, rel), "utf8"); } catch { once(e.line, `brief ${rel}: no such file in .boxbox`); return; }
+    const norm = s => s.replace(/\s+/g, " ").trim();
+    if (!norm(body).includes(norm(decode(e.text)))) once(e.line, `quote does not match the brief ${rel}: copy the goal from the brief exactly`);
   }
   function checkTest(e) {
     const name = decode(e.text).trim();
