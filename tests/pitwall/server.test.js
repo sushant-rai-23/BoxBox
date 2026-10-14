@@ -179,3 +179,29 @@ test("the pit wall serves the kit's own boxbox.css and boxbox.js, not the repo's
     assert.equal(await js.text(), fs.readFileSync(path.join(kit, "boxbox.js"), "utf8"));
   } finally { child.kill(); }
 });
+
+test("server: board task brief link is served under /b/", async () => {
+  // Only a plain .md path inside .boxbox becomes a link; anything else gets none.
+  assert.equal(s.briefHref("resets/e1-request/tasks/E1.2.md"), "/b/resets/e1-request/tasks/E1.2.md");
+  for (const bad of ["../secrets.md", "/etc/passwd.md", "resets/../../x.md", "resets/e1/tasks/E1.2.html", "javascript:alert(1).md", "", undefined])
+    assert.equal(s.briefHref(bad), null, String(bad));
+  const os = require("os");
+  const { spawn } = require("child_process");
+  const box = fs.mkdtempSync(path.join(os.tmpdir(), "bbbrief-"));
+  fs.mkdirSync(path.join(box, "resets", "e1-request", "tasks"), { recursive: true });
+  fs.writeFileSync(path.join(box, "resets", "e1-request", "tasks", "E1.2.md"), "# Brief: E1.2\ntask: E1.2\n");
+  const server = path.join(__dirname, "..", "..", "skills", "boxbox-setup", "kit", "pitwall", "server.js");
+  const child = spawn(process.execPath, [server, "--box", box], { stdio: ["ignore", "pipe", "pipe"] });
+  try {
+    const url = await new Promise((resolve, reject) => {
+      let out = "";
+      child.stdout.on("data", d => { out += d; const m = out.match(/http:\/\/127\.0\.0\.1:\d+\//); if (m) resolve(m[0]); });
+      child.on("exit", c => reject(new Error("server exited " + c)));
+      setTimeout(() => reject(new Error("no URL")), 5000);
+    });
+    const r = await fetch(url + s.briefHref("resets/e1-request/tasks/E1.2.md").slice(1));
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get("content-type"), /text\/plain/);
+    assert.match(await r.text(), /task: E1\.2/);
+  } finally { child.kill(); fs.rmSync(box, { recursive: true, force: true }); }
+});

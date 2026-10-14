@@ -167,6 +167,8 @@
         li.appendChild(el("data", null, t.id || ""));
         var mid = el("span", null, t.title || "");
         if (t.test) mid.appendChild(el("small", null, "First test: " + t.test));
+        var bl = /^[\w.-]+(\/[\w.-]+)*\.md$/.test(t.brief || "") && t.brief.split("/").indexOf("..") < 0 ? link("Brief", t.brief) : null;
+        if (bl) mid.appendChild(bl);
         li.appendChild(mid);
         li.appendChild(t.commit ? el("span", "commit", t.commit) : el("span"));
         rows.appendChild(li);

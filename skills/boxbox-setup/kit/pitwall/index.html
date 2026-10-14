@@ -501,7 +501,7 @@ function renderBoard() {
           ${e.outcome ? `<p>${esc(e.outcome)}</p>` : ""}
           <div class="meta">${e.branch ? `<span>branch <code>${esc(e.branch)}</code></span>` : ""}${e.depends ? `<span>needs ${esc(e.depends)}</span>` : ""}${e.files && e.files.length ? `<span>files ${e.files.map(f => `<code>${esc(f)}</code>`).join(", ")}</span>` : ""}</div>
           <nav class="pagelinks" aria-label="Pages">${(e.links || []).map(l => chip(l)).join("")}${e.pr ? chip({ label: "Pull request", href: e.pr }) : ""}</nav>
-          <ul class="tasklist">${(e.tasks || []).map(t => { const st = taskSt(t); return `<li${st !== "todo" ? ` data-st="${st}"` : ""}><data>${esc(t.id)}</data><span>${esc(t.title)}${t.status === "done" && st !== "verified" ? '<span class="claimed">claimed</span>' : ""}</span><span></span></li>`; }).join("")}</ul>
+          <ul class="tasklist">${(e.tasks || []).map(t => { const st = taskSt(t); return `<li${st !== "todo" ? ` data-st="${st}"` : ""}><data>${esc(t.id)}</data><span>${esc(t.title)}${t.status === "done" && st !== "verified" ? '<span class="claimed">claimed</span>' : ""}${t.briefHref ? ` <a href="${esc(t.briefHref)}" target="_blank" rel="noopener">brief</a>` : ""}</span><span></span></li>`; }).join("")}</ul>
         </div>`;
       }).join("")}</div></div>`;
   }).join("");

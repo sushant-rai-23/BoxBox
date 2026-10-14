@@ -72,6 +72,12 @@ function matchAny(p, globs) {
   });
 }
 
+// A task's brief as a link the pit wall can open: a plain .md path inside .boxbox, served under /b/.
+function briefHref(brief) {
+  const p = String(brief || "");
+  return /^[\w.-]+(\/[\w.-]+)*\.md$/.test(p) && !p.split("/").includes("..") ? "/b/" + p : null;
+}
+
 function usageTotal(e) { return e.input + e.output + e.cacheWrite5m + e.cacheWrite1h + e.cacheRead; }
 
 // Claude Code writes one assistant message on several lines while it streams, with usage
@@ -469,6 +475,7 @@ class Live {
     this.refresh();
     this.refreshGarage(false);
     const board = parseBoard(readText(path.join(this.box, "board-data.js")));
+    for (const m of (board && board.milestones) || []) for (const e of m.epics || []) for (const t of e.tasks || []) t.briefHref = briefHref(t.brief);
     const st = parseState(readText(path.join(this.box, "state.md")));
     const stage = currentStage(readJSON(path.join(this.live, "stage.json")), this.events);
     const unit = stage.unit || (stage.last && stage.last.unit) || "";
@@ -658,7 +665,7 @@ function summary(unit) {
   console.log(outside.length ? "Edited outside scope: " + outside.map(o => o.path).join(", ") : "Edited outside scope: none.");
 }
 
-module.exports = { parseBoard, parseState, globToRegExp, matchAny, ingestClaudeLines, ingestCodexLines, priceFor, costOf, totals, stageTimeline, aggregate, drift, verification, currentStage, Live };
+module.exports = { parseBoard, parseState, briefHref, globToRegExp, matchAny, ingestClaudeLines, ingestCodexLines, priceFor, costOf, totals, stageTimeline, aggregate, drift, verification, currentStage, Live };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
