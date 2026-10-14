@@ -190,7 +190,7 @@ Boxbox ships four subagents in the plugin's `agents/` folder: `boxbox:boxbox-bui
 | runner | session | haiku | haiku |
 | writer | session | sonnet | haiku |
 
-"session" is the main conversation's model. With `auto`, Boxbox steps aside as in 0.6: it uses no Boxbox agent and passes no model, so plain subagents run on whatever Claude Code chooses, and nothing is escalated. The rule lives in the plugin's `hooks/routing.js`; for a builder task, the first match wins:
+"session" is the main conversation's model. With `auto` (or no `models:` line, as in a repo set up before 0.7), Boxbox steps aside as in 0.6: **no step calls a `boxbox:*` agent** (builder, scout, runner or writer), no model is passed, and nothing is escalated. Use a plain fresh subagent, or do the step yourself, wherever a skill names a Boxbox agent. The rule lives in the plugin's `hooks/routing.js`; for a builder task, the first match wins:
 
 1. `models: auto`: no Boxbox agent, no model.
 2. The task was escalated: the session model.

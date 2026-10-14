@@ -161,12 +161,12 @@ Planning, decisions, design, task briefs, code review, the page fact-check and e
 | `boxbox-runner` | Haiku | Haiku | runs tests, lint and the page checker; fixes only mechanical failures | changes behaviour |
 | `boxbox-writer` | Sonnet | Haiku | fills page templates from the facts it is given | invents facts |
 
-`best` puts every agent on your session model; `auto` uses no Boxbox agents and sets no models, as before 0.7 (a repo set up before 0.7 has no `models:` line and stays on `auto` until you choose). A task tagged `risk: yes` (auth, payments, crypto, migrations, concurrency) or `size: L` builds on your session model except under `save`, and "use opus for E3" pins one epic.
+`best` puts every agent on your session model; `auto` uses no Boxbox agents and sets no models, as before 0.7: plain subagents do the same work on whatever Claude Code picks (a repo set up before 0.7 has no `models:` line and stays on `auto` until you choose; the first session after the update says when its `.boxbox/` copy needs a refresh). A task tagged `risk: yes` (auth, payments, crypto, migrations, concurrency) or `size: L` builds on your session model except under `save`, and "use opus for E3" pins one epic.
 
-- **Task briefs.** Before each task, the main model writes `.boxbox/<feature>/<epic>/tasks/<task>.md` from the code as it is now: the goal, the exact excerpts to change, the interface, the tests, what not to touch, the done check, the expected diff size. The builder gets only that, after a fixed part that never changes, so the prompt cache does its work. The board, the pit wall and the report link and quote each brief.
-- **Routing gate.** A hook checks every call to a Boxbox agent against these rules and denies a wrong one with a reason that names the right agent and model ("E2.3 is risk: yes, run boxbox-builder with model opus"). It stands aside under `models: auto` and when `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set, and says why on the pit wall.
-- **Escalation.** A builder that fails a task twice, edits outside its brief, or edits one file five times without a green test, retries once on your session model. If that fails too, the agent stops and tells you.
-- **Exact cost per model.** Subagent transcripts are counted from the moment a subagent starts, per model and per task, and checked against Claude Code's own totals.
+- **Task briefs.** Before each task, the main model writes `.boxbox/<feature>/<unit>/tasks/<task>.md` from the code as it is now: the goal, the exact excerpts to change, the interface, the tests, what not to touch, the done check, the expected diff size. The builder gets only that, after a fixed part that never changes, so the prompt cache does its work. The board, the pit wall and the report link and quote each brief.
+- **Routing gate.** A hook checks every call to a Boxbox agent against these rules and denies a wrong one with a reason that names the right agent and model ("E2.3 is risk: yes, run boxbox-builder with model opus"). It stands aside under `models: auto` and when `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set, and says why on the pit wall. It judges only calls to Boxbox's own agents, and in a session's very first turn, before Claude Code has written the session's model to disk, it cannot check calls that should use the session model and lets them run.
+- **Escalation.** A builder that fails a task twice, edits outside its brief, edits one code file five times without a green test, or produces a diff more than three times the brief's estimate, retries once on your session model. If that fails too, the agent stops and tells you.
+- **Cost per model.** Subagent transcripts are counted from the moment a subagent starts, per model and per task. On a recorded real session the counts match Claude Code's own per-model totals exactly for Opus and Sonnet; Haiku reads slightly low, because Claude Code's own small Haiku calls (the session title) are in no transcript.
 - **Status line** (optional, asked at setup): `E2.3 · builder sonnet · session $0.42 · 14/14 tests` under your prompt. Terminal only; the VS Code extension may not show it.
 - **Parallel tasks** (`parallel: on`, off by default): independent tasks of one epic build at once in separate worktrees, at most three, then merge back in plan order with one commit per task. Needs `"worktree": {"baseRef": "head"}` in the project's settings; any conflict or red suite falls back to one task at a time.
 
@@ -175,14 +175,14 @@ What each agent gets:
 | Feature | Claude Code | Codex |
 | --- | --- | --- |
 | Plan, decisions, units, reports, pit wall, pause | Yes | Yes (as in 0.6) |
-| Task briefs | Yes, built by `boxbox-builder` | Yes, built by the main agent |
+| Task briefs | Yes, built by `boxbox-builder` (a plain subagent under `auto`) | Yes, built by the main agent |
 | Fixed-model subagents (`models:`) | Yes | No: the main agent does everything |
 | Routing gate and escalation | Yes | No |
 | Tokens and cost by model | Yes, subagents included | Per session, with the Codex model; no Codex prices unless you add them |
 | Status line | Yes (terminal) | No |
 | Parallel tasks | Yes, off by default | No |
 
-How the Claude Code features were checked is written up in [docs/routing-spike.md](docs/routing-spike.md). **Not yet verified in a live session** (tested with recorded real transcripts and unit tests only): a full build in `balanced` mode following the new skills, a live escalation, a live parallel build and merge, and the status line in a running CLI session. A gate denial and the agent's retry were seen live.
+How the Claude Code features were checked is written up in [docs/routing-spike.md](docs/routing-spike.md). **Not yet verified in a live session** (tested with recorded real transcripts and unit tests only): a full build in `balanced` mode following the new skills, including briefs written by the main model and a report filled by the writer; a live escalation; a live parallel build and merge; the status line in a running CLI session; the new setup questions; and the brief links on a live board. Seen live in Claude Code 2.1.296: the four agents loading and running on their models, a gate denial and the agent's retry on the right model, a subagent tied to its task, and the worktree facts parallel mode relies on.
 
 ## The skills and how to use them
 

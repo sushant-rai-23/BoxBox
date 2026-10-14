@@ -343,12 +343,13 @@ function checkTriggers(p, live, box, edits, base) {
   const start = readEvents(live, `"sub":"${p.agent_id}"`).find(e => e.kind === "crew" && e.result === "started");
   const task = start && start.unit;
   if (!task || !/^E\d+\.\d+$/.test(task)) return;
-  if (readEvents(live, "escalate-needed").some(e => e.kind === "escalate-needed" && e.unit === task)) return;
+  // One trigger per attempt: the same rule that starts a task's history again (routing.builderHistory).
+  if (routing.builderHistory(readEvents(live, /"kind":"(stage|escalate-needed)"/)).get(task)?.triggered) return;
   const st = parseState(readText(path.join(box, "state.md")));
   let brief = null;
   try { for (const d of fs.readdirSync(path.join(box, st.feature || "-"))) { const f = path.join(box, st.feature, d, "tasks", task + ".md"); if (fs.existsSync(f)) { brief = routing.parseBrief(readText(f)); break; } } } catch {}
   let why = "";
-  const outside = brief && brief.files.length ? edits.find(f => !brief.files.includes(f)) : null;
+  const outside = brief && brief.files.length ? edits.find(f => !routing.inFiles(f, brief.files)) : null;
   if (outside) why = `edited ${outside}, outside its brief`;
   else {
     // Test-first work edits test files often and runs single tests: only edits to code files count,
@@ -457,8 +458,12 @@ function main(event, raw, root) {
       append(live, "sessions.jsonl", { session: p.session_id || "", agent, transcript: p.transcript_path || "", started: base.ts });
       append(live, "events.jsonl", { ...base, type: "session", kind: "session", target: `${agent === "codex" ? "Codex" : "Claude Code"} session ${p.source || "started"}`, why: "", result: "" });
       // A models: value Boxbox does not know runs as balanced; say so where the developer and the agent will see it.
-      const warn = agent === "claude-code" && cfg.modelsWarning ? `Boxbox config: ${cfg.modelsWarning}. Tell the developer once.` : "";
-      if (warn) append(live, "events.jsonl", { ...base, type: "warning", kind: "warning", target: cfg.modelsWarning, why: "", result: "" });
+      let warn = agent === "claude-code" && cfg.modelsWarning ? `Boxbox config: ${cfg.modelsWarning}. Tell the developer once.` : "";
+      // After a plugin update the repo's copies are stale: its say and check-page lose pre-approval,
+      // and new pieces (briefs, the status line) are missing until the kit is refreshed.
+      const repoSay = readText(path.join(box, "pitwall", "say")), kitSay = readText(path.join(KIT, "say"));
+      if (repoSay && kitSay && repoSay !== kitSay) warn = (warn ? warn + " " : "") + "The kit in .boxbox/ is older than the installed Boxbox plugin: refresh it (boxbox-setup, \"Refreshing the kit\") before the next Boxbox step, then offer any setup question config.md does not answer yet (models:, the status line).";
+      if (warn) append(live, "events.jsonl", { ...base, type: "warning", kind: "warning", target: short(warn.replace(/ Tell the developer once\./, ""), 200), why: "", result: "" });
       if (cfg.pitwall === "off") { if (warn) emitContext(warn); return; }
       const s = ensureServer(root, cfg.pitwall === "open" && (p.source === "startup" || p.source === undefined));
       emitContext((s.url
