@@ -258,3 +258,11 @@ test("routing: a deps range like E1.1-E1.4 means every task in it", () => {
   assert.deepEqual(t.get("E1.5").deps, ["E1.1", "E1.2", "E1.3", "E1.4"]);
   assert.deepEqual(t.get("E1.6").deps, ["E1.2", "E1.4", "E1.5"]);
 });
+
+test("routing: a huge or backwards deps range is ignored, never expanded", () => {
+  const t0 = Date.now();
+  const t = R.parsePlanTasks("## E1 x\n- [ ] E1.2 a | deps: E1.1-E1.999999999\n- [ ] E1.3 b | deps: E1.5-E1.2, E1.1\n");
+  assert.ok(Date.now() - t0 < 100, "no long loop");
+  assert.deepEqual(t.get("E1.2").deps, ["E1.1"], "a range over 100 tasks keeps only its start");
+  assert.deepEqual(t.get("E1.3").deps, ["E1.5", "E1.1"], "a backwards range keeps only its start");
+});

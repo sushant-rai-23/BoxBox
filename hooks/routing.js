@@ -49,8 +49,13 @@ function parsePlanTasks(planText) {
     const dm = t[2].match(/\|\s*deps:\s*([^|]*)/i);
     // "E1.1, E1.3" or a range of one epic's tasks, "E1.1-E1.4".
     const deps = [];
-    for (const m of (dm ? dm[1] : "").matchAll(/E(\d+)\.(\d+)(?:\s*-\s*E\1\.(\d+))?/g))
-      for (let n = Number(m[2]); n <= Number(m[3] || m[2]); n++) deps.push(`E${m[1]}.${n}`);
+    // The gate runs this while Claude Code waits: a range is expanded only when it is short and
+    // forwards (at most 100 tasks); otherwise only its first task counts.
+    for (const m of (dm ? dm[1] : "").matchAll(/E(\d{1,6})\.(\d{1,6})(?:\s*-\s*E\1\.(\d{1,6}))?/g)) {
+      const a = Number(m[2]), b = m[3] ? Number(m[3]) : a;
+      const end = b >= a && b - a <= 100 ? b : a;
+      for (let n = a; n <= end; n++) deps.push(`E${m[1]}.${n}`);
+    }
     tasks.set(t[1], { epic: epic || t[1].split(".")[0], size, risk: /^yes$/i.test(fields.risk || ""), epicModel, deps });
   }
   return tasks;
