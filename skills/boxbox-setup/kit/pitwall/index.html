@@ -240,6 +240,12 @@ function rows() {
   for (const e of evs) {
     if (e.type === "start" && (ended.has(e.id) || !e.id)) continue;
     if (e.type === "session-end") continue;
+    out.push(toRow(e, outside));
+  }
+  return out;
+}
+// One event as a feed row. Also used for the escalations list, which comes from the whole log.
+function toRow(e, outside = new Set()) {
     const k0 = { "escalate-needed": "escalated", "gate-error": "gate", warning: "wait" }[e.kind] || e.kind;
     const kind = e.type === "stage" ? "stage" : e.type === "prompt" ? "prompt" : e.type === "session" ? "session" : KINDS[k0] ? k0 : "run";
     const r = { ...e, kind };
@@ -247,12 +253,11 @@ function rows() {
     else if (e.type === "start") { r.what = e.target; r.code = true; r.result = "now"; }
     else if (e.kind === "gate") { r.what = `${e.unit ? e.unit + " " : ""}${(e.target || "").replace("boxbox:boxbox-", "")} on ${e.model || "no model"}`; r.why = e.why || ""; r.result = e.result || ""; r.code = false; }
     else if (e.kind === "escalated" || e.kind === "escalate-needed") { r.what = `${e.unit} ${e.kind === "escalated" ? "escalated" : "needs escalation"}: ${e.target}`; r.code = false; }
+    else if (e.kind === "gate-error") { r.what = `routing gate could not judge a call: ${e.target}`; r.result = "allowed"; r.code = false; }
     else { r.what = e.target; r.code = /^(read|search|edit|run|test|page|commit)$/.test(kind); }
     r.flag = (e.edits || []).some(p => outside.has(e.ts + " " + p)) ? "outside " + (e.unit ? epicOf(e.unit) : "scope") : "";
     r.res = e.type === "start" ? "live" : e.test ? (e.test.status === "pass" ? "done" : e.test.status === "fail" ? "flag" : "") : e.failed || e.result === "deny" || e.kind === "escalate-needed" || e.kind === "gate-error" ? "flag" : e.kind === "escalated" ? "move" : "";
-    out.push(r);
-  }
-  return out;
+    return r;
 }
 
 const LANE_WHO = { crew: "Crew", steward: "Reviewer", builder: "Builder", scout: "Scout", runner: "Runner", writer: "Writer" };
@@ -553,17 +558,22 @@ function renderLanes() {
   // Open subagents per lane, by id: builders running at once (parallel mode) each get their own lane.
   const open = {};
   for (const e of S.events || []) if (e.type === "crew") { const k = e.lane || "crew", s = e.sub || "?"; open[k] = open[k] || new Map(); if (e.result === "started") open[k].set(s, e); else open[k].delete(s); }
+  // The server knows which Boxbox agents really run (a subagent whose stop never came drops out).
+  const act = S.routing && S.routing.active;
   const lanes = [];
   for (const l of LANES) {
-    const subs = [...((open[l.key] && open[l.key].values()) || [])];
+    const subs = act && l.key === "builder" ? act.filter(a => a.agent === "builder") : [...((open[l.key] && open[l.key].values()) || [])];
     if (l.key === "builder" && subs.length > 1) subs.forEach((s, n) => lanes.push({ ...l, who: `Builder ${n + 1}`, role: `${s.unit || ""} ${l.role}`.trim(), sub: s.sub }));
     else lanes.push(l);
   }
-  const crewOpen = l => !!(open[l.key] && (l.sub ? open[l.key].has(l.sub) : open[l.key].size));
+  const crewOpen = l => act && /^(builder|scout|runner|writer)$/.test(l.key)
+    ? act.some(a => a.agent === l.key && (!l.sub || a.sub === l.sub))
+    : !!(open[l.key] && (l.sub ? open[l.key].has(l.sub) : open[l.key].size));
+  const claude = !(S.agents || []).length || (S.agents || []).includes("claude-code");
   $("#lanes").innerHTML = lanes.map((l, i) => {
     const last = evs.slice().reverse().find(e => (e.lane || "driver") === l.key && (!l.sub || e.sub === l.sub));
     const idle = !last || (l.key !== "driver" && !crewOpen(l));
-    if (!last && /^(builder|scout|runner|writer)$/.test(l.key) && S.routing && S.routing.mode === "auto") return "";
+    if (!last && /^(builder|scout|runner|writer)$/.test(l.key) && (!claude || (S.routing && S.routing.mode === "auto"))) return "";
     const kind = last ? (KINDS[last.kind] ? last.kind : "run") : "session";
     const kd = KINDS[kind];
     const text = last ? (idle ? "Last: " : "") + kd.label + " " + last.target : l.idle || "Idle";
@@ -621,14 +631,14 @@ function renderTiming() {
     : `<tr><td colspan="5" class="empty">No task has started yet.</td></tr>`;
   const bm = t.byModel || [];
   $("#bymodel").innerHTML = bm.length ? bm.map(r => `<tr><td>${modelChip(r.model)}<span class="id" title="${esc(r.model)}">${esc(r.model.replace(/^claude-/, ""))}</span></td><td class="r num">${fmtTok(r.tokens)}</td><td class="r num">${Math.round((r.cacheReadShare || 0) * 100)}%</td><td class="r num">${fmtCost(r.cost)}</td></tr>`).join("")
-    : `<tr><td colspan="4" class="empty">No tokens yet.</td></tr>`;
+    : `<tr><td colspan="4" class="empty">${t.byModel ? "No tokens yet." : "This pit wall server predates per-model counts: restart it after updating Boxbox."}</td></tr>`;
   const sv = t.savings;
   $("#savings").textContent = !sv || !(sv.sessionModels || []).length
     ? (sv && sv.note ? `Saved versus all on the session model: not estimated (${sv.note}).` : "Saved versus all on the session model: no subagent work yet.")
-    : `Saved versus all on ${sv.sessionModels.map(m => m.replace(/^claude-/, "")).join(" and ")}: about $${sv.saved.toFixed(2)} (estimate). Subagents cost $${sv.actual.toFixed(2)}; the same tokens on the session model would cost $${sv.atSessionModel.toFixed(2)}. The session model might have needed fewer tokens.`;
+    : `Saved versus all on ${sv.sessionModels.map(m => m.replace(/^claude-/, "")).join(" and ")}: about $${sv.saved.toFixed(2)} (estimate). Subagents cost $${sv.actual.toFixed(2)}; the same tokens on the session model would cost $${sv.atSessionModel.toFixed(2)}. The session model might have needed fewer tokens.` + (sv.priced ? "" : ` Partial: some subagent work is left out (${sv.note || "a model has no price"}).`);
   const esc2 = (S.routing && S.routing.escalations) || [];
-  $("#escalations").innerHTML = esc2.length ? rows().filter(r => esc2.some(x => x.ts === r.ts && x.kind === r.kind)).slice(-12).reverse().map(r => rowHTML(r, false)).join("")
-    : `<li class="empty">No escalations or denied calls.</li>`;
+  $("#escalations").innerHTML = esc2.length ? esc2.slice(-12).reverse().map(e => rowHTML(toRow(e), false)).join("")
+    : `<li class="empty">${S.routing ? "No escalations, denied calls or gate errors." : "This pit wall predates model routing."}</li>`;
   paintKindOrbs("#escalations canvas", "esc", 16);
   $("#pricenote").innerHTML = "Cost is approximate, from the price table in <code>.boxbox/pitwall/prices.json</code>, which you can edit." + (t.total.unpriced.length ? ` No price for ${esc(t.total.unpriced.join(", "))}, so those show tokens only.` : " Models missing from it show tokens only.");
 }
@@ -643,7 +653,8 @@ function renderRouting() {
   el.innerHTML = `<span>Models: <b>${esc(r.mode)}</b></span>`
     + `<span>Gate: <b>${r.gate.state}</b>${r.gate.reason ? ` (${esc(r.gate.reason)})` : ""}</span>`
     + `<span>Agents: <b>${esc(active)}</b></span>`
-    + `<span>Last escalation: <b>${le ? esc(`${le.unit}, ${le.target}`) : "none"}</b></span>`;
+    + `<span>Last escalation: <b>${le ? esc(`${le.unit}, ${le.target}`) : "none"}</b></span>`
+    + (r.warning ? `<span>${status("flag", "config")} ${esc(r.warning)}</span>` : "");
 }
 
 const tt = $("#tt");
@@ -741,7 +752,11 @@ function startDemo() {
     ev(14, "gate", "gate", "boxbox:boxbox-builder", "E2.3 is risk: yes, run boxbox-builder with model opus", "deny", { model: "sonnet", expected: "opus" }),
     ev(13, "gate", "gate", "boxbox:boxbox-builder", "risk: yes", "allow", { model: "opus", expected: "opus" }),
     ev(12, "crew", "crew", "boxbox:boxbox-builder", "", "started", { lane: "builder", sub: "b1" }),
-    ev(9, "escalated", "escalated", "failed twice", "", "", { unit: "E2.2" })
+    ev(11, "escalate-needed", "escalate-needed", "edited app/mailer.py, outside its brief", "", "", { unit: "E2.2" }),
+    ev(10, "gate-error", "gate-error", "plan.md not found for feature password-reset", "", "allowed", { unit: "" }),
+    ev(9, "escalated", "escalated", "failed twice", "", "", { unit: "E2.2" }),
+    ev(8, "crew", "crew", "boxbox:boxbox-builder", "", "started", { lane: "builder", sub: "b2", unit: "E2.4" }),
+    ev(7, "action", "edit", "app/rate_limit.py", "parallel: E2.4 in its own worktree", "+12 −0", { lane: "builder", sub: "b2", unit: "E2.4", ranOn: "claude-sonnet-5-5", edits: ["app/rate_limit.py"] })
   ];
   const SCRIPT = [
     ["think", "Reading the plan line for E2.3", "start the next task in the plan", ""],
@@ -785,7 +800,7 @@ function startDemo() {
       timeline: ["setup", "learn-repo", "discover", "knowledge", "decisions", "plan", "plan-review", "design", "design-review", "build"].map((s, i) => ({ ts: T(200 - i * 10), stage: s, unit: "", why: "" })),
       waiting: step % 12 === 11 ? { kind: "decision", what: "D4: how strict should rate limiting be?", detail: "E3 can't start until it's decided." } : null,
       paused, events: events.slice(-200), tokens, garage, agents: ["claude-code", "codex"], codexUntrusted: false,
-      routing: { mode: "balanced", gate: { state: "on", reason: "" }, active: [{ agent: "builder", unit: "E2.3", sub: "b1" }],
+      routing: { mode: "balanced", warning: "", gate: { state: "on", reason: "" }, active: [{ agent: "builder", unit: "E2.3", sub: "b1" }, { agent: "builder", unit: "E2.4", sub: "b2" }],
         lastEscalation: { unit: "E2.2", target: "failed twice" }, escalations: events.filter(e => /^(escalated|escalate-needed|gate-error)$/.test(e.kind) || (e.kind === "gate" && e.result === "deny")) },
       drift: { currentEpic: "E2", scope: board.milestones[1].epics[1].files, outside: [{ path: "app/mailer.py", epic: "E2", ts: events[2].ts, owner: "E1" }], changedAfterApproval: ["E1"], behind: [],
         files: [{ path: "app/resets.py", edits: 3, in: true }, { path: "tests/test_resets.py", edits: 2, in: true }, { path: "app/users.py", edits: 1, in: true }, { path: "app/mailer.py", edits: 1, in: false }],

@@ -276,23 +276,34 @@ function withModels(events, entries) {
 
 // The routing readout for Home: the mode, whether the gate is on (and why not), the Boxbox agents
 // running now, and the escalations so far.
-function routingState(configText, events) {
+function routingState(configText, events, now = Date.now()) {
+  // The same rule as parseModels in the plugin's hooks/routing.js (the kit cannot load the hooks):
+  // a missing line is auto, a value Boxbox does not know runs as balanced.
   const m = String(configText || "").match(/^models:[ \t]*([^\s#]*)/m);
   const v = m && m[1] ? m[1].toLowerCase() : "";
-  const mode = ["best", "balanced", "save", "auto"].includes(v) ? v : v ? "balanced" : "auto";
-  const open = new Map();
+  const known = ["best", "balanced", "save", "auto"].includes(v);
+  const mode = known ? v : v ? "balanced" : "auto";
+  const open = new Map(), lastSeen = new Map(), ended = new Map();
   let gateOff = "", escalations = [];
   for (const e of events || []) {
-    if (e.kind === "crew" && /^boxbox:boxbox-/.test(e.target || "")) {
-      if (e.result === "started") open.set(e.sub, { agent: e.target.replace("boxbox:boxbox-", ""), unit: e.unit || "", sub: e.sub, since: e.ts });
+    if (e.sub) lastSeen.set(e.sub, Date.parse(e.ts) || 0);
+    if (e.type === "session-end" || e.kind === "session-end") ended.set(e.session, Date.parse(e.ts) || 0);
+    if (e.kind === "crew" && e.sub && /^boxbox:boxbox-/.test(e.target || "")) {
+      if (e.result === "started") open.set(e.sub, { agent: e.target.replace("boxbox:boxbox-", ""), unit: e.unit || "", sub: e.sub, since: e.ts, session: e.session || "" });
       else open.delete(e.sub);
     }
     if (e.kind === "gate") gateOff = e.result === "off" ? e.why || "off" : "";
     if (e.kind === "escalated" || e.kind === "escalate-needed" || (e.kind === "gate" && e.result === "deny") || e.kind === "gate-error") escalations.push(e);
   }
+  // A subagent whose stop never arrived (interrupted, crashed) is not running: its session ended,
+  // or it has been quiet for 30 minutes.
+  const active = [...open.values()].filter(a => !(ended.get(a.session) >= Date.parse(a.since)) && now - (lastSeen.get(a.sub) || 0) < 30 * 60000);
   if (mode === "auto") gateOff = "models: auto: Boxbox uses no agents of its own, Claude Code decides";
+  else if (/^models: auto/.test(gateOff)) gateOff = "";                       // from before the mode changed
+  else if (gateOff) gateOff += " (as of the last subagent call)";             // FORCE is only seen at call time
   const esc = escalations.filter(e => e.kind === "escalated");
-  return { mode, gate: { state: gateOff ? "off" : "on", reason: gateOff }, active: [...open.values()],
+  return { mode, warning: v && !known ? `models: "${m[1]}" is not one of best, balanced, save, auto; using balanced` : "",
+           gate: { state: gateOff ? "off" : "on", reason: gateOff }, active,
            lastEscalation: esc[esc.length - 1] || null, escalations: escalations.slice(-20) };
 }
 

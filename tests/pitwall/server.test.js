@@ -378,13 +378,13 @@ test("server: events carry the model that made them", () => {
 
 test("server: state reports mode, active agents, last escalation and gate-off reason", () => {
   const r = s.routingState("models: balanced\n", [
-    { ts: "1", kind: "crew", result: "started", sub: "a1", target: "boxbox:boxbox-builder", unit: "E2.1", lane: "builder" },
-    { ts: "2", kind: "crew", result: "started", sub: "a2", target: "boxbox:boxbox-scout", unit: "E2.2", lane: "scout" },
-    { ts: "3", kind: "crew", result: "finished", sub: "a2", target: "boxbox:boxbox-scout", unit: "E2.2", lane: "scout" },
-    { ts: "4", kind: "escalated", unit: "E2.1", target: "failed twice" },
-    { ts: "5", kind: "gate", result: "deny", unit: "E2.3", why: "E2.3 is risk: yes, run boxbox-builder with model opus" },
-    { ts: "6", kind: "gate", result: "off", why: "CLAUDE_CODE_SUBAGENT_MODEL_FORCE is on: every subagent runs on haiku", note: "" }
-  ]);
+    { ts: "2026-10-14T10:01:00Z", kind: "crew", result: "started", sub: "a1", target: "boxbox:boxbox-builder", unit: "E2.1", lane: "builder" },
+    { ts: "2026-10-14T10:02:00Z", kind: "crew", result: "started", sub: "a2", target: "boxbox:boxbox-scout", unit: "E2.2", lane: "scout" },
+    { ts: "2026-10-14T10:03:00Z", kind: "crew", result: "finished", sub: "a2", target: "boxbox:boxbox-scout", unit: "E2.2", lane: "scout" },
+    { ts: "2026-10-14T10:04:00Z", kind: "escalated", unit: "E2.1", target: "failed twice" },
+    { ts: "2026-10-14T10:05:00Z", kind: "gate", result: "deny", unit: "E2.3", why: "E2.3 is risk: yes, run boxbox-builder with model opus" },
+    { ts: "2026-10-14T10:06:00Z", kind: "gate", result: "off", why: "CLAUDE_CODE_SUBAGENT_MODEL_FORCE is on: every subagent runs on haiku", note: "" }
+  ], Date.parse("2026-10-14T10:10:00Z"));
   assert.equal(r.mode, "balanced");
   assert.deepEqual(r.active.map(a => [a.agent, a.unit]), [["builder", "E2.1"]]);
   assert.equal(r.lastEscalation.unit, "E2.1");
@@ -394,4 +394,22 @@ test("server: state reports mode, active agents, last escalation and gate-off re
   assert.equal(s.routingState("", []).gate.state, "off", "no models line: auto, the gate is off");
   assert.match(s.routingState("", []).gate.reason, /models: auto/);
   assert.equal(s.routingState("models: save\n", []).gate.state, "on");
+});
+
+test("server: routing readout drops agents that never stopped, and a stale gate-off", () => {
+  const now = Date.parse("2026-10-14T12:00:00Z");
+  const r = s.routingState("models: balanced\n", [
+    { ts: "2026-10-14T10:00:00Z", session: "s1", kind: "crew", result: "started", sub: "old", target: "boxbox:boxbox-builder", unit: "E1.1" },
+    { ts: "2026-10-14T10:05:00Z", session: "s1", kind: "session-end", type: "session-end" },
+    { ts: "2026-10-14T11:00:00Z", session: "s2", kind: "crew", result: "started", sub: "quiet", target: "boxbox:boxbox-scout", unit: "E1.2" },
+    { ts: "2026-10-14T11:50:00Z", session: "s2", kind: "crew", result: "started", sub: "live", target: "boxbox:boxbox-builder", unit: "E1.3" },
+    { ts: "2026-10-14T11:58:00Z", session: "s2", sub: "live", kind: "edit", type: "action" },
+    { ts: "2026-10-14T11:59:00Z", kind: "gate", result: "off", why: "models: auto: Claude Code decides" }
+  ], now);
+  assert.deepEqual(r.active.map(a => a.sub), ["live"], "ended session and 30 quiet minutes drop out");
+  assert.equal(r.gate.state, "on", "an auto-off from before the mode changed is stale");
+  const f = s.routingState("models: balanced\n", [{ ts: "2026-10-14T11:59:00Z", kind: "gate", result: "off", why: "CLAUDE_CODE_SUBAGENT_MODEL_FORCE is on: every subagent runs on haiku" }], now);
+  assert.equal(f.gate.state, "off");
+  assert.match(f.gate.reason, /as of the last subagent call/);
+  assert.match(s.routingState("models: cheapest\n", [], now).warning, /cheapest/);
 });
