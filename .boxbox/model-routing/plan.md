@@ -115,7 +115,7 @@ tasks:
 - [x] E4.4 Savings estimate and `--summary` by model | test: `server: saved estimate re-prices subagent tokens at the session model's rates` | done: test green | deps: E4.3
 - [x] E4.5 Register a Claude Code session on its first hook event when SessionStart fired before .boxbox/ existed | size: S | risk: no | test: `hook: a session the pit wall never saw start is registered on its first event` | done: test green | deps: none
 
-## E5 Pit wall routing views  [todo]
+## E5 Pit wall routing views  [done]
 outcome: Every Telemetry and Team radio row carries a model chip; builder, scout, runner and writer each get a lane; Timing shows cost, tokens and cache-read share by model, escalations and the savings estimate; Home shows the mode, active agents, last escalation and why the gate is off when it is.
 branch: model-routing-e5-views
 depends: E3, E4
@@ -129,10 +129,10 @@ accept:
 fails:
 - A subagent type outside Boxbox: falls into a generic crew lane (E5.2)
 tasks:
-- [ ] E5.1 Model on each event row and a chip in the feed | test: `hook: subagent tool events carry the subagent's model` | done: test green; demo page shows chips | deps: none
-- [ ] E5.2 Lanes per Boxbox agent and per parallel builder | test: `hook: laneFor maps boxbox:boxbox-scout to the scout lane` | done: test green | deps: none
-- [ ] E5.3 Timing by model, escalations and savings | no cheap test, verify: `?demo` page shows the three new blocks with values from the state payload | deps: none
-- [ ] E5.4 Home routing readout with gate-off reason | test: `server: state reports mode, active agents, last escalation and gate-off reason` | done: test green; demo shows the readout | deps: none
+- [x] E5.1 Model on each event row and a chip in the feed | test: `hook: subagent tool events carry the subagent's model` | done: test green; demo page shows chips | deps: none
+- [x] E5.2 Lanes per Boxbox agent and per parallel builder | test: `hook: laneFor maps boxbox:boxbox-scout to the scout lane` | done: test green | deps: none
+- [x] E5.3 Timing by model, escalations and savings | no cheap test, verify: `?demo` page shows the three new blocks with values from the state payload | deps: none
+- [x] E5.4 Home routing readout with gate-off reason | test: `server: state reports mode, active agents, last escalation and gate-off reason` | done: test green; demo shows the readout | deps: none
 
 ## E6 Status line  [todo]
 outcome: Under the prompt, Claude Code CLI shows one line like `E2.3 · builder sonnet · $0.42 · 14/14 tests`, or `PAUSED`, or `Your move: D3`, installed only after the developer agrees.

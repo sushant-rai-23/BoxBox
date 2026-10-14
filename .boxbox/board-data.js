@@ -231,7 +231,7 @@ window.BOXBOX_BOARD = {
   "id": "E5",
   "title": "Pit wall routing views",
   "outcome": "Every Telemetry and Team radio row carries a model chip; builder, scout, runner and writer each get a lane; Timing shows cost, tokens and cache-read share by model, escalations and the savings estimate; Home shows the mode, active agents, last escalation and why the gate is off when it is.",
-  "status": "todo",
+  "status": "done",
   "branch": "model-routing-e5-views",
   "files": [
    "skills/boxbox-setup/kit/pitwall/index.html",
@@ -239,30 +239,31 @@ window.BOXBOX_BOARD = {
    "hooks/boxbox-event.js",
    "tests/pitwall/**"
   ],
+  "links": [ { "label": "Report (agent)", "href": "model-routing/e5-views/report.md" } ],
   "tasks": [
    {
     "id": "E5.1",
     "title": "Model on each event row and a chip in the feed",
     "test": "`hook: subagent tool events carry the subagent's model`",
-    "status": "todo"
+    "status": "done", "commit": "2dcd609"
    },
    {
     "id": "E5.2",
     "title": "Lanes per Boxbox agent and per parallel builder",
     "test": "`hook: laneFor maps boxbox:boxbox-scout to the scout lane`",
-    "status": "todo"
+    "status": "done", "commit": "1047121"
    },
    {
     "id": "E5.3",
     "title": "Timing by model, escalations and savings",
     "test": "no cheap test, verify: `?demo` page shows the three new blocks with values from the state payload",
-    "status": "todo"
+    "status": "done", "commit": "d145fe7"
    },
    {
     "id": "E5.4",
     "title": "Home routing readout with gate-off reason",
     "test": "`server: state reports mode, active agents, last escalation and gate-off reason`",
-    "status": "todo"
+    "status": "done", "commit": "2dcd609"
    }
   ]
  },
