@@ -164,6 +164,32 @@ function add(row, e, prices, unpriced) {
   else row.cost += c;
 }
 
+// A unit row's tokens and cost per model: { "claude-opus-5-5": { tokens, cost } }.
+function addModel(row, e, prices) {
+  row.models = row.models || {};
+  const m = row.models[e.model || "unknown"] = row.models[e.model || "unknown"] || blank();
+  add(m, e, prices, null);
+}
+
+// "Saved versus all on the session model": every subagent token re-priced at the rates of its
+// session's own model (the model of the session's main transcript). An estimate: the session model
+// might have used fewer tokens for the same work.
+function savings(entries, prices) {
+  const mainModel = new Map();
+  for (const e of entries) if (!e.sub && e.model) { const m = mainModel.get(e.session) || {}; m[e.model] = (m[e.model] || 0) + usageTotal(e); mainModel.set(e.session, m); }
+  const top = m => Object.entries(m || {}).sort((a, b) => b[1] - a[1]).map(x => x[0])[0] || "";
+  let actual = 0, atSession = 0, priced = true, sessionModel = "";
+  for (const e of entries) {
+    if (!e.sub) continue;
+    const sm = top(mainModel.get(e.session));
+    sessionModel = sessionModel || sm;
+    const a = costOf(e, priceFor(e.model, prices)), b = costOf(e, priceFor(sm, prices));
+    if (a === null || b === null) { priced = false; continue; }
+    actual += a; atSession += b;
+  }
+  return { estimate: true, sessionModel, actual, atSessionModel: atSession, saved: atSession - actual, priced };
+}
+
 function totals(entries, prices) {
   const row = blank("all", "All"), unpriced = new Set();
   for (const e of entries) add(row, e, prices, unpriced);
@@ -233,9 +259,11 @@ function aggregate(entries, timeline, prices, board, now, subUnits = new Map()) 
     const b = own ? bucketOf({ unit: own }) : bucketOf(stageAt(Date.parse(e.ts), timeline));
     if (!byEpic.has(b.epic)) byEpic.set(b.epic, blank(b.epic, epicTitle(b.epic)));
     add(byEpic.get(b.epic), e, prices, unpriced);
+    addModel(byEpic.get(b.epic), e, prices);
     if (b.task) {
       if (!byTask.has(b.task)) byTask.set(b.task, blank(b.task, taskTitle(b.task)));
       add(byTask.get(b.task), e, prices, null);
+      addModel(byTask.get(b.task), e, prices);
     }
     add(all, e, prices, null);
     const key = e.session || "unknown";
@@ -259,6 +287,7 @@ function aggregate(entries, timeline, prices, board, now, subUnits = new Map()) 
     total: { fresh: all.fresh, cache: all.cache, tokens: all.tokens, ...costFields(all), unpriced: [...unpriced] },
     byEpic: [...byEpic.values()].map(fin),
     byTask: [...byTask.values()].map(fin),
+    savings: savings(entries, prices),
     byModel: [...byModel.values()].map(r => ({ ...fin(r), cacheReadShare: r.input + r.cacheWrite + r.cacheRead ? r.cacheRead / (r.input + r.cacheWrite + r.cacheRead) : 0 }))
       .sort((a, b) => b.tokens - a.tokens),
     sessions: [...sessions.values()].map(s => ({ ...s, models: [...s.models], units: [...s.units], ...costFields(s) }))
@@ -685,6 +714,10 @@ function summary(unit) {
   if (!row) console.log(`Cost: no tokens recorded for ${unit}.`);
   else console.log(`Cost: ${fmt(row.tokens)} tokens for ${unit} (${fmt(row.fresh)} new, ${fmt(row.cache)} from cache)` +
     (row.cost === null ? ", no price for this model" : `, about $${row.cost.toFixed(2)}`) + (row.priced ? "" : " (some models have no price)") + ".");
+  if (row && row.models) {
+    const parts = Object.entries(row.models).map(([m, r]) => ({ m: familyOf(m) || m, r })).sort((a, b) => b.r.cost - a.r.cost || b.r.tokens - a.r.tokens);
+    console.log("By model: " + parts.map(({ m, r }) => `${m} ${fmt(r.tokens)} tokens ` + (r.priced ? `$${r.cost.toFixed(2)}` : "no price")).join(", ") + ".");
+  }
   const outside = st.drift.outside.filter(o => o.epic === epic);
   console.log(outside.length ? "Edited outside scope: " + outside.map(o => o.path).join(", ") : "Edited outside scope: none.");
 }

@@ -281,3 +281,36 @@ test("server: per-model totals match a hand count of the spike fixtures", () => 
   // the per-model rows add up to the total
   assert.equal(t.byModel.reduce((n, r) => n + r.tokens, 0), t.total.tokens);
 });
+
+test("server: saved estimate re-prices subagent tokens at the session model's rates", () => {
+  const box = fixtureBox({ subUnits: { a4bdf961c0c93ede3: "E2.1" } });
+  const t = new s.Live(box).state().tokens;
+  const prices = JSON.parse(fs.readFileSync(path.join(__dirname, "../../skills/boxbox-setup/kit/pitwall/prices.json"), "utf8"));
+  // Hand count: every subagent message priced at its own model and at Opus, the session's model.
+  let actual = 0, atOpus = 0;
+  const fx = path.join(__dirname, "fixtures", "routing-session", "subagents");
+  for (const f of fs.readdirSync(fx).filter(f => f.endsWith(".jsonl")))
+    for (const l of fs.readFileSync(path.join(fx, f), "utf8").trim().split("\n")) {
+      const m = JSON.parse(l).message, u = m.usage, cc = u.cache_creation || {};
+      const e = { input: u.input_tokens, output: u.output_tokens, cacheRead: u.cache_read_input_tokens, cacheWrite5m: cc.ephemeral_5m_input_tokens || 0, cacheWrite1h: cc.ephemeral_1h_input_tokens || 0 };
+      actual += s.costOf(e, s.priceFor(m.model, prices));
+      atOpus += s.costOf(e, s.priceFor("claude-opus-5-5", prices));
+    }
+  assert.equal(t.savings.estimate, true);
+  assert.equal(t.savings.sessionModel, "claude-opus-5-5");
+  assert.ok(Math.abs(t.savings.actual - actual) < 1e-12);
+  assert.ok(Math.abs(t.savings.atSessionModel - atOpus) < 1e-12);
+  assert.ok(Math.abs(t.savings.saved - (atOpus - actual)) < 1e-12);
+  assert.ok(t.savings.saved > 0);
+  // per unit, by model: E2.1 is the Sonnet subagent only
+  assert.deepEqual(Object.keys(t.byTask.find(r => r.id === "E2.1").models), ["claude-sonnet-5-5"]);
+});
+
+test("server: --summary prints the unit's cost by model", () => {
+  const { spawnSync } = require("child_process");
+  const box = fixtureBox({ subUnits: { a4bdf961c0c93ede3: "E2.1" } });
+  const server = path.join(__dirname, "..", "..", "skills", "boxbox-setup", "kit", "pitwall", "server.js");
+  const out = spawnSync(process.execPath, [server, "--box", box, "--summary", "E2"], { encoding: "utf8" }).stdout;
+  assert.match(out, /^Cost: .* tokens for E2 /m);
+  assert.match(out, /^By model: opus [\d.]+[kM]? tokens \$[\d.]+, sonnet [\d.]+[kM]? tokens \$[\d.]+, haiku/m);
+});
