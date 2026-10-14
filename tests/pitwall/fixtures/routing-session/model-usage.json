@@ -1,0 +1,27 @@
+{
+ "_about": "Claude Code 2.1.296 result of Step 0 run \"a\" (session 3bb023ed-1a8a-453f-8274-6c50c0344cb4): its own modelUsage and total cost. Haiku also includes Claude Code calls that are in no transcript (the session title).",
+ "total_cost_usd": 0.26682030000000007,
+ "modelUsage": {
+  "claude-haiku-5-5": {
+   "inputTokens": 1300,
+   "outputTokens": 26,
+   "cacheReadInputTokens": 4460,
+   "cacheCreationInputTokens": 4460,
+   "costUSD": 0.0007451000000000002
+  },
+  "claude-opus-5-5": {
+   "inputTokens": 8,
+   "outputTokens": 457,
+   "cacheReadInputTokens": 161881,
+   "cacheCreationInputTokens": 26666,
+   "costUSD": 0.2548762
+  },
+  "claude-sonnet-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 4,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 4462,
+   "costUSD": 0.011199
+  }
+ }
+}

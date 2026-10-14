@@ -171,23 +171,31 @@ function addModel(row, e, prices) {
   add(m, e, prices, null);
 }
 
-// "Saved versus all on the session model": every subagent token re-priced at the rates of its
-// session's own model (the model of the session's main transcript). An estimate: the session model
-// might have used fewer tokens for the same work.
+// "Saved versus all on the session model": every subagent's tokens re-priced at the model its session
+// was running when the subagent started (the main transcript's model at the subagent's first message).
+// The main session's own tokens are not re-priced. An estimate: the session model might have used
+// fewer tokens for the same work.
 function savings(entries, prices) {
-  const mainModel = new Map();
-  for (const e of entries) if (!e.sub && e.model) { const m = mainModel.get(e.session) || {}; m[e.model] = (m[e.model] || 0) + usageTotal(e); mainModel.set(e.session, m); }
-  const top = m => Object.entries(m || {}).sort((a, b) => b[1] - a[1]).map(x => x[0])[0] || "";
-  let actual = 0, atSession = 0, priced = true, sessionModel = "";
+  const main = new Map(), firstOfSub = new Map();
   for (const e of entries) {
-    if (!e.sub) continue;
-    const sm = top(mainModel.get(e.session));
-    sessionModel = sessionModel || sm;
-    const a = costOf(e, priceFor(e.model, prices)), b = costOf(e, priceFor(sm, prices));
-    if (a === null || b === null) { priced = false; continue; }
-    actual += a; atSession += b;
+    if (e.agent && e.agent !== "claude-code") continue;
+    if (!e.sub) { if (e.model) (main.get(e.session) || main.set(e.session, []).get(e.session)).push(e); }
+    else if (!firstOfSub.has(e.sub) || e.ts < firstOfSub.get(e.sub)) firstOfSub.set(e.sub, e.ts);
   }
-  return { estimate: true, sessionModel, actual, atSessionModel: atSession, saved: atSession - actual, priced };
+  for (const list of main.values()) list.sort((a, b) => (a.ts < b.ts ? -1 : 1));
+  const modelAt = (session, ts) => { let m = ""; for (const e of main.get(session) || []) { if (e.ts <= ts) m = e.model; else break; } return m || ((main.get(session) || [])[0] || {}).model || ""; };
+  let actual = 0, atSession = 0, priced = true, note = "";
+  const used = new Set();
+  for (const e of entries) {
+    if (!e.sub || (e.agent && e.agent !== "claude-code")) continue;
+    const sm = modelAt(e.session, firstOfSub.get(e.sub));
+    if (!sm) { priced = false; note = "a subagent's session has no main transcript registered"; continue; }
+    const a = costOf(e, priceFor(e.model, prices)), b = costOf(e, priceFor(sm, prices));
+    if (a === null || b === null) { priced = false; note = note || "a model has no price"; continue; }
+    used.add(sm); actual += a; atSession += b;
+  }
+  const sessionModels = [...used];
+  return { estimate: true, sessionModel: sessionModels[0] || "", sessionModels, actual, atSessionModel: atSession, saved: atSession - actual, priced, note };
 }
 
 function totals(entries, prices) {
@@ -237,8 +245,14 @@ function activeMilestone(board) {
 // Which task each subagent worked on: the hook tags its crew events with the task of the Agent call
 // that started it. A subagent's tokens go to that task, even while another unit's stage is current.
 function subagentUnits(events) {
-  const out = new Map();
-  for (const e of events || []) if (e && e.kind === "crew" && e.sub && /^E\d+\.\d+$/.test(e.unit || "")) out.set(e.sub, e.unit);
+  // The start event wins: it is written while the Agent call is fresh; a stop event falls back to the
+  // current stage's unit when the call can no longer be found.
+  const out = new Map(), fromStart = new Set();
+  for (const e of events || []) {
+    if (!e || e.kind !== "crew" || !e.sub || !/^E\d+\.\d+$/.test(e.unit || "") || fromStart.has(e.sub)) continue;
+    out.set(e.sub, e.unit);
+    if (e.result === "started") fromStart.add(e.sub);
+  }
   return out;
 }
 
@@ -282,7 +296,7 @@ function aggregate(entries, timeline, prices, board, now, subUnits = new Map()) 
     if (byEpic.has(b.epic)) byEpic.get(b.epic).ms += ms2;
     if (b.task && byTask.has(b.task)) byTask.get(b.task).ms += ms2;
   }
-  const fin = r => ({ ...r, ...costFields(r) });
+  const fin = r => ({ ...r, ...costFields(r), ...(r.models ? { models: Object.fromEntries(Object.entries(r.models).map(([k, v]) => [k, { ...v, ...costFields(v) }])) } : {}) });
   return {
     total: { fresh: all.fresh, cache: all.cache, tokens: all.tokens, ...costFields(all), unpriced: [...unpriced] },
     byEpic: [...byEpic.values()].map(fin),
@@ -439,6 +453,14 @@ class Live {
     for (const l of lines) {
       const s = safeJSON(l);
       if (!s || !s.transcript) continue;
+      // A subagent is registered at start (a path the hook builds) and at stop (Claude Code's own
+      // string): one transcript per session and subagent id, however the path is spelled.
+      if (s.sub) {
+        const key = `${s.session}\u0000${s.sub}`;
+        this.subKeys = this.subKeys || new Set();
+        if (this.subKeys.has(key)) continue;
+        this.subKeys.add(key);
+      }
       if (!this.transcripts.has(s.transcript)) {
         const kind = s.agent === "codex" ? "codex" : "claude";
         this.transcripts.set(s.transcript, { tail: new Tail(), kind, session: s.session, sub: s.sub || "", byId: new Map(), state: {}, entries: [] });
@@ -715,7 +737,10 @@ function summary(unit) {
   else console.log(`Cost: ${fmt(row.tokens)} tokens for ${unit} (${fmt(row.fresh)} new, ${fmt(row.cache)} from cache)` +
     (row.cost === null ? ", no price for this model" : `, about $${row.cost.toFixed(2)}`) + (row.priced ? "" : " (some models have no price)") + ".");
   if (row && row.models) {
-    const parts = Object.entries(row.models).map(([m, r]) => ({ m: familyOf(m) || m, r })).sort((a, b) => b.r.cost - a.r.cost || b.r.tokens - a.r.tokens);
+    // The family name ("opus") unless two ids of one family are in the unit; then the full ids.
+    const fam = Object.keys(row.models).map(m => familyOf(m) || m);
+    const label = m => (fam.filter(f => f === (familyOf(m) || m)).length > 1 ? m : familyOf(m) || m);
+    const parts = Object.entries(row.models).map(([m, r]) => ({ m: label(m), r })).sort((a, b) => (b.r.cost || 0) - (a.r.cost || 0) || b.r.tokens - a.r.tokens);
     console.log("By model: " + parts.map(({ m, r }) => `${m} ${fmt(r.tokens)} tokens ` + (r.priced ? `$${r.cost.toFixed(2)}` : "no price")).join(", ") + ".");
   }
   const outside = st.drift.outside.filter(o => o.epic === epic);

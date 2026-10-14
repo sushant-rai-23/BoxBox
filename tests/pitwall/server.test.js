@@ -257,9 +257,14 @@ test("server: per-model totals match a hand count of the spike fixtures", () => 
   const box = fixtureBox();
   const t = new s.Live(box).state().tokens;
   const by = Object.fromEntries(t.byModel.map(r => [r.model, r]));
-  // Claude Code's own modelUsage for this session (docs/routing-spike.md, run "a"): exact for Opus and Sonnet.
-  assert.deepEqual([by["claude-opus-5-5"].input, by["claude-opus-5-5"].output, by["claude-opus-5-5"].cacheRead, by["claude-opus-5-5"].cacheWrite], [8, 457, 161881, 26666]);
-  assert.deepEqual([by["claude-sonnet-5-5"].input, by["claude-sonnet-5-5"].output, by["claude-sonnet-5-5"].cacheRead, by["claude-sonnet-5-5"].cacheWrite], [2, 4, 0, 4462]);
+  // Claude Code's own modelUsage for this session, saved from its result (fixtures/.../model-usage.json):
+  // exact for Opus and Sonnet, tokens and cost.
+  const cc = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "routing-session", "model-usage.json"), "utf8")).modelUsage;
+  for (const m of ["claude-opus-5-5", "claude-sonnet-5-5"]) {
+    const u = cc[m];
+    assert.deepEqual([by[m].input, by[m].output, by[m].cacheRead, by[m].cacheWrite], [u.inputTokens, u.outputTokens, u.cacheReadInputTokens, u.cacheCreationInputTokens], m);
+    assert.ok(Math.abs(by[m].cost - u.costUSD) < 1e-9, `${m}: ${by[m].cost} vs Claude Code's ${u.costUSD}`);
+  }
   // Haiku: a hand count of the two Haiku subagent transcripts (Claude Code's own title calls are in no transcript).
   let hand = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
   const fx = path.join(__dirname, "fixtures", "routing-session", "subagents");
@@ -275,8 +280,6 @@ test("server: per-model totals match a hand count of the spike fixtures", () => 
   // cache-read share: cache reads over everything sent in (fresh input + cache writes + cache reads)
   assert.equal(h.cacheReadShare, hand.cacheRead / (hand.input + hand.cacheWrite + hand.cacheRead));
   assert.equal(by["claude-sonnet-5-5"].cacheReadShare, 0);
-  // Opus cost equals Claude Code's own: $0.2548762
-  assert.equal(Number(by["claude-opus-5-5"].cost.toFixed(7)), 0.2548762);
   assert.equal(by["claude-opus-5-5"].family, "opus");
   // the per-model rows add up to the total
   assert.equal(t.byModel.reduce((n, r) => n + r.tokens, 0), t.total.tokens);
@@ -313,4 +316,47 @@ test("server: --summary prints the unit's cost by model", () => {
   const out = spawnSync(process.execPath, [server, "--box", box, "--summary", "E2"], { encoding: "utf8" }).stdout;
   assert.match(out, /^Cost: .* tokens for E2 /m);
   assert.match(out, /^By model: opus [\d.]+[kM]? tokens \$[\d.]+, sonnet [\d.]+[kM]? tokens \$[\d.]+, haiku/m);
+});
+
+test("server: a subagent registered at start and at stop under two spellings of its path counts once", () => {
+  const box = fixtureBox();
+  const f = path.join(box, "live", "sessions.jsonl");
+  const fx = path.join(__dirname, "fixtures", "routing-session", "subagents", "agent-a4bdf961c0c93ede3.jsonl");
+  fs.appendFileSync(f, JSON.stringify({ session: "s", agent: "claude-code", transcript: fx.replace("/subagents/", "//subagents/"), sub: "a4bdf961c0c93ede3" }) + "\n");
+  const by = Object.fromEntries(new s.Live(box).state().tokens.byModel.map(r => [r.model, r]));
+  assert.equal(by["claude-sonnet-5-5"].tokens, 2 + 4 + 4462);
+});
+
+test("server: a subagent's task comes from its start, even if its stop names another unit", () => {
+  const m = s.subagentUnits([{ kind: "crew", result: "started", sub: "a1", unit: "E2.1" }, { kind: "crew", result: "finished", sub: "a1", unit: "E3.4" }]);
+  assert.equal(m.get("a1"), "E2.1");
+  assert.equal(s.subagentUnits([{ kind: "crew", result: "finished", sub: "a2", unit: "E3.4" }]).get("a2"), "E3.4", "a stop alone still counts");
+});
+
+test("server: savings re-price each subagent at the model its session ran when the subagent started", () => {
+  const P = { models: { "claude-opus-5-5": { input: 4, output: 20, cache_read: 0.2, cache_write_5m: 5, cache_write_1h: 8 }, "claude-sonnet-5-5": { input: 2, output: 10, cache_read: 0.1, cache_write_5m: 2.5, cache_write_1h: 4 }, "claude-haiku-5-5": { input: 0.1, output: 0.5, cache_read: 0.01, cache_write_5m: 0.125, cache_write_1h: 0.2 } } };
+  const e = (ts, model, sub, input) => ({ ts, model, sub: sub || "", session: "s", input, output: 0, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0 });
+  const entries = [
+    e("2026-10-14T10:00:00Z", "claude-opus-5-5", "", 1000000),        // the session on Opus, a lot of tokens
+    e("2026-10-14T10:01:00Z", "claude-haiku-5-5", "a1", 1000000),     // started while on Opus
+    e("2026-10-14T11:00:00Z", "claude-sonnet-5-5", "", 10),           // the developer switched to Sonnet
+    e("2026-10-14T11:01:00Z", "claude-haiku-5-5", "a2", 1000000),     // started while on Sonnet
+    e("2026-10-14T11:02:00Z", "codex-model", "", 5),                  // another agent's entry: never re-priced
+  ];
+  const sv = s.aggregate(entries, [], P, null, Date.now()).savings;
+  assert.equal(sv.atSessionModel, 4 + 2, "a1 at Opus, a2 at Sonnet");
+  assert.ok(Math.abs(sv.actual - 0.2) < 1e-12);
+  assert.deepEqual(sv.sessionModels, ["claude-opus-5-5", "claude-sonnet-5-5"]);
+  // a session with only subagents cannot be estimated, and says why
+  const lone = s.aggregate([e("2026-10-14T10:01:00Z", "claude-haiku-5-5", "a9", 10)], [], P, null, Date.now()).savings;
+  assert.equal(lone.priced, false);
+  assert.match(lone.note, /no main transcript/);
+});
+
+test("server: an unpriced model has no cost anywhere, never $0", () => {
+  const P = { models: { "claude-opus-5-5": { input: 4, output: 20, cache_read: 0.2, cache_write_5m: 5, cache_write_1h: 8 } } };
+  const ent = { ts: "2026-10-14T10:00:00Z", model: "<synthetic>", sub: "", session: "s", input: 3, output: 1, cacheRead: 0, cacheWrite5m: 0, cacheWrite1h: 0 };
+  const t = s.aggregate([ent], [{ t: Date.parse("2026-10-14T09:00:00Z"), stage: "build", unit: "E1.1" }], P, null, Date.now());
+  assert.equal(t.byModel[0].cost, null);
+  assert.equal(t.byTask[0].models["<synthetic>"].cost, null);
 });
