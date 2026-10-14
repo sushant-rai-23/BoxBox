@@ -21,8 +21,11 @@ base: <the commit this brief was written against: git rev-parse --short HEAD>
 <The signature, route, schema or config to build against, from the design page if there is one. "None" if the task adds no interface.>
 
 ## Tests
+<The tests to write, and no others: one logical unit test per behaviour or acceptance criterion, one per failure mode, and one end-to-end test through the real entry point when the task changes what a user sees. Never a test of the language, a library or trivial code, never the same thing twice.>
 - First: `<test name>`: <what it asserts>
-- Edge: <one line per edge case, from the epic's failure modes>
+- Unit: `<test name>`: <one line per further behaviour or failure mode>
+- End-to-end: `<test name>`: <through the real entry point, or "none: nothing a user sees changes">
+Expected count: <n> tests.
 
 ## Do not touch
 - <files and modules out of scope, patterns to avoid, decisions that apply (D/A ids)>

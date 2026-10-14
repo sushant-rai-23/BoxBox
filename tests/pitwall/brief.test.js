@@ -51,7 +51,7 @@ test("brief: a missing expected_diff comes from the size, a missing size is M", 
 
 test("brief: the kit's template parses and names every section the GUIDE requires", () => {
   const t = fs.readFileSync(path.join(__dirname, "../../skills/boxbox-setup/kit/templates/brief.md"), "utf8");
-  for (const h of ["## Goal", "## Code to touch", "## Interface", "## Tests", "## Do not touch", "## Done when", "## Commands"])
+  for (const h of ["## Goal", "## Code to touch", "## Interface", "## Tests", "## Do not touch", "## Done when", "## Commands", "End-to-end:", "Expected count:"])
     assert.ok(t.includes(h), `template has ${h}`);
   const b = R.parseBrief(t);
   assert.ok(/^E\d+\.\d+$/.test(b.task) || b.task.startsWith("<"), "task line present");

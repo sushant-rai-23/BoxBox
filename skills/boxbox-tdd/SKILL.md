@@ -26,6 +26,7 @@ A test written first is how you and the developer both know the code does what t
 - Cover the failure modes named in the plan, not only the happy path: bad input, empty input, the timeout, the duplicate.
 - Unit tests never touch a real network, a real model or a production database. Use fakes or recorded responses.
 - Follow the repo's existing test style and helpers.
+- **As many tests as the behaviour needs, no more.** One logical unit test per behaviour or acceptance criterion, one per failure mode, and one end-to-end test through the real entry point (the command, the route, the screen) when the task changes what a user sees. When the task has a brief, its Tests section is the list. Do not test the language, a library or trivial code, and do not test the same thing twice with different numbers.
 
 ## What you must not do
 

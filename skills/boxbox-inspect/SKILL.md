@@ -26,6 +26,7 @@ If your agent lets you pick a model for a subagent, a different model from the o
 
 - **Does what was asked.** Every acceptance criterion is met and a test proves it. Nothing extra was built.
 - **Tests are real.** Each would fail if the behaviour broke. None only assert that a mock was called. None were weakened.
+- **Tests are not padded.** No two tests check the same thing, none tests the language, a library or trivial code, and each task has its end-to-end test when a user sees the change. Flag duplicates as "should fix" with the test names.
 - **Fails safely.** Each failure mode in the plan is handled and tested. Errors, timeouts and empty inputs do not crash or hang. Nothing fails silently.
 - **Safe.** No secrets, keys or personal data in code, logs or tests. Input from outside is checked at the boundary. No new way to bypass a permission.
 - **Fits the codebase.** Names, structure and style match what is there. It uses the project's existing helpers instead of new copies. Terms match `glossary.md`.

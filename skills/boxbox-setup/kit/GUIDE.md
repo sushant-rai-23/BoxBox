@@ -169,7 +169,7 @@ Before each task, the main agent writes its brief: `cp .boxbox/templates/brief.m
 - **Goal**: one sentence, plus the acceptance criteria it serves.
 - **Code to touch**: each file and function as `path:line`, with the exact current lines, so the builder does not explore. Copy them yourself from files you have already read and that have not changed; in Claude Code, ask `boxbox:boxbox-scout` for files you have not read yet.
 - **Interface**: what to build against, from the design page if there is one.
-- **Tests**: the first test, then edge cases from the epic's failure modes.
+- **Tests**: exactly the tests to write, and their count: the first test, one logical unit test per further behaviour or failure mode, and one end-to-end test through the real entry point when the task changes what a user sees. Not tests of the language, a library or trivial code, and never the same thing twice. The builder writes these and no others, unless it gives a one-line reason.
 - **Do not touch**: out-of-scope files, patterns to avoid, the decisions that apply.
 - **Done when** and **Commands**: the done check, and the test, lint and type commands.
 
