@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="boxbox-page" content="design">
+<title>Design: E1 Routing config and fixed-model agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="../../assets/boxbox.css">
+<script src="../../assets/boxbox.js"></script>
+</head>
+<body>
+<header class="pagebar">
+  <nav class="crumbs" aria-label="Breadcrumbs"><span class="brandlink">boxbox</span><a class="pitlink" href="/">Pit wall</a><a href="../../board.html">Board</a><a href="../plan.html">Boxbox 0.7.0 model routing</a><span aria-current="page">E1 design</span></nav>
+  <div class="theme" role="radiogroup" aria-label="Colour theme"><button type="button" role="radio" data-theme-set="auto" aria-checked="true">Auto</button><button type="button" role="radio" data-theme-set="light" aria-checked="false">Light</button><button type="button" role="radio" data-theme-set="dark" aria-checked="false">Dark</button></div>
+</header>
+<div class="doc">
+  <nav class="toc" aria-label="Contents"><p class="readtime"></p><ol></ol></nav>
+  <article class="article">
+    <header class="doc-head">
+      <h1>Design for E1: Routing config and fixed-model agents</h1>
+      <p class="lede">Four small agent files, each pinned to one model, and one pure function that says which model a call should use. The choice that matters most: a repo with no <code>models:</code> line means "pass no model", so existing 0.6 repos behave exactly as before.</p>
+      <div class="marks"><span class="status" data-st="done">approved 2026-10-14</span><span class="status">no code written yet</span></div>
+    </header>
+
+    <section data-section="problem" data-required="yes" data-min-words="80" id="problem">
+      <h2>The problem</h2>
+      <p data-evidence="inferred">Boxbox 0.7.0 wants cheap, mechanical work (searching, running checks, filling pages) to run on a smaller model, and the risky work to stay on the model you chose for the session. Today every call runs on the session model, so a search costs as much as a design review. E1 has to give the later epics two things: a place to say which models to use, and agents that cannot drift from the model they were written for.</p>
+      <p data-evidence="code">The plan states E1's outcome as: builds go through <code>boxbox-builder</code>, searches through <code>boxbox-scout</code>, checks through <code>boxbox-runner</code>, page filling through <code>boxbox-writer</code>, each on the model that the repo's <code>models:</code> mode and the task's size and risk call for. See the E1 section of <code>.boxbox/model-routing/plan.md</code>.</p>
+      <p data-evidence="observed">The routing spike confirmed that this is possible. A plugin agent with <code>model: sonnet</code> ran on <code>claude-sonnet-5-5</code> inside an Opus session, and a call that passed <code>model: "haiku"</code> to that same agent ran on <code>claude-haiku-5-5</code>, so the call beats the agent file (<code>docs/routing-spike.md</code>, sections 1 and 2). Plugin agents load as <code>plugin:name</code>, which is why ours are called <code>boxbox:boxbox-builder</code> and so on.</p>
+      <p data-evidence="observed">The same spike gives the order Claude Code uses to pick a model: the environment override <code>CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1</code> first, then the call's <code>model</code>, then the agent file's <code>model:</code>, then the session model. A plain <code>CLAUDE_CODE_SUBAGENT_MODEL</code> is only a default and changes nothing for agents that name a model (<code>docs/routing-spike.md</code>, section 3). That is why the design passes <code>model</code> on every call and keeps the agent file's model as a fallback only.</p>
+      <p data-evidence="code">The current code knows nothing about this. <code>parseConfig</code> at <code>hooks/boxbox-event.js:236</code> returns only <code>testCommand</code> and <code>pitwall</code>, and the <code>say</code> script at <code>skills/boxbox-setup/kit/pitwall/say:37</code> handles only the verbs <code>stage</code> and <code>ask</code>. The repo has no <code>agents/</code> folder yet.</p>
+    </section>
+    <section data-section="ideas" data-required="no" data-min-words="60" id="ideas">
+      <h2>New ideas in this design</h2>
+      <p data-evidence="inferred">An <span class="term" tabindex="0">agent file<span class="term-def" role="tooltip">A markdown file in the plugin's agents folder. Its top block names the agent, says what it is for, which model it uses and which tools it may touch. The text below is its standing instructions.</span></span> is how Claude Code defines a subagent: a helper that the main session hands one job and that returns a short answer. Ours restrict the tools on purpose. The scout cannot edit anything because it has no edit tool.</p>
+      <p data-evidence="inferred">A <span class="term" tabindex="0">family alias<span class="term-def" role="tooltip">A short model name such as opus, sonnet, haiku or fable that stands for the newest model of that family, instead of a full id like claude-sonnet-5-5.</span></span> is the short name the Agent tool accepts for <code>model</code>. The routing function returns <code>sonnet</code>, not a full id, because ids change with every release and the alias keeps working.</p>
+      <p data-evidence="inferred">The <span class="term" tabindex="0">session model<span class="term-def" role="tooltip">The model the developer's own Claude Code session is running on, for example opus. It is the strongest model in the room and the one that decides, plans and reviews.</span></span> is the model your chat runs on. "First match wins" means the function checks its rules from the top and stops at the first one that fits. Order matters because a later rule never gets a chance once an earlier one matched. Under <code>auto</code>, rule 1 stops everything, so escalation and risk never matter.</p>
+    </section>
+    <section data-section="shape" data-required="yes" data-min-words="80" data-needs="svg" id="shape">
+      <h2 data-short="Shape">The shape of the solution</h2>
+<figure class="diagram wide">
+<svg viewBox="0 0 760 320" role="img" aria-label="Flow: config.md, plan.md and events.jsonl feed routing.js expectedModel, which the boxbox-build skill asks for a model. The skill makes an Agent call with that model, which goes to one of four agents: boxbox-builder, boxbox-scout, boxbox-runner or boxbox-writer. routing.js and the four agents are new.">
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0 0L10 5L0 10z"/></marker></defs>
+  <rect class="d-box" x="10" y="20" width="150" height="48"/><text class="d-label" x="24" y="42">config.md</text><text class="d-sub" x="24" y="60">models, parallel</text>
+  <rect class="d-box" x="10" y="80" width="150" height="48"/><text class="d-label" x="24" y="102">plan.md</text><text class="d-sub" x="24" y="120">size, risk, model:</text>
+  <rect class="d-box" x="10" y="140" width="150" height="48"/><text class="d-label" x="24" y="162">events.jsonl</text><text class="d-sub" x="24" y="180">escalated events</text>
+  <rect class="d-box hot" x="200" y="80" width="160" height="62"/><text class="d-label" x="214" y="106">routing.js</text><text class="d-sub" x="214" y="126">expectedModel</text>
+  <rect class="d-box" x="400" y="80" width="160" height="62"/><text class="d-label" x="414" y="106">boxbox-build</text><text class="d-sub" x="414" y="126">skill (changed)</text>
+  <rect class="d-box" x="590" y="80" width="160" height="62"/><text class="d-label" x="604" y="106">Agent call</text><text class="d-sub" x="604" y="126">with model</text>
+  <rect class="d-box hot" x="10" y="240" width="170" height="62"/><text class="d-label" x="24" y="266">boxbox-builder</text><text class="d-sub" x="24" y="286">boxbox:boxbox-builder</text>
+  <rect class="d-box hot" x="200" y="240" width="170" height="62"/><text class="d-label" x="214" y="266">boxbox-scout</text><text class="d-sub" x="214" y="286">boxbox:boxbox-scout</text>
+  <rect class="d-box hot" x="390" y="240" width="170" height="62"/><text class="d-label" x="404" y="266">boxbox-runner</text><text class="d-sub" x="404" y="286">boxbox:boxbox-runner</text>
+  <rect class="d-box hot" x="580" y="240" width="170" height="62"/><text class="d-label" x="594" y="266">boxbox-writer</text><text class="d-sub" x="594" y="286">boxbox:boxbox-writer</text>
+  <path class="d-edge" d="M160 44 L196 96" marker-end="url(#arrow)"/>
+  <path class="d-edge" d="M160 104 H196" marker-end="url(#arrow)"/>
+  <path class="d-edge" d="M160 164 L196 128" marker-end="url(#arrow)"/>
+  <path class="d-edge hot" d="M360 111 H396" marker-end="url(#arrow)"/>
+  <path class="d-edge hot" d="M560 111 H586" marker-end="url(#arrow)"/>
+  <path class="d-edge hot" d="M640 142 L110 236" marker-end="url(#arrow)"/>
+  <path class="d-edge hot" d="M655 142 L285 236" marker-end="url(#arrow)"/>
+  <path class="d-edge hot" d="M690 142 L475 236" marker-end="url(#arrow)"/>
+  <path class="d-edge hot" d="M700 142 V236" marker-end="url(#arrow)"/>
+</svg>
+<figcaption>The new parts are highlighted. <code>routing.js</code> only answers a question; the build skill is the one that makes the call, and the agent file's own model is the fallback if a call forgets to pass one.</figcaption>
+</figure>
+      <p data-evidence="inferred">The design splits the work in two so the rule lives in one place. Plain functions in <code>hooks/routing.js</code> read the three inputs and answer "which family for this call". The skills then pass that answer as <code>model</code>. Later, the gate in E3 can run the same function over the real calls it sees and compare. Nothing in <code>routing.js</code> touches files, the clock or the network, so tests can call it with plain values.</p>
+      <ul class="changes" data-evidence="inferred">
+        <li class="change"><code>agents/boxbox-builder.md</code><span class="delta"><ins>new</ins></span><p><b>Its one job:</b> build one task test-first from its brief, commit, and return a diff summary and the test result.</p></li>
+        <li class="change"><code>agents/boxbox-scout.md</code><span class="delta"><ins>new</ins></span><p><b>Its one job:</b> look things up in the repo and report. It never edits.</p></li>
+        <li class="change"><code>agents/boxbox-runner.md</code><span class="delta"><ins>new</ins></span><p><b>Its one job:</b> run checks and make mechanical fixes only, never change behaviour or logic.</p></li>
+        <li class="change"><code>agents/boxbox-writer.md</code><span class="delta"><ins>new</ins></span><p><b>Its one job:</b> fill templates from facts it is given and run the checker; where a fact is missing it writes unknown.</p></li>
+        <li class="change"><code>hooks/routing.js</code><span class="delta"><ins>new</ins></span><p><b>Its one job:</b> pure, zero-dependency functions that parse the config, the plan and the events and compute the expected model. Used by tests now and by the gate in E3.</p></li>
+        <li class="change"><code>hooks/boxbox-event.js</code><span class="delta">changed</span><p><b>What changes:</b> <code>parseConfig</code> also returns <code>models</code>, <code>parallel</code> and <code>modelsWarning</code>, by calling <code>routing.parseModels</code>, which is the one owner of the missing and unknown value rule. <code>SAY_FORM</code> (<code>hooks/boxbox-event.js:262</code>) also pre-approves <code>say escalated</code>.</p></li>
+        <li class="change"><code>skills/boxbox-setup/kit/pitwall/say</code><span class="delta">changed</span><p><b>What changes:</b> a new verb, <code>escalated</code>.</p></li>
+        <li class="change"><span>Skills</span><span class="delta">changed</span><p><b>What changes:</b> setup asks for <code>models:</code>; plan tags size and risk and writes an epic <code>model:</code>; build routes and escalates; tdd, inspect, report and lessons say who runs what; the kit <code>GUIDE.md</code> documents the config block, the task line and the <code>escalated</code> event.</p></li>
+      </ul>
+      <p data-evidence="inferred">Each agent's body is a short strict prompt with a "Never" list. Builder never touches files outside its brief or anything in <code>.boxbox/</code>. Scout never edits. Runner never changes behaviour or logic. Writer never invents facts and labels what it does not know as unknown. Tools are the minimum each job needs.</p>
+    </section>
+    <section data-section="interfaces" data-required="yes" data-min-words="60" id="interfaces">
+      <h2>Interfaces</h2>
+      <p data-evidence="inferred">An agent file starts with a block of settings. The model line is a fallback only: Boxbox passes <code>model</code> on every call (decision D1 in the plan).</p>
+<figure class="code" data-new data-evidence="inferred">
+<figcaption><code>agents/boxbox-builder.md</code><span>front matter</span></figcaption>
+<pre><code>name: boxbox-builder
+description: Builds one Boxbox task test-first from its brief, commits, returns diff summary and test result.
+model: sonnet          # fallback only; Boxbox passes `model` on every call (D1)
+tools: Read, Edit, Write, Bash, Grep, Glob
+
+# the other three differ only here:
+# scout:  model: haiku,  tools: Read, Grep, Glob             (never edits)
+# runner: model: haiku,  tools: Read, Edit, Bash, Grep, Glob (mechanical fixes only)
+# writer: model: sonnet, tools: Read, Write, Edit, Bash, Grep, Glob (fills templates, runs checker)</code></pre>
+</figure>
+<figure class="code" data-new data-evidence="inferred">
+<figcaption><code>.boxbox/config.md</code><span>two new lines</span></figcaption>
+<pre><code>models: best | balanced | save | auto     # missing line (0.6 repos) = auto; unknown value = balanced + warning
+parallel: off | on                         # default off</code></pre>
+</figure>
+<figure class="code" data-new data-evidence="inferred">
+<figcaption><code>plan.md</code><span>task line and epic override</span></figcaption>
+<pre><code>- [ ] E2.3 &lt;what changes&gt; | size: S|M|L | risk: yes|no | test: &lt;first test&gt; | done: &lt;check&gt; | deps: &lt;ids&gt;
+## E3 &lt;title&gt;  [todo]
+model: opus            # optional per-epic override for builder tasks</code></pre>
+</figure>
+<figure class="code" data-new data-evidence="inferred">
+<figcaption><code>hooks/routing.js</code><span>signatures</span></figcaption>
+<pre><code>type Mode = "best" | "balanced" | "save" | "auto";
+type Agent = "builder" | "scout" | "runner" | "writer";
+type Family = "opus" | "sonnet" | "haiku" | "fable";
+
+parseModels(configText: string): { mode: Mode, parallel: boolean, warning: string | null }
+parsePlanTasks(planText: string): Map&lt;taskId, { epic: string, size: "S"|"M"|"L", risk: boolean, epicModel: Family | null }&gt;
+escalatedTasks(events: object[]): Set&lt;taskId&gt;          // events with kind "escalated"
+familyOf(modelId: string): Family | null               // "claude-opus-5-5[1m]" -&gt; "opus"
+agentOf(subagentType: string): Agent | null            // "boxbox:boxbox-scout" -&gt; "scout"; others -&gt; null
+expectedModel(q: { agent: Agent, mode: Mode, session: Family,
+                   size?: "S"|"M"|"L", risk?: boolean, epicModel?: Family | null, escalated?: boolean })
+  : { model: Family | null, why: string }               // null = pass no model (auto)</code></pre>
+</figure>
+<figure class="code" data-new data-evidence="inferred">
+<figcaption><code>skills/boxbox-setup/kit/pitwall/say</code><span>new verb</span></figcaption>
+<pre><code>sh .boxbox/pitwall/say escalated "&lt;one-line reason&gt;" --unit E2.3
+-&gt; events.jsonl {"type":"escalated","kind":"escalated","lane":"driver","target":"&lt;reason&gt;","unit":"E2.3",...}</code></pre>
+</figure>
+<figure class="code" data-new data-evidence="inferred">
+<figcaption>how a skill calls an agent<span>call contract</span></figcaption>
+<pre><code>Agent(subagent_type: "boxbox:boxbox-builder", description: "E2.3 &lt;short&gt;", model: &lt;expectedModel&gt;, prompt: &lt;task hand-off&gt;)</code></pre>
+</figure>
+      <p data-evidence="inferred">The rules for <code>expectedModel</code> are checked from the top, and the first one that matches decides. Under <code>auto</code> the function returns no model and the skill leaves <code>model</code> out of the call. Discover, decisions, plan, design, briefs, inspect, fact-check and approvals are never handed to these agents.</p>
+      <div class="table" data-evidence="inferred"><table>
+        <thead><tr><th>Rule</th><th>When it matches</th><th>Result and reason</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>mode is <code>auto</code></td><td>no model, "models: auto"</td></tr>
+          <tr><td>2</td><td>builder and the task was escalated</td><td>the session model, "escalated"</td></tr>
+          <tr><td>3</td><td>builder and the epic has a <code>model:</code> override</td><td>that model, "epic override"; it beats <code>save</code> on purpose, because you asked for it by name</td></tr>
+          <tr><td>4</td><td>builder and (risk yes or size L)</td><td>the session model, or sonnet under <code>save</code>; reason "risk: yes" or "size: L"</td></tr>
+          <tr><td>5</td><td>anything else</td><td>look up the mode table below</td></tr>
+        </tbody>
+      </table></div>
+      <div class="table" data-evidence="inferred"><table>
+        <thead><tr><th>Agent</th><th>best</th><th>balanced</th><th>save</th></tr></thead>
+        <tbody>
+          <tr><td>builder</td><td>session</td><td>sonnet</td><td>sonnet</td></tr>
+          <tr><td>scout</td><td>session</td><td>haiku</td><td>haiku</td></tr>
+          <tr><td>runner</td><td>session</td><td>haiku</td><td>haiku</td></tr>
+          <tr><td>writer</td><td>session</td><td>sonnet</td><td>haiku</td></tr>
+        </tbody>
+      </table></div>
+      <p data-evidence="inferred">One worked example for each rule, assuming the session runs on opus:</p>
+      <div class="table" data-evidence="inferred"><table>
+        <thead><tr><th>Call</th><th>Rule that decides</th><th>Model passed</th></tr></thead>
+        <tbody>
+          <tr><td>auto, any agent</td><td>1</td><td>none; Claude Code uses the agent file's model</td></tr>
+          <tr><td>balanced, builder, task escalated after two failures</td><td>2</td><td>opus (the session model), reason "escalated"</td></tr>
+          <tr><td>balanced, builder, epic says <code>model: opus</code>, size S</td><td>3</td><td>opus, reason "epic override"</td></tr>
+          <tr><td>balanced, builder, risk yes</td><td>4</td><td>opus (the session model), reason "risk: yes"</td></tr>
+          <tr><td>save, builder, risk yes</td><td>4</td><td>sonnet, because <code>save</code> never spends the session model on a builder that has not failed</td></tr>
+          <tr><td>balanced, builder, size M, risk no</td><td>5</td><td>sonnet</td></tr>
+          <tr><td>save, writer</td><td>5</td><td>haiku</td></tr>
+          <tr><td>balanced, scout</td><td>5</td><td>haiku</td></tr>
+        </tbody>
+      </table></div>
+      <dl class="terms" data-evidence="inferred">
+        <dt><code>models:</code></dt><dd>Which cost mode the repo uses. <code>best</code> keeps everything on the session model, <code>balanced</code> is the recommended middle, <code>save</code> uses the smallest model that does the job, and <code>auto</code> passes no model at all. A missing line means <code>auto</code>. An unknown value means <code>balanced</code> plus a warning.</dd>
+        <dt><code>parallel:</code></dt><dd>Whether tasks may run side by side. Default <code>off</code>; setup writes the line and mentions it, but does not ask.</dd>
+        <dt><code>size</code> and <code>risk</code></dt><dd>Tags on a task line. A missing <code>size</code> counts as M and a missing <code>risk</code> counts as no, so older plans still parse.</dd>
+        <dt><code>model</code> on an epic</dt><dd>Optional. "Use opus for E3" in chat becomes <code>model: opus</code> under the E3 heading, and applies to builder tasks only.</dd>
+        <dt><code>model</code> on the call</dt><dd>A family alias or absent. Absent only under <code>auto</code>.</dd>
+      </dl>
+    </section>
+    <section data-section="path" data-required="no" data-min-words="60" id="path">
+      <h2 data-short="Request path">How one request travels</h2>
+      <ol class="path" data-evidence="inferred">
+        <li><b>Setup asks which models to use</b><span class="at">skills/boxbox-setup/SKILL.md (changed)</span><p>It recommends <code>balanced</code> and writes <code>models:</code> to <code>config.md</code>. It also writes <code>parallel: off</code> and mentions it.</p></li>
+        <li><b>Plan tags every task</b><span class="at">skills/boxbox-plan/SKILL.md (changed)</span><p>Each task line gets a size and a risk. If you say "use opus for E3", the plan adds <code>model: opus</code> under E3.</p></li>
+        <li><b>Build works out the model for each task</b><span class="at">skills/boxbox-build/SKILL.md (changed)</span><p>It reads the config, the task's tags and whether the task was escalated, computes the model with the rules above, then calls <code>boxbox:boxbox-builder</code> with that <code>model</code> and the task id at the start of the description.</p></li>
+        <li><b>A builder fails, so the task is escalated</b><span class="at">skills/boxbox-setup/kit/pitwall/say (changed)</span><p>When the builder fails twice, or an early trigger fires, the skill runs <code>say escalated</code> and retries once on the session model. The early triggers are a diff more than three times the expected size, an edit to a file outside the task's files, and five edits to one file without the test going green. Until briefs exist in E2, expected size comes from the size tag: S 50, M 150, L 400 changed lines. If the retry fails too, the skill stops and asks you. E1 applies these rules in the build skill; E3 enforces them in the gate.</p></li>
+        <li><b>Scout and runner calls work the same way</b><span class="at">hooks/routing.js (new)</span><p>They get their model from the same function. Page filling for reports goes to the writer. If something fails after the agent returns, it comes back as a normal result for the skill to handle.</p></li>
+      </ol>
+    </section>
+    <section data-section="alternatives" data-required="yes" data-min-words="60" id="alternatives">
+      <h2 data-short="Alternatives">Alternatives considered</h2>
+      <div class="table" data-evidence="inferred"><table>
+        <thead><tr><th>Option</th><th>Gains</th><th>Costs</th></tr></thead>
+        <tbody>
+          <tr class="chosen"><td>A pure <code>routing.js</code> that returns family aliases; a missing <code>models:</code> line means <code>auto</code></td><td>One rule that tests and the gate both check; aliases survive new releases; 0.6 repos keep their behaviour</td><td>A new module to maintain; repos must opt in through setup</td></tr>
+          <tr><td>Routing rules as prose in the build skill only</td><td>No new code</td><td>Nothing shared for the gate and the tests to check against; rejected</td></tr>
+          <tr><td>Size and risk in a JSON sidecar written by plan</td><td>Easy to parse</td><td>A second source of truth beside <code>plan.md</code>; rejected (A2)</td></tr>
+          <tr><td>Return full model ids instead of family aliases</td><td>Exact model named</td><td>The Agent tool takes aliases and ids change each release; rejected</td></tr>
+          <tr><td>A missing <code>models:</code> line means <code>balanced</code></td><td>Savings with no setup step</td><td>Silently changes the cost behaviour of 0.6 repos on update; rejected in favour of <code>auto</code></td></tr>
+        </tbody>
+      </table></div>
+    </section>
+    <section data-section="risks" data-required="yes" data-min-words="40" id="risks">
+      <h2 data-short="Risks">Risks, and what this locks in</h2>
+      <ul class="findings">
+        <li data-st="flag" data-evidence="inferred"><span class="status" data-st="flag">high</span><b>Agent names are public</b><p>Skills, the gate in E3 and every later epic call <code>boxbox:boxbox-builder</code> and its siblings by name. Renaming one means editing every skill and every test that mentions it, and any page that already quotes it.</p></li>
+        <li data-st="flag" data-evidence="inferred"><span class="status" data-st="flag">high</span><b>Mode names and task-line tags are written into user files</b><p><code>best</code>, <code>balanced</code>, <code>save</code>, <code>auto</code> live in each repo's <code>config.md</code>, and <code>size:</code> and <code>risk:</code> live in every <code>plan.md</code> that plan writes. Renaming them leaves old repos with values the parser reads as unknown.</p></li>
+        <li data-st="move" data-evidence="inferred"><span class="status" data-st="move">medium</span><b>The <code>escalated</code> event kind and the task id prefix</b><p>The pit wall and the gate will read events by kind. The E3 gate and the E4 cost attribution match calls to tasks by the task id placed first in the call description. Changing either later breaks that match without any error.</p></li>
+        <li data-st="move" data-evidence="inferred"><span class="status" data-st="move">medium</span><b>Missing <code>models:</code> line means auto</b><p>0.6 repos keep 0.6 behaviour until setup asks. The cost is that they save nothing until someone runs setup again.</p></li>
+        <li data-evidence="code"><span class="status">low</span><b>Widening the say pre-approval</b><p>Today the allow-list at <code>hooks/boxbox-event.js:262</code> accepts only <code>stage</code> and <code>ask</code>. E1 adds <code>escalated</code> to it, so the retry does not stop on a permission prompt. It is one more verb on a pattern that still allows no shell operators.</p></li>
+        <li data-st="move" data-evidence="observed"><span class="status" data-st="move">medium</span><b>An environment override can defeat routing</b><p>With <code>CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1</code> set, every agent runs on that model regardless of the call (<code>docs/routing-spike.md</code>, section 3). Detecting that belongs to the later gate, not to E1.</p></li>
+      </ul>
+    </section>
+    <section data-section="approve" data-required="yes" data-min-words="20" id="approve">
+      <h2 data-short="Approve">What to approve</h2>
+      <aside class="callout" data-kind="note"><p>Approved 2026-10-14. Building E1 to this shape.</p></aside>
+      <ul data-evidence="inferred">
+        <li>The four agents and their tools: builder (Read, Edit, Write, Bash, Grep, Glob), scout (Read, Grep, Glob), runner (Read, Edit, Bash, Grep, Glob), writer (Read, Write, Edit, Bash, Grep, Glob).</li>
+        <li>The mode table: which family each agent gets under best, balanced and save.</li>
+        <li>The rule order, with first match winning: auto, escalated, epic override, risk or size L, then the mode table.</li>
+        <li>A missing <code>models:</code> line means auto; an unknown value means balanced with a warning.</li>
+        <li>The new <code>say escalated</code> verb, its pre-approval in <code>SAY_FORM</code>, and the <code>escalated</code> event it writes.</li>
+        <li>The escalation triggers and the size fallbacks (S 50, M 150, L 400 changed lines).</li>
+        <li>The call contract: <code>subagent_type</code>, the task id first in <code>description</code>, and <code>model</code> from <code>expectedModel</code>, left out under auto.</li>
+      </ul>
+    </section>
+
+    <footer class="pagefoot">
+      <h2>Related pages</h2>
+      <nav class="pagelinks" aria-label="Related pages"><a class="pagelink" href="../plan.html">Plan</a><a class="pagelink" href="../decisions.html">Decisions</a></nav>
+      <p>Source for the agent: design.md</p>
+    </footer>
+  </article>
+</div>
+</body>
+</html>
