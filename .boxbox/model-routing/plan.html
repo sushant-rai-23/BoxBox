@@ -126,21 +126,23 @@
         </ol>
       </article>
       <article class="epic" id="e4">
-        <span class="status">to do</span>
+        <span class="status" data-st="done">done</span>
         <h3><data>E4</data>Exact cost per model</h3>
         <p>Tokens and cost are counted per model, per subagent and per task from the main transcript plus every subagent transcript, including subagents still running, with the cache-read share per model and a labelled "saved versus all on the session model" estimate.</p>
         <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e4-cost</code></dd><dt>Depends on</dt><dd>E1</dd><dt>Design stop</dt><dd>yes, because it changes the token data the server serves to the page and to <code>--summary</code></dd></dl>
         <h4>Done when</h4>
         <ul class="accept"><li>prices.json prices claude-sonnet-5-5 cache reads at $0.10/M, matching Claude Code's reported cost</li><li>A subagent's transcript is registered at SubagentStart; its tokens count while it runs; nothing is counted twice</li><li>Per-model totals for a fixture session (main plus three subagents) match a hand count to the token</li><li>Each subagent's task comes from its Agent call's task id (meta.json toolUseId), so parallel subagents land on the right task</li><li>Cache-read share per model and the savings estimate are served; <code>--summary &lt;unit&gt;</code> prints cost by model</li><li>Codex sessions still show their model per session with empty prices</li></ul>
         <ol class="tasks">
-          <li data-st="todo"><b>E4.1</b>Fix the Sonnet cache-read price and price <code>[1m]</code> ids
+          <li data-st="done"><b>E4.1</b>Fix the Sonnet cache-read price and price <code>[1m]</code> ids
             <dl><dt>First test</dt><dd><code>server: priceFor matches claude-opus-5-5[1m] and sonnet cache read costs 0.1 per million</code></dd><dt>Fails when</dt><dd><code>[1m]</code> model ids unpriced: normalise the suffix before lookup</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>skills/boxbox-setup/kit/pitwall/prices.json</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/server.test.js</code>, <code>tests/pitwall/fixtures/**</code></dd></dl></li>
-          <li data-st="todo"><b>E4.2</b>Register subagent transcripts at SubagentStart and attach each to its task through meta.json
+          <li data-st="done"><b>E4.2</b>Register subagent transcripts at SubagentStart and attach each to its task through meta.json
             <dl><dt>First test</dt><dd><code>server: a running subagent's tokens count under its task before SubagentStop</code></dd><dt>Fails when</dt><dd>Double counting: dedupe per message id per transcript; the main transcript has no sidechain lines</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>skills/boxbox-setup/kit/pitwall/prices.json</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/server.test.js</code>, <code>tests/pitwall/fixtures/**</code></dd></dl></li>
-          <li data-st="todo"><b>E4.3</b>Aggregate tokens, cost and cache-read share by model
+          <li data-st="done"><b>E4.3</b>Aggregate tokens, cost and cache-read share by model
             <dl><dt>First test</dt><dd><code>server: per-model totals match a hand count of the spike fixtures</code></dd><dt>Fails when</dt><dd>per-model totals differ from a hand count of the fixture session by even one token</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>skills/boxbox-setup/kit/pitwall/prices.json</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/server.test.js</code>, <code>tests/pitwall/fixtures/**</code></dd></dl></li>
-          <li data-st="todo"><b>E4.4</b>Savings estimate and <code>--summary</code> by model
+          <li data-st="done"><b>E4.4</b>Savings estimate and <code>--summary</code> by model
             <dl><dt>First test</dt><dd><code>server: saved estimate re-prices subagent tokens at the session model's rates</code></dd><dt>Fails when</dt><dd>the saved estimate is not labelled an estimate, or is not priced at the session model's rates</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>skills/boxbox-setup/kit/pitwall/prices.json</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/server.test.js</code>, <code>tests/pitwall/fixtures/**</code></dd></dl></li>
+          <li data-st="done"><b>E4.5</b>Register a Claude Code session on its first hook event when it started before <code>.boxbox/</code> existed (added while building, A20)
+            <dl><dt>First test</dt><dd><code>hook: a session the pit wall never saw start is registered on its first event</code>: registered once, never for a subagent's events</dd><dt>Fails when</dt><dd>A session is registered twice, or a subagent is registered as a main session.</dd><dt>Files</dt><dd><code>hooks/boxbox-event.js</code>, <code>tests/pitwall/hook.test.js</code></dd></dl></li>
         </ol>
       </article>
       <article class="epic" id="e5">

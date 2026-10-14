@@ -189,7 +189,7 @@ window.BOXBOX_BOARD = {
   "id": "E4",
   "title": "Exact cost per model",
   "outcome": "Tokens and cost are counted per model, per subagent and per task from the main transcript plus every subagent transcript, including subagents still running, with the cache-read share per model and a labelled \"saved versus all on the session model\" estimate.",
-  "status": "todo",
+  "status": "done",
   "branch": "model-routing-e4-cost",
   "files": [
    "skills/boxbox-setup/kit/pitwall/server.js",
@@ -198,31 +198,33 @@ window.BOXBOX_BOARD = {
    "tests/pitwall/server.test.js",
    "tests/pitwall/fixtures/**"
   ],
+  "links": [ { "label": "Report (agent)", "href": "model-routing/e4-cost/report.md" } ],
   "tasks": [
    {
     "id": "E4.1",
     "title": "Fix the Sonnet cache-read price and price `[1m]` ids",
     "test": "`server: priceFor matches claude-opus-5-5[1m] and sonnet cache read costs 0.1 per million`",
-    "status": "todo"
+    "status": "done", "commit": "9f152e1"
    },
    {
     "id": "E4.2",
     "title": "Register subagent transcripts at SubagentStart and attach each to its task through meta.json",
     "test": "`server: a running subagent's tokens count under its task before SubagentStop`",
-    "status": "todo"
+    "status": "done", "commit": "89d24b4"
    },
    {
     "id": "E4.3",
     "title": "Aggregate tokens, cost and cache-read share by model",
     "test": "`server: per-model totals match a hand count of the spike fixtures`",
-    "status": "todo"
+    "status": "done", "commit": "026d94a"
    },
    {
     "id": "E4.4",
     "title": "Savings estimate and `--summary` by model",
     "test": "`server: saved estimate re-prices subagent tokens at the session model's rates`",
-    "status": "todo"
-   }
+    "status": "done", "commit": "ed26322"
+   },
+    {"id": "E4.5", "title": "Register a session on its first hook event when it started before .boxbox existed", "test": "hook: a session the pit wall never saw start is registered on its first event", "status": "done", "commit": "ca74894"}
   ]
  },
  {

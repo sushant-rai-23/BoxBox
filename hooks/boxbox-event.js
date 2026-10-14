@@ -433,6 +433,13 @@ function main(event, raw, root) {
   const base = { ts: new Date().toISOString(), session: p.session_id || "", agent, lane: laneFor(p, stage.stage), unit: stage.unit || "", ...(p.agent_id ? { sub: p.agent_id } : {}) };
   const tool = p.tool_name || "";
 
+  // A session that started before .boxbox existed never had its SessionStart logged: register its
+  // transcript on its first event, so its tokens are counted (decision A20).
+  if (event !== "SessionStart" && agent === "claude-code" && !p.agent_id && p.session_id && p.transcript_path &&
+      readText(path.join(live, "sessions.jsonl")).indexOf(`"transcript":${JSON.stringify(p.transcript_path)}`) < 0) {
+    append(live, "sessions.jsonl", { session: p.session_id, agent, transcript: p.transcript_path, started: base.ts, late: true });
+  }
+
   switch (event) {
     case "SessionStart": {
       if (p.source === "startup" || p.source === "resume" || p.source === undefined) fs.writeFileSync(path.join(live, "session-start"), base.ts);
@@ -524,9 +531,13 @@ function main(event, raw, root) {
       const lane = laneFor({ agent_id: p.agent_id || "sub", agent_type: p.agent_type }, stage.stage);
       const task = subagentTask(p, live);
       append(live, "events.jsonl", { ...base, ...(task ? { unit: task } : {}), lane, type: "crew", kind: "crew", target: p.agent_type || "subagent", why: stage.why || "", result: event === "SubagentStart" ? "started" : "finished", sub: p.agent_id || "" });
-      if (event === "SubagentStop" && p.agent_transcript_path) {
-        append(live, "sessions.jsonl", { session: p.session_id || "", agent, transcript: p.agent_transcript_path, sub: p.agent_id || "", started: base.ts });
-      }
+      // Register the subagent's transcript as soon as it starts, so its tokens count while it runs.
+      // SubagentStart gives no path; Claude Code keeps it at <session>/subagents/agent-<id>.jsonl
+      // beside the parent's transcript (docs/routing-spike.md, section 5). Stop gives the real path;
+      // the server keeps one entry per path, so registering both is safe.
+      const subTranscript = event === "SubagentStop" && p.agent_transcript_path ? p.agent_transcript_path
+        : (p.transcript_path && p.session_id && p.agent_id ? path.join(path.dirname(p.transcript_path), p.session_id, "subagents", `agent-${p.agent_id}.jsonl`) : "");
+      if (subTranscript) append(live, "sessions.jsonl", { session: p.session_id || "", agent, transcript: subTranscript, sub: p.agent_id || "", started: base.ts });
       return;
     }
     case "SessionEnd":

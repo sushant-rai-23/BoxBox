@@ -99,6 +99,8 @@ Parallel mode must therefore set `worktree.baseRef: "head"` in the project setti
 
 ## Other observations
 
+- Claude Code's own per-model totals and cost for run "a" are saved in `tests/pitwall/fixtures/routing-session/model-usage.json`, beside trimmed copies of that run's transcripts (ids, models and usage only). The pit wall's per-model counts are tested against it: Opus and Sonnet match to the token and to the cent.
+
 - `modelUsage` in a session result also counts Claude Code's own small Haiku calls (for example the session title). These calls are not in any transcript, so "per-model totals from transcripts" will slightly undercount Haiku against the result's own total. That is expected.
 - Subagents launched without `run_in_background` were recorded as `requestShape: "background"`, which is the default in this version. A foreground run needs `run_in_background: false`.
 - The headless spike runs cost $2.70 in total (summed from each result's `total_cost_usd`), almost all of it Opus main-session turns. The interactive status-line run used Haiku and is not included.
