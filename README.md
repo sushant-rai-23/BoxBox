@@ -182,7 +182,7 @@ What each agent gets:
 | Status line | Yes (terminal) | No |
 | Parallel tasks | Yes, off by default | No |
 
-How the Claude Code features were checked is written up in [docs/routing-spike.md](docs/routing-spike.md). **Not yet verified in a live session** (tested with recorded real transcripts and unit tests only): a full build in `balanced` mode following the new skills, including briefs written by the main model and a report filled by the writer; a live escalation; a live parallel build and merge; the status line in a running CLI session; the new setup questions; and the brief links on a live board. Seen live in Claude Code 2.1.296: the four agents loading and running on their models, a gate denial and the agent's retry on the right model, a subagent tied to its task, and the worktree facts parallel mode relies on.
+How the Claude Code features were checked is written up in [docs/routing-spike.md](docs/routing-spike.md). **Not yet verified in a live session** (tested with recorded real transcripts and unit tests only): a full build in `balanced` mode following the new skills, including briefs written by the main model and a report filled by the writer; a live escalation; a live parallel build and merge; the status line in a running CLI session; the new setup questions; and the brief links on a live board. Seen live in Claude Code 2.1.296: the agents loading from the plugin, the scout and the runner running on Haiku, a builder call denied on Haiku and run on Opus as the gate asked (the writer was not run live), a subagent tied to its task, and the worktree facts parallel mode relies on.
 
 ## The skills and how to use them
 
