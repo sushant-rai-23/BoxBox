@@ -400,3 +400,14 @@ test("hook: laneFor gives each Boxbox agent its own lane", () => {
   assert.equal(h.laneFor({ agent_id: "a1", agent_type: "boxbox:boxbox-writer" }, "report"), "writer");
   assert.equal(h.laneFor({ agent_id: "a1", agent_type: "general-purpose" }, "build"), "crew");
 });
+
+test("hook: an answer in the question tool clears the waiting card", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbask-"));
+  fs.mkdirSync(path.join(root, ".boxbox", "live"), { recursive: true });
+  fs.writeFileSync(path.join(root, ".boxbox", "live", "waiting.json"), JSON.stringify({ kind: "decision", what: "D3: how strict?" }));
+  const p = { session_id: "s1", transcript_path: "/p/s1.jsonl", hook_event_name: "PostToolUse", tool_name: "AskUserQuestion", tool_input: { questions: [] }, tool_response: {} };
+  spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), "PostToolUse"], { input: JSON.stringify(p), env: { ...process.env, BOXBOX_ROOT: root } });
+  assert.ok(!fs.existsSync(path.join(root, ".boxbox", "live", "waiting.json")));
+  fs.rmSync(root, { recursive: true, force: true });
+});
