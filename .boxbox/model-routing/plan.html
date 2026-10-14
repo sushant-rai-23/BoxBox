@@ -106,22 +106,22 @@
         </ol>
       </article>
       <article class="epic" id="e3">
-        <span class="status">to do</span>
+        <span class="status" data-st="done">done</span>
         <h3><data>E3</data>Routing gate and escalation enforcement</h3>
         <p>A subagent call that breaks the routing rules is denied with a reason naming the right agent and model, and the agent retries; under <code>models: auto</code> or the FORCE override the gate stands aside and the pit wall says why.</p>
         <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e3-gate</code></dd><dt>Depends on</dt><dd>E1, E2</dd><dt>Design stop</dt><dd>yes, because it adds a synchronous decision path to the hook that every Agent call passes through, and its failure behaviour (D4)</dd></dl>
         <h4>Done when</h4>
         <ul class="accept"><li>Only Claude Code Agent and Task calls take the new synchronous node path; other calls keep the background path; Codex payloads (with <code>turn_id</code>) are untouched</li><li>The gate judges only <code>boxbox:*</code> agents; a wrong model, a missing task id, or a builder retry after two failures not on the session model is denied with a reason like "E2.3 is risk: yes, run boxbox-builder with model opus"</li><li><code>models: auto</code> or FORCE on: the gate allows everything and logs why; plain <code>CLAUDE_CODE_SUBAGENT_MODEL</code> is logged as information</li><li>Early-escalation triggers (diff over 3x expected, edits outside the brief, 5 edits without green) observed from subagent tool events require the session model for that task's next builder call</li><li>Any internal error allows the call and logs <code>gate-error</code> (D4)</li></ul>
         <ol class="tasks">
-          <li data-st="todo"><b>E3.1</b>Synchronous gate path for Claude Code Agent/Task calls only
+          <li data-st="done"><b>E3.1</b>Synchronous gate path for Claude Code Agent/Task calls only
             <dl><dt>First test</dt><dd><code>gate: an Agent call reaches the gate synchronously and a Bash call stays in the background</code></dd><dt>Fails when</dt><dd>The gate blocks real work: only boxbox agents judged; fail open</dd><dt>Files</dt><dd><code>hooks/boxbox-event</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/gate.test.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
-          <li data-st="todo"><b>E3.2</b>Deny wrong model or missing task id with a reason naming the right agent and model
+          <li data-st="done"><b>E3.2</b>Deny wrong model or missing task id with a reason naming the right agent and model
             <dl><dt>First test</dt><dd><code>gate: a risky task on sonnet is denied with "run boxbox-builder with model opus"</code></dd><dt>Fails when</dt><dd>the denial reason does not name the right agent and model, or a call without a task id is allowed</dd><dt>Files</dt><dd><code>hooks/boxbox-event</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/gate.test.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
-          <li data-st="todo"><b>E3.3</b>Stand aside under <code>models: auto</code> and FORCE, and say why
+          <li data-st="done"><b>E3.3</b>Stand aside under <code>models: auto</code> and FORCE, and say why
             <dl><dt>First test</dt><dd><code>gate: FORCE on allows any model and logs gate-off with the reason</code></dd><dt>Fails when</dt><dd>Resolution order changes in a future Claude Code: the gate compares passed model to expected and never resolves; FORCE detected</dd><dt>Files</dt><dd><code>hooks/boxbox-event</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/gate.test.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
-          <li data-st="todo"><b>E3.4</b>Fail open on internal errors with a gate-error event
+          <li data-st="done"><b>E3.4</b>Fail open on internal errors with a gate-error event
             <dl><dt>First test</dt><dd><code>gate: an unparsable plan.md allows the call and logs gate-error</code></dd><dt>Fails when</dt><dd>The gate blocks real work: only boxbox agents judged; fail open</dd><dt>Files</dt><dd><code>hooks/boxbox-event</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/gate.test.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
-          <li data-st="todo"><b>E3.5</b>Escalation state: two failures or an early trigger require the session model for the task's next builder call
+          <li data-st="done"><b>E3.5</b>Escalation state: two failures or an early trigger require the session model for the task's next builder call
             <dl><dt>First test</dt><dd><code>gate: after two recorded failures a sonnet builder retry is denied</code></dd><dt>Fails when</dt><dd>a builder retry after two failures, or after an early trigger, is allowed on a cheaper model</dd><dt>Files</dt><dd><code>hooks/boxbox-event</code>, <code>hooks/boxbox-event.js</code>, <code>hooks/routing.js</code>, <code>tests/pitwall/gate.test.js</code>, <code>tests/pitwall/routing.test.js</code></dd></dl></li>
         </ol>
       </article>

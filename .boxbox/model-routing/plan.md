@@ -68,7 +68,7 @@ tasks:
 - [x] E2.3 Report template gets a per-task brief quote and the checker validates it | test: `check-page: a report brief quote must match the brief file` | done: test green, templates regenerated | deps: E2.1
 - [x] E2.4 Board and pit wall link each task's brief | test: `server: board task brief link is served under /b/` | done: test green | deps: E2.1
 
-## E3 Routing gate and escalation enforcement  [todo]
+## E3 Routing gate and escalation enforcement  [done]
 outcome: A subagent call that breaks the routing rules is denied with a reason naming the right agent and model, and the agent retries; under `models: auto` or the FORCE override the gate stands aside and the pit wall says why.
 branch: model-routing-e3-gate
 depends: E1, E2
@@ -78,18 +78,18 @@ accept:
 - Only Claude Code Agent and Task calls take the new synchronous node path; other calls keep the background path; Codex payloads (with `turn_id`) are untouched
 - The gate judges only `boxbox:*` agents; a wrong model, a missing task id, or a builder retry after two failures not on the session model is denied with a reason like "E2.3 is risk: yes, run boxbox-builder with model opus"
 - `models: auto` or FORCE on: the gate allows everything and logs why; plain `CLAUDE_CODE_SUBAGENT_MODEL` is logged as information
-- Early-escalation triggers (diff over 3x expected, edits outside the brief, 5 edits without green) observed from subagent tool events require the session model for that task's next builder call
+- Early-escalation triggers observed from subagent tool events (edits outside the brief, 5 edits of one code file without a green test run) require escalation before that task's next builder call; the diff-over-3x check stays with the build skill, because the hook does not see diffs (changed during review of E3)
 - Any internal error allows the call and logs `gate-error` (D4)
 fails:
 - The gate blocks real work: only boxbox agents judged; fail open (E3.1, E3.4)
 - Gate latency on every call: synchronous only for Agent/Task (E3.1)
 - Resolution order changes in a future Claude Code: the gate compares passed model to expected and never resolves; FORCE detected (E3.3)
 tasks:
-- [ ] E3.1 Synchronous gate path for Claude Code Agent/Task calls only | test: `gate: an Agent call reaches the gate synchronously and a Bash call stays in the background` | done: test green; no-.boxbox fast path still under 50 ms | deps: none
-- [ ] E3.2 Deny wrong model or missing task id with a reason naming the right agent and model | test: `gate: a risky task on sonnet is denied with "run boxbox-builder with model opus"` | done: table test green | deps: E3.1
-- [ ] E3.3 Stand aside under `models: auto` and FORCE, and say why | test: `gate: FORCE on allows any model and logs gate-off with the reason` | done: test green | deps: E3.2
-- [ ] E3.4 Fail open on internal errors with a gate-error event | test: `gate: an unparsable plan.md allows the call and logs gate-error` | done: test green | deps: E3.2
-- [ ] E3.5 Escalation state: two failures or an early trigger require the session model for the task's next builder call | test: `gate: after two recorded failures a sonnet builder retry is denied` | done: test green | deps: E3.2
+- [x] E3.1 Synchronous gate path for Claude Code Agent/Task calls only | test: `gate: an Agent call reaches the gate synchronously and a Bash call stays in the background` | done: test green; no-.boxbox fast path still under 50 ms | deps: none
+- [x] E3.2 Deny wrong model or missing task id with a reason naming the right agent and model | test: `gate: a risky task on sonnet is denied with "run boxbox-builder with model opus"` | done: table test green | deps: E3.1
+- [x] E3.3 Stand aside under `models: auto` and FORCE, and say why | test: `gate: FORCE on allows any model and logs gate-off with the reason` | done: test green | deps: E3.2
+- [x] E3.4 Fail open on internal errors with a gate-error event | test: `gate: an unparsable plan.md allows the call and logs gate-error` | done: test green | deps: E3.2
+- [x] E3.5 Escalation state: two failures or an early trigger require the session model for the task's next builder call | test: `gate: after two recorded failures a sonnet builder retry is denied` | done: test green | deps: E3.2
 
 ## E4 Exact cost per model  [todo]
 outcome: Tokens and cost are counted per model, per subagent and per task from the main transcript plus every subagent transcript, including subagents still running, with the cache-read share per model and a labelled "saved versus all on the session model" estimate.
