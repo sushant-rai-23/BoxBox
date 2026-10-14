@@ -128,3 +128,17 @@ test("gate: the session model is the transcript's message.model, never a tool in
   const r = agentCall(d, { subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "sonnet", prompt: "p" });
   assert.match(r.stdout, /E2\.3 is risk: yes, run boxbox-builder with model opus/);
 });
+
+test("gate: FORCE on allows any model and logs gate-off with the reason", () => {
+  const d = routedRepo();
+  const r = agentCall(d, { subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "haiku", prompt: "p" },
+    { CLAUDE_CODE_SUBAGENT_MODEL: "haiku", CLAUDE_CODE_SUBAGENT_MODEL_FORCE: "1" });
+  assert.equal(r.stdout, "");
+  const g = events(d).find(e => e.kind === "gate");
+  assert.equal(g.result, "off");
+  assert.match(g.why, /FORCE is on/);
+  // FORCE without a model: Claude Code ignores the model passed on a call and the agent file decides
+  const d2 = routedRepo();
+  assert.equal(agentCall(d2, { subagent_type: "boxbox:boxbox-builder", description: "E2.3 hash it", model: "haiku", prompt: "p" }, { CLAUDE_CODE_SUBAGENT_MODEL_FORCE: "1" }).stdout, "");
+  assert.match(events(d2).find(e => e.kind === "gate").why, /ignores the model passed on a call/);
+});

@@ -40,6 +40,8 @@ Observed order, which matches the docs and the resolver in the binary:
 - With `CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1` added: `spike-sonnet` ran on **haiku**. The main agent passed no `model`; under FORCE the Agent tool's own description drops the line that says `model` overrides the definition.
 - Both variables reach hook processes, including when they are set through `env` in `.claude/settings.json`. So the Boxbox hook can read them from its environment and report them.
 
+- FORCE with no `CLAUDE_CODE_SUBAGENT_MODEL` (read from the 2.1.296 resolver, not run): the call's `model` is dropped and each agent file's `model:` decides. So FORCE on its own also takes the choice away from Boxbox.
+
 **Changes the plan:** the prompt names only the FORCE override as a reason to turn the gate off. A plain `CLAUDE_CODE_SUBAGENT_MODEL` changes nothing for Boxbox, because every Boxbox agent file names a model. Only FORCE, or FORCE plus the variable, disables the gate. The pit wall should still show the plain variable, as information.
 
 ## 4. Skill model

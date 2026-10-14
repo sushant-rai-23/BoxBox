@@ -109,6 +109,11 @@ function gateDecision(q) {
   const agent = agentOf(input.subagent_type);
   if (!agent) return { decision: "skip", reason: "not a Boxbox agent", task: "", expected: null };
   const task = taskOfDescription(input.description);
+  // q.force: "" when CLAUDE_CODE_SUBAGENT_MODEL_FORCE is off, else CLAUDE_CODE_SUBAGENT_MODEL or "inherit".
+  if (q.force) return { decision: "off", task, expected: null, reason: q.force === "inherit"
+    ? "CLAUDE_CODE_SUBAGENT_MODEL_FORCE is on: Claude Code ignores the model passed on a call, and each agent file's model decides"
+    : `CLAUDE_CODE_SUBAGENT_MODEL_FORCE is on: every subagent runs on ${q.force}` };
+  if (q.mode === "auto") return { decision: "off", reason: "models: auto: Claude Code decides", task, expected: null };
   const deny = (reason, expected = null) => ({ decision: "deny", reason, task, expected });
   if (agent === "builder" ? !/^E\d+\.\d+$/.test(task) : !task)
     return deny(agent === "builder"

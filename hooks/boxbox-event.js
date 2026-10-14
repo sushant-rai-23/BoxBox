@@ -340,14 +340,17 @@ function runGate(p, box, live, cfg, base) {
   try {
     const st = parseState(readText(path.join(box, "state.md")));
     const plan = st.feature ? readText(path.join(box, st.feature, "plan.md")) : "";
-    d = routing.gateDecision({ input, mode: cfg.models, tasks: routing.parsePlanTasks(plan), session: sessionFamily(p.transcript_path) });
+    const env = process.env, forced = env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE && !/^(0|false)$/i.test(env.CLAUDE_CODE_SUBAGENT_MODEL_FORCE);
+    const force = forced ? (env.CLAUDE_CODE_SUBAGENT_MODEL && env.CLAUDE_CODE_SUBAGENT_MODEL !== "inherit" ? env.CLAUDE_CODE_SUBAGENT_MODEL : "inherit") : "";
+    d = routing.gateDecision({ input, mode: cfg.models, force, tasks: routing.parsePlanTasks(plan), session: sessionFamily(p.transcript_path) });
   } catch (err) {
     append(live, "events.jsonl", { ...base, type: "gate-error", kind: "gate-error", target: short(String(err && err.message), 200), why: "", result: "allowed" });
     return;
   }
   if (d.decision === "skip") return;
   append(live, "events.jsonl", { ...base, unit: d.task || base.unit, type: "gate", kind: "gate", id: p.tool_use_id || "", target: input.subagent_type || "",
-    result: d.decision, why: d.reason, model: input.model || "", expected: d.expected || "" });
+    result: d.decision, why: d.reason, model: input.model || "", expected: d.expected || "",
+    ...(process.env.CLAUDE_CODE_SUBAGENT_MODEL && d.decision !== "off" ? { note: `CLAUDE_CODE_SUBAGENT_MODEL=${process.env.CLAUDE_CODE_SUBAGENT_MODEL} is set (a default only; the model Boxbox passes wins)` } : {}) });
   if (d.decision === "deny") process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: "Boxbox routing: " + d.reason } }) + "\n");
 }
 

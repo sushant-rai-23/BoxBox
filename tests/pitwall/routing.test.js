@@ -131,3 +131,17 @@ test("gate: an unknown session model fails open when the session model is expect
   assert.equal(d.decision, "allow");
   assert.match(d.reason, /session model unknown/);
 });
+
+test("gate: FORCE on or models: auto turns the gate off, with the reason", () => {
+  const input = { subagent_type: "boxbox:boxbox-builder", description: "E2.3 b", model: "haiku" };
+  const base = { input, session: "opus", tasks: new Map(), history: new Map() };
+  const f = R.gateDecision({ ...base, mode: "balanced", force: "haiku" });
+  assert.equal(f.decision, "off");
+  assert.match(f.reason, /CLAUDE_CODE_SUBAGENT_MODEL_FORCE is on: every subagent runs on haiku/);
+  const a = R.gateDecision({ ...base, mode: "auto" });
+  assert.deepEqual([a.decision, a.reason], ["off", "models: auto: Claude Code decides"]);
+  // FORCE with no model to force: the call's model is ignored, the agent file decides
+  assert.match(R.gateDecision({ ...base, mode: "balanced", force: "inherit" }).reason, /ignores the model passed on a call/);
+  // no FORCE (a plain CLAUDE_CODE_SUBAGENT_MODEL is only a default): the passed model still wins, so the gate judges
+  assert.equal(R.gateDecision({ ...base, mode: "balanced", force: "" }).decision, "deny");
+});
