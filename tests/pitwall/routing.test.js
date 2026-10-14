@@ -252,3 +252,9 @@ test("gate: a worktree builder is checked even when there is no plan", () => {
   const input = { subagent_type: "boxbox:boxbox-builder", description: "E2.1 a", model: "sonnet", isolation: "worktree" };
   assert.equal(R.gateDecision({ input, mode: "balanced", session: "opus", tasks: new Map(), history: new Map(), parallel: { ok: false, reason: "parallel: off in config.md" } }).decision, "deny");
 });
+
+test("routing: a deps range like E1.1-E1.4 means every task in it", () => {
+  const t = R.parsePlanTasks("## E1 x\n- [ ] E1.5 wire it | size: M | risk: no | test: t | deps: E1.1-E1.4\n- [ ] E1.6 more | deps: E1.2, E1.4-E1.5\n");
+  assert.deepEqual(t.get("E1.5").deps, ["E1.1", "E1.2", "E1.3", "E1.4"]);
+  assert.deepEqual(t.get("E1.6").deps, ["E1.2", "E1.4", "E1.5"]);
+});

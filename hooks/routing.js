@@ -47,7 +47,10 @@ function parsePlanTasks(planText) {
     }
     const size = /^[SML]$/i.test(fields.size || "") ? fields.size.toUpperCase() : "M";
     const dm = t[2].match(/\|\s*deps:\s*([^|]*)/i);
-    const deps = dm ? (dm[1].match(/E\d+\.\d+/g) || []) : [];
+    // "E1.1, E1.3" or a range of one epic's tasks, "E1.1-E1.4".
+    const deps = [];
+    for (const m of (dm ? dm[1] : "").matchAll(/E(\d+)\.(\d+)(?:\s*-\s*E\1\.(\d+))?/g))
+      for (let n = Number(m[2]); n <= Number(m[3] || m[2]); n++) deps.push(`E${m[1]}.${n}`);
     tasks.set(t[1], { epic: epic || t[1].split(".")[0], size, risk: /^yes$/i.test(fields.risk || ""), epicModel, deps });
   }
   return tasks;
