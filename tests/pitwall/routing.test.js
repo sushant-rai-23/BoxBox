@@ -86,3 +86,8 @@ test("routing: plan parser reads size, risk and epic model override from a plan.
   assert.equal(t.size, 4);
   assert.equal(R.parsePlanTasks("").size, 0);
 });
+
+test("routing: escalatedTasks collects escalated units from events", () => {
+  const ev = [{ kind: "stage", unit: "E2.1" }, { kind: "escalated", unit: "E2.3", target: "failed twice" }, { kind: "escalated", unit: "" }];
+  assert.deepEqual([...R.escalatedTasks(ev)], ["E2.3"]);
+});

@@ -50,6 +50,13 @@ function parsePlanTasks(planText) {
   return tasks;
 }
 
+// Tasks that were escalated to the session model: every `say escalated` event names one.
+function escalatedTasks(events) {
+  const out = new Set();
+  for (const e of events || []) if (e && e.kind === "escalated" && e.unit) out.add(e.unit);
+  return out;
+}
+
 // The model one call should use, and why. First matching rule wins. `model: null` means pass no model.
 function expectedModel(q) {
   const { agent, mode, session } = q;
@@ -78,4 +85,4 @@ function agentOf(subagentType) {
   return m ? m[1] : null;
 }
 
-module.exports = { MODES, parseModels, parsePlanTasks, expectedModel, familyOf, agentOf };
+module.exports = { MODES, parseModels, parsePlanTasks, escalatedTasks, expectedModel, familyOf, agentOf };

@@ -2,6 +2,7 @@
 # Tell the pit wall where the Boxbox flow is. Never fails, never prints.
 #   sh .boxbox/pitwall/say stage <stage> [--unit E2.3] [--why "<one line>"]
 #   sh .boxbox/pitwall/say ask "<D3: question>" [--kind decision|plan|design|unit|setup] [--stage <stage>]
+#   sh .boxbox/pitwall/say escalated "<one-line reason>" --unit E2.3     (a task retried on the session model)
 # Stages are listed in .boxbox/GUIDE.md under "Stage events".
 here="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || exit 0
 live="$here/../live"
@@ -42,6 +43,10 @@ case "$verb" in
       mv "$live/waiting.json.$$" "$live/waiting.json"
     printf '{"ts":"%s","session":"","agent":"","lane":"driver","type":"ask","kind":"wait","target":"%s","why":"%s","result":"","unit":"%s"}\n' \
       "$ts" "$(esc "$text")" "$(esc "$why")" "$(esc "$unit")" >> "$live/events.jsonl"
+    ;;
+  escalated)
+    printf '{"ts":"%s","session":"","agent":"","lane":"driver","type":"escalated","kind":"escalated","target":"%s","why":"","result":"","unit":"%s"}\n' \
+      "$ts" "$(esc "$text")" "$(esc "$unit")" >> "$live/events.jsonl"
     ;;
 esac
 exit 0

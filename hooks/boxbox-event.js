@@ -261,7 +261,7 @@ function parseState(text) {
 //       node [<repo>/].boxbox/pitwall/check-page.js [<repo>/].boxbox/<path>.html ...
 //     where <repo>/ is empty or this repo's own absolute path, and a page path never contains "..".
 //  3. The repo's script is byte-for-byte the plugin's own copy. A script the repo changed always asks.
-const SAY_FORM = /^(?:sh|bash) (\/\S+\/|)\.boxbox\/pitwall\/say (?:stage|ask)(?: (?:[^\s"']+|"[^"]*"|'[^']*'))+$/;
+const SAY_FORM = /^(?:sh|bash) (\/\S+\/|)\.boxbox\/pitwall\/say (?:stage|ask|escalated)(?: (?:[^\s"']+|"[^"]*"|'[^']*'))+$/;
 const SERVER_FORM = /^node (\/\S+\/|)\.boxbox\/pitwall\/server\.js (?:--ensure(?: --open)?|--summary [A-Za-z0-9.]+)$/;
 const CHECK_FORM = /^node (\/\S+\/|)\.boxbox\/pitwall\/check-page\.js((?: (?:\/\S+\/|)\.boxbox\/[\w./-]+\.html)+)$/;
 function approvalFor(cmd, root, kitDir) {

@@ -142,6 +142,7 @@ test("pit wall commands are pre-approved only when the repo's script is the plug
   assert.equal(ok("node .boxbox/pitwall/server.js --ensure"), true);
   assert.equal(ok("node .boxbox/pitwall/server.js --ensure --open"), true);
   assert.equal(ok("node .boxbox/pitwall/server.js --summary E2.3"), true);
+  assert.equal(ok('sh .boxbox/pitwall/say escalated "builder failed twice" --unit E2.3'), true);
 
   // rejected: each operator, anywhere in the command, quoted or not
   const rejected = {
@@ -251,4 +252,21 @@ test("an inferred stage never moves the flow backwards within the same unit", ()
   assert.equal(JSON.parse(fs.readFileSync(path.join(live, "stage.json"), "utf8")).stage, "build", "ticking a task in plan.md mid-build is not the plan stage");
   h.main("PostToolUse", JSON.stringify({ session_id: "s1", tool_name: "Write", tool_input: { file_path: path.join(root, ".boxbox/f/e1-x/report.md"), content: "x" }, tool_use_id: "b", tool_response: {} }), root);
   assert.equal(JSON.parse(fs.readFileSync(path.join(live, "stage.json"), "utf8")).stage, "report", "forward is fine");
+});
+
+test("say escalated writes an escalated event with unit and reason", () => {
+  const fs = require("fs"), os = require("os"), path = require("path"), { spawnSync } = require("child_process");
+  const box = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "bbsay-")), ".boxbox");
+  fs.mkdirSync(path.join(box, "pitwall"), { recursive: true });
+  fs.copyFileSync(path.join(__dirname, "../../skills/boxbox-setup/kit/pitwall/say"), path.join(box, "pitwall", "say"));
+  const r = spawnSync("sh", [path.join(box, "pitwall", "say"), "escalated", 'diff 4x the "M" estimate', "--unit", "E2.3"], { encoding: "utf8" });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, "");
+  const ev = JSON.parse(fs.readFileSync(path.join(box, "live", "events.jsonl"), "utf8").trim().split("\n").pop());
+  assert.equal(ev.type, "escalated");
+  assert.equal(ev.kind, "escalated");
+  assert.equal(ev.unit, "E2.3");
+  assert.equal(ev.target, 'diff 4x the "M" estimate');
+  assert.equal(ev.lane, "driver");
+  assert.ok(!fs.existsSync(path.join(box, "live", "stage.json")), "an escalation does not move the stage");
 });
