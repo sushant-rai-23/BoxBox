@@ -392,3 +392,11 @@ test("hook: a session the pit wall never saw start is registered on its first ev
   assert.equal(fs.readFileSync(path.join(root, ".boxbox", "live", "sessions.jsonl"), "utf8").trim().split("\n").length, 1);
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("hook: laneFor gives each Boxbox agent its own lane", () => {
+  assert.equal(h.laneFor({ agent_id: "a1", agent_type: "boxbox:boxbox-scout" }, "build"), "scout");
+  assert.equal(h.laneFor({ agent_id: "a1", agent_type: "boxbox:boxbox-builder" }, "inspect"), "builder", "a builder is a builder even during inspect");
+  assert.equal(h.laneFor({ agent_id: "a1", agent_type: "boxbox:boxbox-runner" }, "build"), "runner");
+  assert.equal(h.laneFor({ agent_id: "a1", agent_type: "boxbox:boxbox-writer" }, "report"), "writer");
+  assert.equal(h.laneFor({ agent_id: "a1", agent_type: "general-purpose" }, "build"), "crew");
+});

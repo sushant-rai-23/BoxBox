@@ -146,20 +146,20 @@
         </ol>
       </article>
       <article class="epic" id="e5">
-        <span class="status">to do</span>
+        <span class="status" data-st="done">done</span>
         <h3><data>E5</data>Pit wall routing views</h3>
         <p>Every Telemetry and Team radio row carries a model chip; builder, scout, runner and writer each get a lane; Timing shows cost, tokens and cache-read share by model, escalations and the savings estimate; Home shows the mode, active agents, last escalation and why the gate is off when it is.</p>
         <dl class="facts"><dt>Branch</dt><dd><code>model-routing-e5-views</code></dd><dt>Depends on</dt><dd>E3, E4</dd><dt>Design stop</dt><dd>no</dd></dl>
         <h4>Done when</h4>
         <ul class="accept"><li>Feed rows show a family chip with the full id on hover (A10)</li><li>Lanes: driver, builder, scout, runner, writer, steward; parallel builders each get their own lane</li><li>Timing has a by-model table (tokens, cost, cache-read share), an escalations list and the savings line marked "estimate"</li><li>Home has a routing readout; <code>?demo</code> data covers the new fields</li></ul>
         <ol class="tasks">
-          <li data-st="todo"><b>E5.1</b>Model on each event row and a chip in the feed
+          <li data-st="done"><b>E5.1</b>Model on each event row and a chip in the feed
             <dl><dt>First test</dt><dd><code>hook: subagent tool events carry the subagent's model</code></dd><dt>Fails when</dt><dd>a subagent tool event carries no model, so the chip is empty</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/index.html</code>, <code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/**</code></dd></dl></li>
-          <li data-st="todo"><b>E5.2</b>Lanes per Boxbox agent and per parallel builder
+          <li data-st="done"><b>E5.2</b>Lanes per Boxbox agent and per parallel builder
             <dl><dt>First test</dt><dd><code>hook: laneFor maps boxbox:boxbox-scout to the scout lane</code></dd><dt>Fails when</dt><dd>A subagent type outside Boxbox: falls into a generic crew lane</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/index.html</code>, <code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/**</code></dd></dl></li>
-          <li data-st="todo"><b>E5.3</b>Timing by model, escalations and savings
+          <li data-st="done"><b>E5.3</b>Timing by model, escalations and savings
             <dl><dt>First test</dt><dd>No cheap test. Verify: <code>?demo</code> page shows the three new blocks with values from the state payload</dd><dt>Fails when</dt><dd>the by-model table, escalations or savings line show nothing for the demo state payload</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/index.html</code>, <code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/**</code></dd></dl></li>
-          <li data-st="todo"><b>E5.4</b>Home routing readout with gate-off reason
+          <li data-st="done"><b>E5.4</b>Home routing readout with gate-off reason
             <dl><dt>First test</dt><dd><code>server: state reports mode, active agents, last escalation and gate-off reason</code></dd><dt>Fails when</dt><dd>the gate is off but the readout does not say why</dd><dt>Files</dt><dd><code>skills/boxbox-setup/kit/pitwall/index.html</code>, <code>skills/boxbox-setup/kit/pitwall/server.js</code>, <code>hooks/boxbox-event.js</code>, <code>tests/pitwall/**</code></dd></dl></li>
         </ol>
       </article>

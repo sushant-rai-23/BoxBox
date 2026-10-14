@@ -200,6 +200,8 @@ function detectAgent(p) {
 
 function laneFor(p, stage) {
   if (!p.agent_id) return "driver";
+  const own = routing.agentOf(p.agent_type);
+  if (own) return own;   // builder, scout, runner, writer: each Boxbox agent has its own lane
   if (/review|inspect|steward/i.test(p.agent_type || "") || stage === "inspect") return "steward";
   return "crew";
 }

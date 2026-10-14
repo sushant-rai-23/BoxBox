@@ -10,6 +10,14 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
 <!-- The look is shared with every Boxbox page: kit/assets/boxbox.css, served by this server from the kit. -->
 <link rel="stylesheet" href="/boxbox.css">
+<!-- Model routing (0.7): pit-wall-only pieces. Pages never use these classes. -->
+<style>
+.mchip{font-size:11.5px;font-weight:600;letter-spacing:.02em;border:1px solid currentColor;border-radius:3px;padding:0 5px;margin-right:6px;white-space:nowrap;color:var(--ink-2)}
+.lane b .mchip{display:inline;font-size:11px;color:var(--ink-2)}
+.mchip[data-f="opus"]{color:#6A3FCB}.mchip[data-f="sonnet"]{color:#0A7AA8}.mchip[data-f="haiku"]{color:#11764A}
+.routing{display:flex;flex-wrap:wrap;gap:4px 18px;margin:var(--s2) 0 var(--s3);font-size:13.5px;color:var(--ink-2)}
+.routing b{font-weight:600;color:var(--ink-1)}
+</style>
 <script src="/boxbox.js"></script>
 </head>
 <body>
@@ -56,6 +64,7 @@
           <div><dt id="ro-unit-d">current unit</dt><dd class="metric" id="ro-unit"></dd></div>
           <div id="ro-fresh-p"><dt id="ro-fresh-d">plan freshness</dt><dd class="metric" id="ro-fresh"></dd></div>
         </dl>
+        <p class="routing" id="routing" aria-label="Model routing"></p>
         <div class="deck">
           <section class="now" aria-labelledby="n-what">
             <div class="hud" id="hud">
@@ -133,6 +142,15 @@
           <section aria-labelledby="sess-h">
             <h2 class="colhead" id="sess-h">Sessions</h2>
             <div class="scrollx"><table class="cockpit-table"><thead><tr><th>Session</th><th>Agent</th><th>Model</th><th>Built</th><th class="r">Tokens</th></tr></thead><tbody id="sessions"></tbody></table></div>
+          </section>
+          <section aria-labelledby="model-h">
+            <h2 class="colhead" id="model-h">By model <span>cache-read share: input read from the prompt cache</span></h2>
+            <div class="scrollx"><table class="cockpit-table"><thead><tr><th>Model</th><th class="r">Tokens</th><th class="r">Cache read</th><th class="r">Cost</th></tr></thead><tbody id="bymodel"></tbody></table></div>
+            <p class="note" id="savings"></p>
+          </section>
+          <section aria-labelledby="esc-h">
+            <h2 class="colhead" id="esc-h">Escalations and routing</h2>
+            <ul class="rows feed" id="escalations"></ul>
           </section>
           <section class="span" aria-labelledby="task-h">
             <h2 class="colhead" id="task-h">Per task</h2>
@@ -222,25 +240,42 @@ function rows() {
   for (const e of evs) {
     if (e.type === "start" && (ended.has(e.id) || !e.id)) continue;
     if (e.type === "session-end") continue;
-    const kind = e.type === "stage" ? "stage" : e.type === "prompt" ? "prompt" : e.type === "session" ? "session" : KINDS[e.kind] ? e.kind : "run";
+    out.push(toRow(e, outside));
+  }
+  return out;
+}
+// One event as a feed row. Also used for the escalations list, which comes from the whole log.
+function toRow(e, outside = new Set()) {
+    const k0 = { "escalate-needed": "escalated", "gate-error": "gate", warning: "wait" }[e.kind] || e.kind;
+    const kind = e.type === "stage" ? "stage" : e.type === "prompt" ? "prompt" : e.type === "session" ? "session" : KINDS[k0] ? k0 : "run";
     const r = { ...e, kind };
     if (e.type === "stage") { r.what = label(e.target) + (e.unit ? " " + e.unit : "") + (e.inferred ? " (inferred)" : ""); r.code = false; }
     else if (e.type === "start") { r.what = e.target; r.code = true; r.result = "now"; }
+    else if (e.kind === "gate") { r.what = `${e.unit ? e.unit + " " : ""}${(e.target || "").replace("boxbox:boxbox-", "")} on ${e.model || "no model"}`; r.why = e.why || ""; r.result = e.result || ""; r.code = false; }
+    else if (e.kind === "escalated" || e.kind === "escalate-needed") { r.what = `${e.unit} ${e.kind === "escalated" ? "escalated" : "needs escalation"}: ${e.target}`; r.code = false; }
+    else if (e.kind === "gate-error") { r.what = `routing gate could not judge a call: ${e.target}`; r.result = "allowed"; r.code = false; }
     else { r.what = e.target; r.code = /^(read|search|edit|run|test|page|commit)$/.test(kind); }
     r.flag = (e.edits || []).some(p => outside.has(e.ts + " " + p)) ? "outside " + (e.unit ? epicOf(e.unit) : "scope") : "";
-    r.res = e.type === "start" ? "live" : e.test ? (e.test.status === "pass" ? "done" : e.test.status === "fail" ? "flag" : "") : e.failed ? "flag" : "";
-    out.push(r);
-  }
-  return out;
+    r.res = e.type === "start" ? "live" : e.test ? (e.test.status === "pass" ? "done" : e.test.status === "fail" ? "flag" : "") : e.failed || e.result === "deny" || e.kind === "escalate-needed" || e.kind === "gate-error" ? "flag" : e.kind === "escalated" ? "move" : "";
+    return r;
+}
+
+const LANE_WHO = { crew: "Crew", steward: "Reviewer", builder: "Builder", scout: "Scout", runner: "Runner", writer: "Writer" };
+const familyOf = m => { const x = String(m || "").toLowerCase().match(/^(?:claude-)?(opus|sonnet|haiku|fable)(?:\b|-)/); return x ? x[1] : ""; };
+// The model that did it, as a chip with a text label: the family, the full id on hover.
+function modelChip(model) {
+  if (!model) return "";
+  const f = familyOf(model) || model.replace(/^claude-/, "");
+  return `<span class="mchip" data-f="${esc(f)}" title="${esc(model)}">${esc(f)}</span>`;
 }
 
 function rowHTML(r, fresh) {
   const kd = KINDS[r.kind];
-  const who = r.lane === "crew" ? "Crew: " : r.lane === "steward" ? "Reviewer: " : "";
+  const who = LANE_WHO[r.lane] ? LANE_WHO[r.lane] + ": " : "";
   const what = r.code ? `<code>${esc(r.what)}</code>` : esc(r.what);
   return `<li class="${fresh ? "fresh" : ""}" data-k="${r.kind}"><time>${hhmm(r.ts)}</time><canvas width="16" height="16" data-kind="${r.kind}" aria-hidden="true"></canvas>
     <span class="kind">${kd.label}</span>
-    <span class="what">${esc(who)}${what}${r.why ? ` <em>${esc(r.why)}</em>` : ""}${r.flag ? status("flag", r.flag) : ""}${r.test && !r.test.observed ? `<span class="claimed">not observed</span>` : ""}</span>
+    <span class="what">${modelChip(r.ranOn)}${esc(who)}${what}${r.why ? ` <em>${esc(r.why)}</em>` : ""}${r.flag ? status("flag", r.flag) : ""}${r.test && !r.test.observed ? `<span class="claimed">not observed</span>` : ""}</span>
     <span class="res"${r.res ? ` data-st="${r.res}"` : ""}>${esc(r.result || "")}</span></li>`;
 }
 function paintKindOrbs(sel, group, size) {
@@ -512,18 +547,37 @@ function renderLanes() {
   const agentName = (S.agents || []).includes("codex") && !(S.agents || []).includes("claude-code") ? "Codex" : (S.agents || []).includes("codex") ? "Claude Code or Codex" : "Claude Code";
   const LANES = [
     { key: "driver", who: "Driver", role: "Main agent, " + agentName },
-    { key: "crew", who: "Pit crew", role: "Subagents", idle: "Idle: no subagent running" },
+    { key: "builder", who: "Builder", role: "boxbox-builder: builds one task from its brief", idle: "Idle: no task building" },
+    { key: "scout", who: "Scout", role: "boxbox-scout: reads and searches, never edits", idle: "Idle" },
+    { key: "runner", who: "Runner", role: "boxbox-runner: runs checks, mechanical fixes only", idle: "Idle" },
+    { key: "writer", who: "Writer", role: "boxbox-writer: fills pages from facts", idle: "Idle" },
+    { key: "crew", who: "Pit crew", role: "Other subagents", idle: "Idle: no subagent running" },
     { key: "steward", who: "Steward", role: "Reviewer, in a separate context", idle: "Idle until a unit is inspected" }
   ];
   const evs = (S.events || []).filter(e => /^(action|start|crew)$/.test(e.type));
-  const crewOpen = l => { let open = 0; for (const e of S.events || []) if (e.type === "crew" && e.lane === l) open += e.result === "started" ? 1 : -1; return open > 0; };
-  $("#lanes").innerHTML = LANES.map((l, i) => {
-    const last = evs.slice().reverse().find(e => (e.lane || "driver") === l.key);
-    const idle = !last || (l.key !== "driver" && !crewOpen(l.key));
+  // Open subagents per lane, by id: builders running at once (parallel mode) each get their own lane.
+  const open = {};
+  for (const e of S.events || []) if (e.type === "crew") { const k = e.lane || "crew", s = e.sub || "?"; open[k] = open[k] || new Map(); if (e.result === "started") open[k].set(s, e); else open[k].delete(s); }
+  // The server knows which Boxbox agents really run (a subagent whose stop never came drops out).
+  const act = S.routing && S.routing.active;
+  const lanes = [];
+  for (const l of LANES) {
+    const subs = act && l.key === "builder" ? act.filter(a => a.agent === "builder") : [...((open[l.key] && open[l.key].values()) || [])];
+    if (l.key === "builder" && subs.length > 1) subs.forEach((s, n) => lanes.push({ ...l, who: `Builder ${n + 1}`, role: `${s.unit || ""} ${l.role}`.trim(), sub: s.sub }));
+    else lanes.push(l);
+  }
+  const crewOpen = l => act && /^(builder|scout|runner|writer)$/.test(l.key)
+    ? act.some(a => a.agent === l.key && (!l.sub || a.sub === l.sub))
+    : !!(open[l.key] && (l.sub ? open[l.key].has(l.sub) : open[l.key].size));
+  const claude = !(S.agents || []).length || (S.agents || []).includes("claude-code");
+  $("#lanes").innerHTML = lanes.map((l, i) => {
+    const last = evs.slice().reverse().find(e => (e.lane || "driver") === l.key && (!l.sub || e.sub === l.sub));
+    const idle = !last || (l.key !== "driver" && !crewOpen(l));
+    if (!last && /^(builder|scout|runner|writer)$/.test(l.key) && (!claude || (S.routing && S.routing.mode === "auto"))) return "";
     const kind = last ? (KINDS[last.kind] ? last.kind : "run") : "session";
     const kd = KINDS[kind];
     const text = last ? (idle ? "Last: " : "") + kd.label + " " + last.target : l.idle || "Idle";
-    return `<div class="lane${idle ? " idle" : ""}"><canvas width="56" height="56" data-lane="${i}" data-kind="${idle ? "session" : kind}" data-mode="${idle ? "ring" : kd.mode}" aria-hidden="true"></canvas><div><b>${l.who}</b><span>${esc(l.role)}</span><p>${esc(text)}</p></div></div>`;
+    return `<div class="lane${idle ? " idle" : ""}"><canvas width="56" height="56" data-lane="${i}" data-kind="${idle ? "session" : kind}" data-mode="${idle ? "ring" : kd.mode}" aria-hidden="true"></canvas><div><b>${modelChip(last && last.ranOn)}${l.who}</b><span>${esc(l.role)}</span><p>${esc(text)}</p></div></div>`;
   }).join("");
   dropGroup("lane");
   document.querySelectorAll("canvas[data-lane]").forEach(c => { const o = makeOrb(c, 56, "lane"); o.mode = c.dataset.mode; o.ink = inkFor(c.dataset.kind); redraw(o); });
@@ -575,8 +629,34 @@ function renderTiming() {
     : `<tr><td colspan="5" class="empty">No sessions recorded yet.</td></tr>`;
   $("#pertask").innerHTML = t.byTask.length ? t.byTask.map(r => `<tr><td class="id">${esc(r.id)}</td><td>${esc(r.name || (findTask(S.board, r.id) || {}).title || "")}</td><td class="r num">${fmtMs(r.ms)}</td><td class="r num">${fmtTok(r.tokens)}</td><td class="r num">${fmtCost(r.cost)}</td></tr>`).join("")
     : `<tr><td colspan="5" class="empty">No task has started yet.</td></tr>`;
+  const bm = t.byModel || [];
+  $("#bymodel").innerHTML = bm.length ? bm.map(r => `<tr><td>${modelChip(r.model)}<span class="id" title="${esc(r.model)}">${esc(r.model.replace(/^claude-/, ""))}</span></td><td class="r num">${fmtTok(r.tokens)}</td><td class="r num">${Math.round((r.cacheReadShare || 0) * 100)}%</td><td class="r num">${fmtCost(r.cost)}</td></tr>`).join("")
+    : `<tr><td colspan="4" class="empty">${t.byModel ? "No tokens yet." : "This pit wall server predates per-model counts: restart it after updating Boxbox."}</td></tr>`;
+  const sv = t.savings;
+  $("#savings").textContent = !sv || !(sv.sessionModels || []).length
+    ? (sv && sv.note ? `Saved versus all on the session model: not estimated (${sv.note}).` : "Saved versus all on the session model: no subagent work yet.")
+    : `Saved versus all on ${sv.sessionModels.map(m => m.replace(/^claude-/, "")).join(" and ")}: about $${sv.saved.toFixed(2)} (estimate). Subagents cost $${sv.actual.toFixed(2)}; the same tokens on the session model would cost $${sv.atSessionModel.toFixed(2)}. The session model might have needed fewer tokens.` + (sv.priced ? "" : ` Partial: some subagent work is left out (${sv.note || "a model has no price"}).`);
+  const esc2 = (S.routing && S.routing.escalations) || [];
+  $("#escalations").innerHTML = esc2.length ? esc2.slice(-12).reverse().map(e => rowHTML(toRow(e), false)).join("")
+    : `<li class="empty">${S.routing ? "No escalations, denied calls or gate errors." : "This pit wall predates model routing."}</li>`;
+  paintKindOrbs("#escalations canvas", "esc", 16);
   $("#pricenote").innerHTML = "Cost is approximate, from the price table in <code>.boxbox/pitwall/prices.json</code>, which you can edit." + (t.total.unpriced.length ? ` No price for ${esc(t.total.unpriced.join(", "))}, so those show tokens only.` : " Models missing from it show tokens only.");
 }
+// Home: which models Boxbox uses right now, and why the gate is off when it is.
+function renderRouting() {
+  const r = S.routing;
+  const el = $("#routing");
+  if (!r || (S.agents || []).length && !(S.agents || []).includes("claude-code")) { el.hidden = true; return; }
+  el.hidden = false;
+  const active = r.active.length ? r.active.map(a => `${a.agent}${a.unit ? " on " + a.unit : ""}`).join(", ") : "none running";
+  const le = r.lastEscalation;
+  el.innerHTML = `<span>Models: <b>${esc(r.mode)}</b></span>`
+    + `<span>Gate: <b>${r.gate.state}</b>${r.gate.reason ? ` (${esc(r.gate.reason)})` : ""}</span>`
+    + `<span>Agents: <b>${esc(active)}</b></span>`
+    + `<span>Last escalation: <b>${le ? esc(`${le.unit}, ${le.target}`) : "none"}</b></span>`
+    + (r.warning ? `<span>${status("flag", "config")} ${esc(r.warning)}</span>` : "");
+}
+
 const tt = $("#tt");
 $("#bars").addEventListener("mousemove", e => { const b = e.target.closest(".bar"); if (!b) { tt.hidden = true; return; } tt.textContent = b.dataset.tip; tt.hidden = false; tt.style.left = (e.clientX + 14) + "px"; tt.style.top = (e.clientY + 14) + "px"; });
 $("#bars").addEventListener("mouseleave", () => (tt.hidden = true));
@@ -601,7 +681,7 @@ function render() {
   $("#p-name").textContent = b.project || S.root || "This repo";
   $("#p-goal").textContent = b.goal || "No feature yet";
   renderNow(); renderStages(); renderNeeds(); renderReadouts(); renderTrail();
-  renderBoard(); renderLanes(); renderFeeds(); renderMap(); renderTiming(); renderGarage();
+  renderBoard(); renderLanes(); renderFeeds(); renderMap(); renderTiming(); renderGarage(); renderRouting();
 }
 
 function connect() {
@@ -663,8 +743,20 @@ function startDemo() {
     ev(22, "action", "test", "python -m pytest", "all checks before the commit", "21 passed", { test: { status: "pass", observed: true, passed: 21, failed: 0 } }),
     ev(21, "action", "commit", "git commit -m 'E2.2: reject expired and used tokens'", "one commit per task", "ok"),
     ev(20, "crew", "crew", "code-reviewer", "separate review of E2 so far", "started", { lane: "steward" }),
-    ev(19, "action", "read", "git diff password-reset...HEAD", "separate review of E2 so far", "212 lines", { lane: "steward" }),
-    ev(18, "crew", "crew", "code-reviewer", "separate review of E2 so far", "finished", { lane: "steward" })
+    ev(19, "action", "read", "git diff password-reset...HEAD", "separate review of E2 so far", "212 lines", { lane: "steward", ranOn: "claude-opus-5-5" }),
+    ev(18, "crew", "crew", "code-reviewer", "separate review of E2 so far", "finished", { lane: "steward" }),
+    ev(17, "gate", "gate", "boxbox:boxbox-scout", "models: balanced", "allow", { model: "haiku", expected: "haiku" }),
+    ev(16, "crew", "crew", "boxbox:boxbox-scout", "", "started", { lane: "scout", sub: "s1" }),
+    ev(16, "action", "search", "rg 'def hash_password' app", "excerpts for the E2.3 brief", "1 match", { lane: "scout", sub: "s1", ranOn: "claude-haiku-5-5" }),
+    ev(15, "crew", "crew", "boxbox:boxbox-scout", "", "finished", { lane: "scout", sub: "s1" }),
+    ev(14, "gate", "gate", "boxbox:boxbox-builder", "E2.3 is risk: yes, run boxbox-builder with model opus", "deny", { model: "sonnet", expected: "opus" }),
+    ev(13, "gate", "gate", "boxbox:boxbox-builder", "risk: yes", "allow", { model: "opus", expected: "opus" }),
+    ev(12, "crew", "crew", "boxbox:boxbox-builder", "", "started", { lane: "builder", sub: "b1" }),
+    ev(11, "escalate-needed", "escalate-needed", "edited app/mailer.py, outside its brief", "", "", { unit: "E2.2" }),
+    ev(10, "gate-error", "gate-error", "plan.md not found for feature password-reset", "", "allowed", { unit: "" }),
+    ev(9, "escalated", "escalated", "failed twice", "", "", { unit: "E2.2" }),
+    ev(8, "crew", "crew", "boxbox:boxbox-builder", "", "started", { lane: "builder", sub: "b2", unit: "E2.4" }),
+    ev(7, "action", "edit", "app/rate_limit.py", "parallel: E2.4 in its own worktree", "+12 −0", { lane: "builder", sub: "b2", unit: "E2.4", ranOn: "claude-sonnet-5-5", edits: ["app/rate_limit.py"] })
   ];
   const SCRIPT = [
     ["think", "Reading the plan line for E2.3", "start the next task in the plan", ""],
@@ -691,7 +783,10 @@ function startDemo() {
       .map(([id, name, m, tok, cost]) => ({ id, name, ms: m * 60000, tokens: tok, cost, fresh: tok / 3, cache: tok * 2 / 3 })),
     sessions: [{ session: "7f3a90c1", agent: "claude-code", models: ["claude-opus-5-5"], units: ["Plan", "E1"], tokens: 1210000 },
       { session: "b02e119d", agent: "claude-code", models: ["claude-opus-5-5"], units: ["E2.1", "E2.2", "E2.3"], tokens: 620000 },
-      { session: "c55a0004", agent: "codex", models: ["gpt-5-codex"], units: ["E2"], tokens: 110000 }]
+      { session: "c55a0004", agent: "codex", models: ["gpt-5-codex"], units: ["E2"], tokens: 110000 }],
+    byModel: [{ model: "claude-opus-5-5", tokens: 1390000, cacheReadShare: 0.86, cost: 3.21 }, { model: "claude-sonnet-5-5", tokens: 520000, cacheReadShare: 0.78, cost: 0.71 },
+      { model: "claude-haiku-5-5", tokens: 80000, cacheReadShare: 0.64, cost: 0.02 }, { model: "gpt-5-codex", tokens: 110000, cacheReadShare: 0.41, cost: null }],
+    savings: { estimate: true, sessionModels: ["claude-opus-5-5"], actual: 0.73, atSessionModel: 2.06, saved: 1.33, priced: true, note: "" }
   };
   const garage = [["Context: password reset", "password-reset/context.html", "Plans and decisions"], ["Decisions", "password-reset/decisions.html", "Plans and decisions"], ["Plan", "password-reset/plan.html", "Plans and decisions"],
     ["Design: E3 rate limiting", "password-reset/e3-rate-limit/design.html", "Plans and decisions"], ["E1 report: ask for a reset email", "password-reset/e1-request/report.html", "Reports and reviews"],
@@ -705,6 +800,8 @@ function startDemo() {
       timeline: ["setup", "learn-repo", "discover", "knowledge", "decisions", "plan", "plan-review", "design", "design-review", "build"].map((s, i) => ({ ts: T(200 - i * 10), stage: s, unit: "", why: "" })),
       waiting: step % 12 === 11 ? { kind: "decision", what: "D4: how strict should rate limiting be?", detail: "E3 can't start until it's decided." } : null,
       paused, events: events.slice(-200), tokens, garage, agents: ["claude-code", "codex"], codexUntrusted: false,
+      routing: { mode: "balanced", warning: "", gate: { state: "on", reason: "" }, active: [{ agent: "builder", unit: "E2.3", sub: "b1" }, { agent: "builder", unit: "E2.4", sub: "b2" }],
+        lastEscalation: { unit: "E2.2", target: "failed twice" }, escalations: events.filter(e => /^(escalated|escalate-needed|gate-error)$/.test(e.kind) || (e.kind === "gate" && e.result === "deny")) },
       drift: { currentEpic: "E2", scope: board.milestones[1].epics[1].files, outside: [{ path: "app/mailer.py", epic: "E2", ts: events[2].ts, owner: "E1" }], changedAfterApproval: ["E1"], behind: [],
         files: [{ path: "app/resets.py", edits: 3, in: true }, { path: "tests/test_resets.py", edits: 2, in: true }, { path: "app/users.py", edits: 1, in: true }, { path: "app/mailer.py", edits: 1, in: false }],
         modules: board.modules.map((m, i) => ({ ...m, total: [2, 5, 1, 1, 6, 0][i], recent: [0, 3, 1, 1, 2, 0][i], inScope: [false, true, true, false, true, false][i], outside: i === 3 })) },
@@ -716,7 +813,7 @@ function startDemo() {
     if (paused.held) return;
     const [k, target, why, result, edits, test] = SCRIPT[step % SCRIPT.length];
     step++;
-    events.push(ev(0, "action", k, target, why, result, { ...(edits ? { edits } : {}), ...(test ? { test } : {}) }));
+    events.push(ev(0, "action", k, target, why, result, { ...(edits ? { edits } : {}), ...(test ? { test } : {}), lane: "builder", sub: "b1", ranOn: "claude-opus-5-5" }));
     tokens.total.tokens += 13000; tokens.total.fresh += 4000; tokens.total.cache += 9000; tokens.total.cost += 0.03;
     build(); render();
   }
