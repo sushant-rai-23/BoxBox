@@ -7,6 +7,7 @@
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");
+const routing = require("./routing.js");
 
 const MAX_EVENTS_BYTES = 5 * 1024 * 1024;
 // The plugin's own pit wall files. Hooks only ever run these, never the repo's copies.
@@ -238,7 +239,8 @@ function parseConfig(text) {
   const tm = t.match(/^\s+test:\s*(.+?)\s*$/m);
   const pm = t.match(/^pitwall:\s*(\w+)/m);
   const testCommand = tm && !/^(none|n\/a|-)$/i.test(tm[1]) ? tm[1].replace(/^`|`$/g, "") : "";
-  return { testCommand, pitwall: pm ? pm[1] : "open" };
+  const r = routing.parseModels(t);
+  return { testCommand, pitwall: pm ? pm[1] : "open", models: r.mode, parallel: r.parallel, modelsWarning: r.warning };
 }
 
 function parseState(text) {

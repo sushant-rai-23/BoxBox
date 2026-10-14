@@ -113,8 +113,15 @@ test("detects the agent and the lane", () => {
 
 test("reads the test command and pitwall setting from config.md", () => {
   const cfg = "# Boxbox config\nproject: x\ncommands:\n  test: npm test\n  lint: none\npitwall: start\n";
-  assert.deepEqual(h.parseConfig(cfg), { testCommand: "npm test", pitwall: "start" });
-  assert.deepEqual(h.parseConfig("commands:\n  test: none\n"), { testCommand: "", pitwall: "open" });
+  assert.deepEqual(h.parseConfig(cfg), { testCommand: "npm test", pitwall: "start", models: "auto", parallel: false, modelsWarning: null });
+  assert.deepEqual(h.parseConfig("commands:\n  test: none\n"), { testCommand: "", pitwall: "open", models: "auto", parallel: false, modelsWarning: null });
+});
+
+test("reads models and parallel from config.md through the routing rule", () => {
+  const c = h.parseConfig("commands:\n  test: npm test\nmodels: save\nparallel: on\npitwall: open\n");
+  assert.equal(c.models, "save");
+  assert.equal(c.parallel, true);
+  assert.match(h.parseConfig("models: cheapest\n").modelsWarning, /cheapest/);
 });
 
 test("pit wall commands are pre-approved only when the repo's script is the plugin's own copy", () => {
