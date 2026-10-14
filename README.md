@@ -8,6 +8,10 @@ You end up with code you can explain, because you made the decisions and read th
 
 Just tell your agent: `/boxbox:boxbox let users reset their password by email`. Or skip the command and describe the feature: Boxbox picks it up on its own.
 
+**New to Boxbox?** Read [Using Boxbox well](docs/using-boxbox.md): what to do at each stop, how to review a unit in ten minutes, how to write requests that plan well, and how to spend less.
+
+![The pit wall during a real build: the stage ruler, live readouts, what needs you, the routing readout and team radio](docs/screenshots/pitwall-1920-dark.jpg)
+
 ## Install /boxbox
 
 **Claude Code** (CLI and the VS Code extension):
@@ -101,7 +105,7 @@ In your repo, tell the agent what you want:
 Let users reset their password by email.
 ```
 
-The first time, Boxbox sets itself up: it reads the repo and asks you five short questions (what you know, where to stop for review, how many decisions you want to make, whether it may push, whether to open the pit wall). Then:
+The first time, Boxbox sets itself up: it reads the repo and asks you up to seven short questions (what you know, where to stop for review, how many decisions you want to make, whether it may push, whether to open the pit wall, and in Claude Code which models to use and whether to add a status line). Then:
 
 1. It opens the **context page**.
 2. It opens the **decisions page** and asks you each decision.
@@ -113,20 +117,33 @@ Things you can say at any stop: `go`, `change ...`, `switch to task-level`, `ask
 
 The pit wall opens in your browser while setup runs and shows every step from then on. Without Node, open `.boxbox/board.html` instead.
 
-## The pit wall
+What each stop looks like, from a real build (click for full size):
 
-![The pit wall in demo mode, dark theme, 1920 px wide: the stage ruler, live readouts, the orb with its task ring, what needs you, and team radio](docs/screenshots/pitwall-1920-dark.jpg)
+| | |
+| --- | --- |
+| [![Context page](docs/screenshots/page-context-1440-dark.jpg)](docs/screenshots/page-context-1440-dark.jpg) **Context**: what exists, what the feature touches, how it can fail | [![Decisions page](docs/screenshots/page-decisions-1440-dark.jpg)](docs/screenshots/page-decisions-1440-dark.jpg) **Decisions**: one card per decision, with a recommendation |
+| [![Plan page](docs/screenshots/page-plan-1440-dark.jpg)](docs/screenshots/page-plan-1440-dark.jpg) **Plan**: epics, acceptance criteria, tasks with size and risk | [![Design page](docs/screenshots/page-design-1440-dark.jpg)](docs/screenshots/page-design-1440-dark.jpg) **Design**: shapes and interfaces before code, for big epics |
+| [![Report page](docs/screenshots/page-report-1440-dark.jpg)](docs/screenshots/page-report-1440-dark.jpg) **Report**: what was built, how to try it, what to verify yourself | [![Report, file by file](docs/screenshots/page-report-files-1440-dark.jpg)](docs/screenshots/page-report-files-1440-dark.jpg) **File by file**: the diff explained at your level |
+| [![Knowledge page](docs/screenshots/page-knowledge-1440-dark.jpg)](docs/screenshots/page-knowledge-1440-dark.jpg) **Knowledge**: a primer on something in the stack that is new to you | |
+
+## The pit wall
 
 A local page, served by a small Node script inside `.boxbox/pitwall/` (Node 18+, no dependencies) on `127.0.0.1`. Each new session starts it and prints its address, `http://127.0.0.1:4747/` unless that port is busy. Six views, each named the racing way with the plain name in brackets:
 
 | View | What it is for |
 | --- | --- |
-| **Pit wall** (Home) | Where the work is in the Boxbox flow (setup, discover, decisions, plan, build E2.3, verify, review...), what the agent is doing this second, what needs you, tests, spend, and plan freshness |
+| **Pit wall** (Home) | Where the work is in the Boxbox flow (setup, discover, decisions, plan, build E2.3, verify, review...), what the agent is doing this second, what needs you, tests, spend, plan freshness, and in Claude Code the routing readout: the `models:` mode, whether the routing gate is on (and why not), the Boxbox agents running, the last escalation |
 | **Board** (Plan) | Milestones, epics and tasks. A task turns purple, **verified**, only when a passing test run was seen after its last edit; done without one, it says **claimed** |
-| **Telemetry** (Live) | Every tool call as it happens, by kind: reading, searching, editing, terminal, testing, web, pages, commits, skills, subagents. Lanes for the main agent, its subagents and the reviewer |
+| **Telemetry** (Live) | Every tool call as it happens, by kind: reading, searching, editing, terminal, testing, web, pages, commits, skills, subagents, routing. Each row carries a chip naming the model that did it. Lanes for the main agent, the builder (one per builder when tasks run in parallel), scout, runner, writer, other subagents and the reviewer |
 | **Map** (Codebase) | The repo's modules, which ones are being edited, and the current epic's declared files. An edit outside them shows in red and lands in "Needs you" |
-| **Timing** (Cost) | Tokens per epic and per task, new versus cache, and the sessions behind them, read from the agent's own session logs. Cost shows as "about $X" from `.boxbox/pitwall/prices.json`, which you can edit; a model missing from it shows tokens only |
+| **Timing** (Cost) | Tokens per epic and per task, new versus cache, and the sessions behind them, read from the agent's own session logs, subagents included (each subagent's tokens go to its own task). Tokens, cost and cache-read share by model; escalations and denied subagent calls; and "saved versus all on the session model", labelled as an estimate. Cost shows as "about $X" from `.boxbox/pitwall/prices.json`, which you can edit; a model missing from it shows tokens only |
 | **Garage** (Docs) | Every page Boxbox wrote for this repo, searchable |
+
+| | |
+| --- | --- |
+| [![Board view](docs/screenshots/board-1920-dark.jpg)](docs/screenshots/board-1920-dark.jpg) **Board** | [![Telemetry view](docs/screenshots/telemetry-1920-dark.jpg)](docs/screenshots/telemetry-1920-dark.jpg) **Telemetry** |
+| [![Map view](docs/screenshots/map-1920-dark.jpg)](docs/screenshots/map-1920-dark.jpg) **Map** | [![Timing view](docs/screenshots/timing-1920-dark.jpg)](docs/screenshots/timing-1920-dark.jpg) **Timing** |
+| [![Garage view](docs/screenshots/garage-1920-dark.jpg)](docs/screenshots/garage-1920-dark.jpg) **Garage** | |
 
 **Your move.** Whenever the agent needs you (a decision, a plan or design to approve, a unit to review, a permission prompt, or it has simply finished its turn), a full-width amber bar says what, with "Answer in chat", and the tab title changes to "Your move · Boxbox". It clears when you reply.
 
@@ -145,8 +162,53 @@ Try it without an agent: `node .boxbox/pitwall/server.js --ensure`, then open th
 | Unit of control | `epic` (stop after each feature) or `task` (stop after each small change) |
 | Decision level | `everything`, `what matters` (default), `decide and show` |
 | Pushing | `yes`, `ask`, `no` |
+| Models (Claude Code) | `balanced` (default), `best`, `save`, `auto` (see below) |
+| Parallel tasks (Claude Code) | `off` (default) or `on` |
 
-All three live in `.boxbox/config.md` and can be changed whenever you like. Whatever the level, the agent never does something that cannot be undone without asking.
+All of them live in `.boxbox/config.md` and can be changed whenever you like. Whatever the level, the agent never does something that cannot be undone without asking.
+
+## Cheaper models, same judgement (Claude Code)
+
+Planning, decisions, design, task briefs, code review, the page fact-check and every approval stay on your session model. Routine work goes to four small subagents that ship with the plugin:
+
+| Agent | `balanced` | `save` | Does | Never |
+| --- | --- | --- | --- | --- |
+| `boxbox-builder` | Sonnet | Sonnet | builds one task test-first from its brief, commits | touches files outside the brief, edits `.boxbox/` |
+| `boxbox-scout` | Haiku | Haiku | reads and searches, returns exact excerpts with file:line | edits anything |
+| `boxbox-runner` | Haiku | Haiku | runs tests, lint and the page checker; fixes only mechanical failures | changes behaviour |
+| `boxbox-writer` | Sonnet | Haiku | fills page templates from the facts it is given | invents facts |
+
+`best` puts every agent on your session model; `auto` uses no Boxbox agents and sets no models, as before 0.7: plain subagents do the same work on whatever Claude Code picks (a repo set up before 0.7 has no `models:` line and stays on `auto` until you choose; the first session after the update says when its `.boxbox/` copy needs a refresh). A task tagged `risk: yes` (auth, payments, crypto, migrations, concurrency) or `size: L` builds on your session model except under `save`, and "use opus for E3" pins one epic.
+
+- **Task briefs.** Before each task, the main model writes `.boxbox/<feature>/<unit>/tasks/<task>.md` from the code as it is now: the goal, the exact excerpts to change, the interface, the tests, what not to touch, the done check, the expected diff size. The builder gets only that, after a fixed part that never changes, so the prompt cache does its work. The board, the pit wall and the report link and quote each brief.
+- **Routing gate.** A hook checks every call to a Boxbox agent against these rules and denies a wrong one with a reason that names the right agent and model ("E2.3 is risk: yes, run boxbox-builder with model opus"). It stands aside under `models: auto` and when `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set, and says why on the pit wall. It judges only calls to Boxbox's own agents, and in a session's very first turn, before Claude Code has written the session's model to disk, it cannot check calls that should use the session model and lets them run.
+- **Escalation.** A builder that fails a task twice, edits outside its brief, edits one code file five times without a green test, or produces a diff more than three times the brief's estimate, retries once on your session model. If that fails too, the agent stops and tells you.
+- **Cost per model.** Subagent transcripts are counted from the moment a subagent starts, per model and per task. On a recorded real session the counts match Claude Code's own per-model totals exactly for Opus and Sonnet; Haiku reads slightly low, because Claude Code's own small Haiku calls (the session title) are in no transcript.
+- **Status line** (optional, asked at setup): `E2.3 · builder sonnet · session $0.42 · 14/14 tests` under your prompt. Terminal only; the VS Code extension may not show it.
+- **Parallel tasks** (`parallel: on`, off by default): independent tasks of one epic build at once in separate worktrees, at most three, then merge back in plan order with one commit per task. Needs `"worktree": {"baseRef": "head"}` in the project's settings; any conflict or red suite falls back to one task at a time.
+
+What each agent gets:
+
+| Feature | Claude Code | Codex |
+| --- | --- | --- |
+| Plan, decisions, units, reports, pit wall, pause | Yes | Yes (as in 0.6) |
+| Task briefs | Yes, built by `boxbox-builder` (a plain subagent under `auto`) | Yes, built by the main agent |
+| Fixed-model subagents (`models:`) | Yes | No: the main agent does everything |
+| Routing gate and escalation | Yes | No |
+| Tokens and cost by model | Yes, subagents included | Per session, with the Codex model; no Codex prices unless you add them |
+| Status line | Yes (terminal) | No |
+| Parallel tasks | Yes, off by default | No |
+
+How the Claude Code features were checked is written up in [docs/routing-spike.md](docs/routing-spike.md). **Seen live** in Claude Code 2.1.296, building a small app from an empty repo in `balanced` mode with Opus as the session model:
+- setup asking and writing `models:` and the status line;
+- a brief per task;
+- the three risky tasks built on Opus and the others on Sonnet;
+- the scout on Haiku and the writer on Sonnet, with reviews and fact-checks staying on Opus;
+- a forced double failure escalated once and passed on Opus;
+- two tasks built at the same time in worktrees and merged back in plan order, one commit each;
+- per-model token totals equal to Claude Code's own (Opus to the token, Sonnet within 0.01%).
+
+A gate denial and the agent's retry on the right model were seen in an earlier live check. **Not yet seen live:** a merge conflict in parallel mode falling back to one task at a time (tested with real git only), the runner (the main agent ran the checks itself), the status line drawn by a running CLI (its command was run on that session's live data), the brief links in a browser, and any Codex session.
 
 ## The skills and how to use them
 
@@ -157,7 +219,7 @@ Nineteen skills. Most run on their own as part of the flow. Each can also be cal
 | Skill | What it does | Runs on its own | Call it directly | Produces |
 | --- | --- | --- | --- | --- |
 | `boxbox` | Entry point: picks the flow for the request | On any feature, bug or planning request, via the session-start hook | `/boxbox:boxbox let users reset their password by email` | The flow: context, decisions, plan, then one unit at a time |
-| `boxbox-setup` | One-time setup: reads the stack, asks five questions, starts the pit wall | When `.boxbox/` is missing | `/boxbox:boxbox-setup change the unit to task` | `.boxbox/` with `config.md`, the board, the templates and the pit wall |
+| `boxbox-setup` | One-time setup: reads the stack, asks up to seven questions, starts the pit wall | When `.boxbox/` is missing | `/boxbox:boxbox-setup change the unit to task` | `.boxbox/` with `config.md`, the board, the templates and the pit wall |
 | `boxbox-discover` | Reads the code a feature will touch, writes the context page | First step of the full flow | `/boxbox:boxbox-discover what would a password reset touch?` | `context.md` and `context.html`; knowledge pages for what is new to you |
 | `boxbox-plan` | Splits the work, asks decisions one at a time, writes the plan | After discover | `/boxbox:boxbox-plan re-plan E2 with magic links` | `decisions.html`, `plan.md` and `plan.html`; stops for `go` |
 | `boxbox-design` | Data shapes and interfaces for a large epic, for approval before code | When the plan marks an epic `design: yes` | `/boxbox:boxbox-design design E2 first` | `design.md` and `design.html`; stops for approval |
@@ -183,7 +245,7 @@ Nineteen skills. Most run on their own as part of the flow. Each can also be cal
 
 ## Status
 
-Version 0.6.0. Built and tried with Claude Code, including the pit wall's hooks, pause and token counts. The Codex pit wall (hooks, pause, token counts) is built from Codex's source and is unverified until it has been run end to end. The Cursor and skills-CLI paths follow what other skill packs ship and have not been run end to end on those agents yet.
+Version 0.7.0. Built and tried with Claude Code, including the pit wall's hooks, pause and token counts. Model routing, task briefs, the routing gate and per-model cost are Claude Code features (Codex gets task briefs); what was and was not verified live is listed under "Cheaper models, same judgement". The Codex pit wall (hooks, pause, token counts) is built from Codex's source and is unverified until it has been run end to end. The Cursor and skills-CLI paths follow what other skill packs ship and have not been run end to end on those agents yet.
 
 ## License
 

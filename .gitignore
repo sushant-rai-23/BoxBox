@@ -4,3 +4,7 @@ brag-output/composition/out/
 
 # Release screenshots: regenerated locally, not committed
 docs/design/0.6/
+
+# Boxbox's own working folder and agent file for this repo: kept local
+.boxbox/
+AGENTS.md

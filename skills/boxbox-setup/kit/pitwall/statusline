@@ -1,0 +1,84 @@
+#!/usr/bin/env node
+// Boxbox status line for Claude Code: one line under the prompt.
+//   E2.3 · builder sonnet · session $0.42 · 14/14 tests      PAUSED · E2.3 · session $0.42      Your move: D3 ...
+// Claude Code runs it with the session as JSON on stdin (cost, model, cwd). It reads .boxbox/live only:
+// no network, no git, no full scans. On anything unexpected it prints what it can, or nothing.
+// Installed by boxbox-setup into the project's settings, after asking the developer.
+"use strict";
+const fs = require("fs");
+const path = require("path");
+
+const readJSON = f => { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } };
+const family = m => { const x = String(m || "").toLowerCase().match(/^(?:claude-)?(opus|sonnet|haiku|fable)(?:\b|-)/); return x ? x[1] : ""; };
+const time = ts => Date.parse(ts || "") || 0;
+// Text from the live files goes to a terminal: no control characters, no escape sequences, no
+// bidirectional overrides, whatever wrote them.
+const clean = s => String(s || "").replace(/[\u0000-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/g, "");
+
+// The end of events.jsonl only: the last 64 KB holds every recent event this line needs.
+function tailEvents(file) {
+  let fd;
+  try {
+    fd = fs.openSync(file, "r");
+    const size = fs.fstatSync(fd).size, n = Math.min(size, 64 * 1024), buf = Buffer.alloc(n);
+    fs.readSync(fd, buf, 0, n, size - n);
+    return buf.toString("utf8").split("\n").map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  } catch { return []; } finally { if (fd !== undefined) try { fs.closeSync(fd); } catch {} }
+}
+
+function line(p, now) {
+  const start = (p.workspace && p.workspace.project_dir) || p.cwd || "";
+  let box = "";
+  for (let d = path.resolve(start || "/"); ; d = path.dirname(d)) {
+    if (fs.existsSync(path.join(d, ".boxbox"))) { box = path.join(d, ".boxbox"); break; }
+    if (d === path.dirname(d) || fs.existsSync(path.join(d, ".git"))) break;
+  }
+  if (!box) return "";
+  const live = path.join(box, "live");
+  // Claude Code's own estimate for this whole session (main agent and subagents), not for the unit.
+  const cost = p.cost && typeof p.cost.total_cost_usd === "number" ? `session $${p.cost.total_cost_usd.toFixed(2)}` : "";
+  const sid = p.session_id || "";
+  const ev = tailEvents(path.join(live, "events.jsonl"));
+  const mine = e => !e.session || !sid || e.session === sid;
+  // A stage from before this session started is history, not where the work is now (as the pit wall).
+  const started = ev.filter(e => e.type === "session" && mine(e)).map(e => time(e.ts)).pop() || 0;
+  const stage = readJSON(path.join(live, "stage.json")) || {};
+  const unit = !stage.ts || time(stage.ts) >= started ? stage.unit || stage.stage || "" : "";
+  if (fs.existsSync(path.join(live, "PAUSE"))) return [fs.existsSync(path.join(live, "held")) ? "PAUSED" : "PAUSING", unit, cost];
+  // A question is open until the agent acts again: answers given in the question tool never clear it.
+  const w = readJSON(path.join(live, "waiting.json"));
+  const acted = w && ev.some(e => mine(e) && (e.type === "action" || e.type === "start") && time(e.ts) > time(w.ts));
+  if (w && w.what && !acted) return [`Your move: ${Array.from(String(w.what)).slice(0, 80).join("")}`, cost];
+  // A Boxbox agent running now in this session (one whose stop never came drops out after 30 quiet
+  // minutes, as on the pit wall), and the model the gate let it run on.
+  const open = new Map(), seen = new Map();
+  for (const e of ev) {
+    if (!mine(e)) continue;
+    if (e.sub) seen.set(e.sub, time(e.ts));
+    if (e.kind === "crew" && e.sub && /^boxbox:boxbox-/.test(e.target || "")) { if (e.result === "started") open.set(e.sub, e); else open.delete(e.sub); }
+  }
+  const run = [...open.values()].filter(e => now - (seen.get(e.sub) || time(e.ts)) < 30 * 60000).pop();
+  const session = family(p.model && p.model.id);
+  let who = session;
+  if (run) {
+    const agent = run.target.replace("boxbox:boxbox-", "");
+    const g = ev.filter(e => mine(e) && e.kind === "gate" && e.result === "allow" && e.target === run.target && (!run.unit || e.unit === run.unit)).pop();
+    const m = (g && (family(g.model) || family(g.expected))) || session;
+    who = `${agent}${m ? " " + m : ""}`;
+  }
+  // The latest test run in this session: its counts, or "failing" when it failed without a summary.
+  const t = ev.filter(e => mine(e) && e.test).pop();
+  const tests = !t ? "" : t.test.passed !== undefined ? `${t.test.passed}/${t.test.passed + (t.test.failed || 0)} tests` : t.test.status === "fail" ? "tests failing" : "";
+  return [unit, who, cost, tests];
+}
+
+let raw = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("error", () => {});
+process.stdin.on("data", d => (raw += d));
+process.stdin.on("end", () => {
+  let parts = [];
+  try { parts = line(JSON.parse(raw || "{}"), Date.now()) || []; } catch { parts = []; }
+  const out = clean(parts.filter(Boolean).join(" · "));
+  if (out) process.stdout.write(out + "\n");
+});

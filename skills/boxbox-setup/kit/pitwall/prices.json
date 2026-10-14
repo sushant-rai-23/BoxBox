@@ -3,7 +3,8 @@
     "US dollars per million tokens. Edit freely: the pit wall reads this file on every update.",
     "Claude prices are Anthropic's first-party API rates as of 2026-10-06. Claude Haiku 5.5 is priced for prompts up to 100K tokens; longer prompts cost more ($0.50 / $2.50) and are under-counted here.",
     "A model missing from this table shows tokens only, never a guessed price. No OpenAI (Codex) prices are included: add yours as \"<model id>\": {\"input\": ..., \"output\": ..., \"cache_read\": ...}.",
-    "A model id matches its key exactly or with a date suffix (claude-opus-5-5-20261001)."
+    "A model id matches its key exactly or with a date suffix (claude-opus-5-5-20261001). A context-window tag at the end ([1m]) is ignored.",
+    "Claude Sonnet 5.5 cache reads are $0.10 per million: Claude Code's own cost for a Step 0 subagent matched only at that rate (docs/routing-spike.md)."
   ],
   "models": {
     "claude-fable-5-1": {
@@ -67,7 +68,7 @@
       "output": 10,
       "cache_write_5m": 2.5,
       "cache_write_1h": 4,
-      "cache_read": 0.2
+      "cache_read": 0.1
     },
     "claude-sonnet-5": {
       "input": 2,

@@ -55,11 +55,14 @@ pr: <url or none>
 
 Copy it with `cp .boxbox/templates/report.html .boxbox/<feature>/<unit>/report.html` and fill its sections following "Pages" in `GUIDE.md`. `{{ROOT}}` is `../../`. Then run `node .boxbox/pitwall/check-page.js .boxbox/<feature>/<unit>/report.html` and fix everything it reports, until it prints `OK`. Then fact-check it with **boxbox-inspect** in page mode, fix what it finds, and only then show the page.
 
+**In Claude Code, unless `config.md` says `models: auto` or has no `models:` line, hand the page-filling to `boxbox:boxbox-writer`** (with `model` from "Model routing" in `GUIDE.md`). Give it the page path and the facts, in this order: the fixed part (the "Pages" and "Writing for the developer" sections of `GUIDE.md`, the developer's `known` and `new` lists), then `report.md`, the diff (`git diff <base>...HEAD -- . ':!.boxbox'`), the `--summary` output and the test output. It fills and checks the page; you stay responsible for it. Read what it returns, especially every claim it marked `unknown`. The fact-check is never handed to the writer: it runs on the session model.
+
 - **Order the pieces the way a request meets them**, not the order you wrote them.
 - **Use the real code** from the diff, trimmed to what matters, with its path.
 - **Depth follows the developer.** For anything `config.md` marks as new, explain the concept before the code and define each term. For what they know, one line is enough. Where it helps, compare with a stack they know.
 - **Say why.** For each real design choice, name the alternative and the trade-off.
 - **Facts come from data.** Test results, line counts, commits, tokens, cost and time are what the pit wall and git say: `node .boxbox/pitwall/server.js --summary <unit>`, `git diff --numstat <before>..<last>`, `git rev-list --count <before>..<last>`. Set the article's `data-range` and `data-commit` to the unit's commits. Each task's state is the pit wall's: `verified` only for a passing run it saw after the task's last edit, `claimed` otherwise.
+- **Each task quotes its brief.** In the tests section, every task carries the Goal line of its brief in `<q data-brief="<feature>/<unit>/tasks/<task id>.md">`, copied exactly, and links the brief; the checker compares the quote with the file. A task built without a brief (work from before 0.7) says so instead.
 - **Every claim is labelled** (`observed`, `code`, `inferred`, `unknown`, `source`). "unknown" is allowed; guessing is not. Quote code with `data-quote`, cite lines as `path:line`, name tests with `data-test`.
 - **Verify these yourself** closes the report: the three claims that matter most if they are wrong, each with a one-minute way to check it.
 - **Gotchas are real ones** you hit, with cause and fix, as callouts. No invented ones.

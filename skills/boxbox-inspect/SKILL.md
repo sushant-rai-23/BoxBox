@@ -18,7 +18,7 @@ For a Boxbox unit, tell the pit wall: `sh .boxbox/pitwall/say stage inspect --un
 - the conventions from `context.md` and the decisions that apply
 - the checklist below, and this instruction: "Report findings as a list. For each: file and line, what is wrong, why it matters, severity (must fix, should fix, note). Do not fix anything. Say what you checked and found fine."
 
-If your agent lets you pick a model for a subagent, a different model from the one that built the unit is better still.
+If your agent lets you pick a model for a subagent, a different model from the one that built the unit is better still. In Claude Code the reviewer and the page fact-checker always run on the session model: never use a Boxbox agent for them and never route them down (see "Model routing" in `GUIDE.md`). Under `models: balanced` or `save` most builder tasks ran on a cheaper model, so the reviewer usually differs from the builder; risky and `L` tasks, and epics with a `model:` override, may have run on the same model.
 
 **If you cannot run subagents:** review it yourself, after verification is finished. Read the whole diff top to bottom, file by file, against the checklist, as if a stranger wrote it. Say in the report that the review was not independent.
 
@@ -26,6 +26,7 @@ If your agent lets you pick a model for a subagent, a different model from the o
 
 - **Does what was asked.** Every acceptance criterion is met and a test proves it. Nothing extra was built.
 - **Tests are real.** Each would fail if the behaviour broke. None only assert that a mock was called. None were weakened.
+- **Tests are not padded.** No two tests check the same thing, none tests the language, a library or trivial code, and each task has its end-to-end test when a user sees the change. Flag duplicates as "should fix" with the test names.
 - **Fails safely.** Each failure mode in the plan is handled and tested. Errors, timeouts and empty inputs do not crash or hang. Nothing fails silently.
 - **Safe.** No secrets, keys or personal data in code, logs or tests. Input from outside is checked at the boundary. No new way to bypass a permission.
 - **Fits the codebase.** Names, structure and style match what is there. It uses the project's existing helpers instead of new copies. Terms match `glossary.md`.
