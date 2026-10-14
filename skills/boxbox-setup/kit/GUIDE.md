@@ -170,19 +170,19 @@ Boxbox ships four subagents in the plugin's `agents/` folder: `boxbox:boxbox-bui
 | runner | session | haiku | haiku |
 | writer | session | sonnet | haiku |
 
-"session" is the main conversation's model. With `auto`, Boxbox sets no model and Claude Code decides. The rule lives in the plugin's `hooks/routing.js`; for a builder task, the first match wins:
+"session" is the main conversation's model. With `auto`, Boxbox steps aside as in 0.6: it uses no Boxbox agent and passes no model, so plain subagents run on whatever Claude Code chooses, and nothing is escalated. The rule lives in the plugin's `hooks/routing.js`; for a builder task, the first match wins:
 
-1. `models: auto`: pass no model.
+1. `models: auto`: no Boxbox agent, no model.
 2. The task was escalated: the session model.
 3. Its epic has a `model:` line in `plan.md`: that model (even under `save`; the developer asked for it).
 4. The task is `risk: yes` or `size: L`: the session model (`save`: sonnet).
 5. The table above.
 
-**Every call passes `model`** (except under `auto`) and starts its description with the task id: `Agent(subagent_type: "boxbox:boxbox-builder", description: "E2.3 <short>", model: "sonnet", prompt: ...)`. Pass the family alias (`opus`, `sonnet`, `haiku`), never a full model id.
+**Every call passes `model`** (except under `auto`), as the family alias (`opus`, `sonnet`, `haiku`), never a full model id. **Every description starts with the unit it serves:** the task id for builder calls and for scout or runner calls made for one task (`Agent(subagent_type: "boxbox:boxbox-builder", description: "E2.3 <short>", model: "sonnet", prompt: ...)`), the epic id for work on a whole epic (`"E2 report page"`), and `setup` for setup work (`"setup refresh kit"`).
 
 **Never routed down:** discover, decisions, plan, design, writing task briefs, inspect (code review), the page fact-check, and every approval stay on the session model.
 
-**Escalation.** Retry a builder task once on the session model when the builder failed it twice, or earlier when its diff is more than 3 times the expected size (S 50, M 150, L 400 changed lines, or the brief's estimate), it edited a file outside the task's files, or it edited the same file 5 times without the test going green. Before the retry, run `sh .boxbox/pitwall/say escalated "<one-line reason>" --unit <task id>`. If it fails on the session model too, stop and tell the developer. Never escalate the same task twice.
+**Escalation** (not under `auto`). Retry a builder task once on the session model when the builder failed it twice, or earlier when its diff is more than 3 times the expected size (S 50, M 150, L 400 changed lines, or the brief's estimate), it edited a file outside the task's files, or it edited the same file 5 times without the test going green. Before the retry, run `sh .boxbox/pitwall/say escalated "<one-line reason>" --unit <task id>`. If it fails on the session model too, stop and tell the developer. If the builder already ran on the session model (`best`, a risky or `L` task, an epic override naming it), there is nothing to escalate to: stop and tell the developer at once. Never escalate the same task twice.
 
 Codex has no subagent models: under Codex, `models:` and `parallel:` are ignored and the main agent builds every task itself.
 

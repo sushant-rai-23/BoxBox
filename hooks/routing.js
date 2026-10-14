@@ -12,8 +12,8 @@ const TABLE = {
   save:     { builder: "sonnet",  scout: "haiku",   runner: "haiku",   writer: "haiku" }
 };
 
-// `models:` and `parallel:` from config.md. A repo set up before 0.7 has no models line: auto,
-// so it keeps 0.6 behaviour. A value Boxbox does not know: balanced, with a warning to show.
+// `models:` and `parallel:` from config.md. A repo set up before 0.7 has no models line: auto, under
+// which the build skill uses no Boxbox agent, so it keeps 0.6 behaviour. A value Boxbox does not know: balanced, with a warning to show.
 function parseModels(configText) {
   const t = String(configText || "");
   const m = t.match(/^models:[ \t]*([^\s#]*)/m);
@@ -28,7 +28,8 @@ function parseModels(configText) {
 }
 
 // Size, risk and the epic's model override for every task in plan.md. Missing size is M, missing risk is no.
-// The override is a `model:` line at the start of a line inside the epic, before its tasks.
+// The override is a `model:` line at the start of a line anywhere inside the epic; a value that is not
+// a Claude family is ignored.
 function parsePlanTasks(planText) {
   const tasks = new Map();
   let epic = "", epicModel = null;
