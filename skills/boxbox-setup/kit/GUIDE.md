@@ -159,6 +159,33 @@ If a skill forgets to say its stage, the hook infers one from the Boxbox page be
 
 When you run the test command from `config.md`, the hook records the result it saw. A task shows as **verified** on the pit wall only when a passing run it observed came after the task's last edit. A task you marked done without such a run shows as **claimed**. Do not write "verified" on the board yourself; set the task to `done` and let the pit wall decide. If the pit wall shows "claimed" for a task you believe is tested, run the test command again.
 
+## Model routing (Claude Code only)
+
+Boxbox ships four subagents in the plugin's `agents/` folder: `boxbox:boxbox-builder` builds one task from its brief, `boxbox:boxbox-scout` reads and searches and never edits, `boxbox:boxbox-runner` runs checks and fixes only mechanical failures, and `boxbox:boxbox-writer` fills page templates from facts it is handed. `models:` in `config.md` sets their models:
+
+| Agent | best | balanced | save |
+| --- | --- | --- | --- |
+| builder | session | sonnet | sonnet |
+| scout | session | haiku | haiku |
+| runner | session | haiku | haiku |
+| writer | session | sonnet | haiku |
+
+"session" is the main conversation's model. With `auto`, Boxbox sets no model and Claude Code decides. The rule lives in the plugin's `hooks/routing.js`; for a builder task, the first match wins:
+
+1. `models: auto`: pass no model.
+2. The task was escalated: the session model.
+3. Its epic has a `model:` line in `plan.md`: that model (even under `save`; the developer asked for it).
+4. The task is `risk: yes` or `size: L`: the session model (`save`: sonnet).
+5. The table above.
+
+**Every call passes `model`** (except under `auto`) and starts its description with the task id: `Agent(subagent_type: "boxbox:boxbox-builder", description: "E2.3 <short>", model: "sonnet", prompt: ...)`. Pass the family alias (`opus`, `sonnet`, `haiku`), never a full model id.
+
+**Never routed down:** discover, decisions, plan, design, writing task briefs, inspect (code review), the page fact-check, and every approval stay on the session model.
+
+**Escalation.** Retry a builder task once on the session model when the builder failed it twice, or earlier when its diff is more than 3 times the expected size (S 50, M 150, L 400 changed lines, or the brief's estimate), it edited a file outside the task's files, or it edited the same file 5 times without the test going green. Before the retry, run `sh .boxbox/pitwall/say escalated "<one-line reason>" --unit <task id>`. If it fails on the session model too, stop and tell the developer. Never escalate the same task twice.
+
+Codex has no subagent models: under Codex, `models:` and `parallel:` are ignored and the main agent builds every task itself.
+
 ## Pages
 
 Every developer page is a template from `templates/`, copied and filled. The agent writes content only, never layout or CSS: the templates hold the finished page, so a page costs the tokens of what it says and nothing for how it looks. There is one template per page: `context`, `decisions`, `plan`, `design`, `report`, `knowledge`, `explain` and `review`.
@@ -238,10 +265,8 @@ decision_level: everything | what matters | decide and show
 developer:
   known: [<stacks and topics the developer knows>]
   new: [<stacks and topics that are new to them>]
-models:            # optional; only if the agent lets you choose
-  plan: <model>
-  build: <model>
-  report: <model>
+models: best | balanced | save | auto   # Claude Code only: which models Boxbox's subagents use (see "Model routing"); a missing line means auto
+parallel: off | on                     # Claude Code only: build independent tasks of one epic at once in worktrees; off by default
 pitwall: open | start | off   # open the pit wall in the browser at session start, start it without opening, or no pit wall
 skills:            # stack skills in use for this repo, or "none"
   - <name>: installed from <source> | written for this repo, at <path>

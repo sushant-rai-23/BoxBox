@@ -48,7 +48,7 @@ Read, do not ask. Find:
 
 ## 3. Ask the developer
 
-Ask one question at a time. Put your recommended answer first. Use your agent's question tool if it has one. Right before each question, run `sh .boxbox/pitwall/say ask "<the question in a few words>" --kind setup`, so the pit wall shows it as your move. There are up to five questions; skip only the ones this step says to skip.
+Ask one question at a time. Put your recommended answer first. Use your agent's question tool if it has one. Right before each question, run `sh .boxbox/pitwall/say ask "<the question in a few words>" --kind setup`, so the pit wall shows it as your move. There are up to six questions; skip only the ones this step says to skip.
 
 1. **What you know.** "This repo uses <stack list>. Which of these do you know well, and which are new to you?" This sets how much the reports teach. Write the answer into `config.md` as two lists of concrete topics, in the developer's words (`known: [JavaScript, Node HTTP servers]`, `new: [cryptography]`).
 2. **Unit of control.** "Where should I stop for your review: after each epic (one feature), or after each task (one small change)?" Recommend epic. Recommend task if most of the stack is new to them.
@@ -58,6 +58,7 @@ Ask one question at a time. Put your recommended answer first. Use your agent's 
    - `decide and show`: I ask only what cannot be undone, and list everything else.
 4. **Pushing.** Only if there is a remote: "May I push branches and open draft pull requests for your review?" Answers: `yes`, `ask` each time, `no` (local diffs only).
 5. **Pit wall.** Only if Node 18+ is installed (`node --version`): "Open the pit wall in your browser when a session starts? It is a local live page showing what I am doing, what waits on you, and what it costs." Answers: `yes` (recommended, writes `pitwall: open`), `start it but don't open` (`pitwall: start`), `off` (`pitwall: off`). Without Node, write `pitwall: off` and say the classic board is their home page.
+6. **Models.** Only in Claude Code: "Which models should my helpers use? `balanced` (recommended): Sonnet builds, Haiku searches and runs checks, and your session model keeps planning and review. `best`: everything on your session model. `save`: cheapest, Haiku for everything but building. `auto`: Boxbox sets no models and Claude Code decides." Write the answer as `models:`. Then write `parallel: off` and say in one line that `parallel: on` builds independent tasks at once in separate worktrees, if they want it later. In Codex, skip this question and write neither line.
 
 Do not ask anything the repo already answered. With no remote, do not ask about pushing: set `push: no`.
 
