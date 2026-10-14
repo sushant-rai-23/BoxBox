@@ -129,6 +129,7 @@ function ingestCodexLines(st, lines, meta) {
 
 function priceFor(model, prices) {
   const table = (prices && prices.models) || {};
+  model = String(model || "").replace(/\[[^\]]*\]$/, "");   // "claude-opus-5-5[1m]": the tag names the context window, not another model
   const keys = Object.keys(table).sort((a, b) => b.length - a.length);
   // Exact id, or the id plus a date suffix. "claude-opus-5-7" must not take "claude-opus-5"'s price.
   const k = keys.find(k => model === k || (model.startsWith(k) && /^[-@]\d{6,}$/.test(model.slice(k.length))));

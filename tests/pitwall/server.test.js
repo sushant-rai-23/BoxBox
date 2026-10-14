@@ -205,3 +205,12 @@ test("server: board task brief link is served under /b/", async () => {
     assert.match(await r.text(), /task: E1\.2/);
   } finally { child.kill(); fs.rmSync(box, { recursive: true, force: true }); }
 });
+
+test("server: priceFor matches claude-opus-5-5[1m] and sonnet cache read costs 0.1 per million", () => {
+  const kit = JSON.parse(fs.readFileSync(path.join(__dirname, "../../skills/boxbox-setup/kit/pitwall/prices.json"), "utf8"));
+  assert.equal(s.priceFor("claude-sonnet-5-5", kit).cache_read, 0.1);
+  assert.equal(s.priceFor("claude-opus-5-5[1m]", kit), s.priceFor("claude-opus-5-5", kit));
+  assert.equal(s.priceFor("claude-opus-5-5[1m]-20261001", kit), null, "a suffix only after the bracket is not a date");
+  // Claude Code's own cost for the Step 0 Sonnet subagent: 2 in, 4 out, 3821 cache read, 639 cache write (5 min)
+  assert.equal(Number(s.costOf({ input: 2, output: 4, cacheRead: 3821, cacheWrite5m: 639, cacheWrite1h: 0 }, s.priceFor("claude-sonnet-5-5", kit)).toFixed(7)), 0.0020236);
+});
