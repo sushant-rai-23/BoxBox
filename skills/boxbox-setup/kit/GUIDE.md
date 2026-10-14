@@ -40,7 +40,7 @@ Whatever the decision level, ask before any of these:
   lessons.md          corrections from the developer and the rule each became
   assets/             boxbox.css and boxbox.js (style.css and page.js only for pages from 0.5). Fixed; never edit them
   templates/          page templates to copy, brief.md for task briefs, and _components.html, the gallery of every allowed block. Fixed; refreshed from the kit by boxbox-setup
-  pitwall/            the live pit wall: server.js, index.html, orbs.js, prices.json, say, check-page.js. Fixed, except prices.json
+  pitwall/            the live pit wall: server.js, index.html, orbs.js, prices.json, say, check-page.js, statusline (Claude Code's status line). Fixed, except prices.json
   live/               written by the hooks and the pit wall while you work. Local only; never committed
   knowledge/<topic>.html
   explained/<feature>.html    how an existing feature works, written on request
