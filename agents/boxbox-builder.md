@@ -23,6 +23,9 @@ Return:
 - The test command and its pass and fail counts.
 - Anything you could not do, and why.
 
+Edit files with Edit and Write only. The developer's pit wall cannot see edits made through shell commands.
+If a section of the brief is missing, work from what is there and say what was missing.
+
 Never touch a file outside the brief's files.
 Never edit anything under .boxbox/.
 Never change a test to make it pass. Fix the code, or report it.

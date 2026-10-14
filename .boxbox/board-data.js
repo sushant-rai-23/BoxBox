@@ -96,7 +96,7 @@ window.BOXBOX_BOARD = {
   "id": "E2",
   "title": "Task briefs",
   "outcome": "Before each task, the main model writes `.boxbox/<feature>/<epic>/tasks/<id>.md` from the current code; builders (Claude Code) or the main agent (Codex) build from it; it is linked from the board and the pit wall and quoted in the report.",
-  "status": "todo",
+  "status": "done",
   "branch": "model-routing-e2-briefs",
   "files": [
    "skills/boxbox-build/SKILL.md",
@@ -110,30 +110,31 @@ window.BOXBOX_BOARD = {
    "agents/boxbox-builder.md",
    "tests/pitwall/**"
   ],
+  "links": [ { "label": "Report (agent)", "href": "model-routing/e2-briefs/report.md" } ],
   "tasks": [
    {
     "id": "E2.1",
     "title": "Brief format in GUIDE and the folder map; brief parser for expected diff size and files",
     "test": "`brief: parser reads files and expected diff size from a brief`",
-    "status": "todo"
+    "status": "done", "commit": "56a49ab"
    },
    {
     "id": "E2.2",
     "title": "boxbox-build writes the brief before each task and hands builders fixed part then brief",
     "test": "no cheap test, verify: skill text has the order and the \"no timestamps in the fixed part\" rule; builder agent prompt expects a brief",
-    "status": "todo"
+    "status": "done", "commit": "f81a7c6"
    },
    {
     "id": "E2.3",
     "title": "Report template gets a per-task brief quote and the checker validates it",
     "test": "`check-page: a report brief quote must match the brief file`",
-    "status": "todo"
+    "status": "done", "commit": "06f8664"
    },
    {
     "id": "E2.4",
     "title": "Board and pit wall link each task's brief",
     "test": "`server: board task brief link is served under /b/`",
-    "status": "todo"
+    "status": "done", "commit": "99e13e0"
    }
   ]
  },

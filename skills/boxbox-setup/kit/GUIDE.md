@@ -39,7 +39,7 @@ Whatever the decision level, ask before any of these:
   glossary.md         project terms, one meaning each
   lessons.md          corrections from the developer and the rule each became
   assets/             boxbox.css and boxbox.js (style.css and page.js only for pages from 0.5). Fixed; never edit them
-  templates/          page templates to copy, and _components.html, the gallery of every allowed block. Fixed; refreshed from the kit by boxbox-setup
+  templates/          page templates to copy, brief.md for task briefs, and _components.html, the gallery of every allowed block. Fixed; refreshed from the kit by boxbox-setup
   pitwall/            the live pit wall: server.js, index.html, orbs.js, prices.json, say, check-page.js. Fixed, except prices.json
   live/               written by the hooks and the pit wall while you work. Local only; never committed
   knowledge/<topic>.html
@@ -51,6 +51,7 @@ Whatever the decision level, ask before any of these:
     plan.md      plan.html
     <unit>/      e1-<slug> for an epic (the same slug as its branch), e1-2-<slug> when the unit is a task
       design.md  design.html     only when the plan gives the unit a design stop
+      tasks/<task id>.md         the task's brief, written just before the task (see "Task briefs")
       report.md  report.html
 ```
 
@@ -105,6 +106,7 @@ window.BOXBOX_BOARD = {
       "links": [ { "label": "Report", "href": "password-reset/e1-request-reset/report.html" } ],
       "tasks": [ { "id": "E1.1", "title": "Create and store a hashed token",
                    "test": "token row exists and raw token is not stored",
+                   "brief": "password-reset/e1-request-reset/tasks/E1.1.md",
                    "status": "done", "commit": "a1b2c3d" } ]
     } ]
   } ]
@@ -159,6 +161,24 @@ If a skill forgets to say its stage, the hook infers one from the Boxbox page be
 
 When you run the test command from `config.md`, the hook records the result it saw. A task shows as **verified** on the pit wall only when a passing run it observed came after the task's last edit. A task you marked done without such a run shows as **claimed**. Do not write "verified" on the board yourself; set the task to `done` and let the pit wall decide. If the pit wall shows "claimed" for a task you believe is tested, run the test command again.
 
+## Task briefs
+
+Before each task, the main agent writes its brief: `cp .boxbox/templates/brief.md .boxbox/<feature>/<unit>/tasks/<task id>.md`, then fills it. Write it just before the task, from the plan line and the code as it is now, never at plan time: earlier tasks change the code it describes. A brief holds:
+
+- **Header** (the lines before the first `##`): `task`, `size`, `risk`, `expected_diff` (changed lines; S about 50, M 150, L 400), `files` (every file the task may edit, tests included) and `base` (the commit it was written against). The routing gate and escalation read these. Copy `size` and `risk` from the task line in `plan.md`; if the two ever disagree, `plan.md` wins. Nothing checks the excerpts against later code: `base` tells a reader which commit they describe.
+- **Goal**: one sentence, plus the acceptance criteria it serves.
+- **Code to touch**: each file and function as `path:line`, with the exact current lines. In Claude Code, get the excerpts from `boxbox:boxbox-scout`, so the builder does not explore.
+- **Interface**: what to build against, from the design page if there is one.
+- **Tests**: the first test, then edge cases from the epic's failure modes.
+- **Do not touch**: out-of-scope files, patterns to avoid, the decisions that apply.
+- **Done when** and **Commands**: the done check, and the test, lint and type commands.
+
+**Prompt order.** Every subagent prompt is the fixed part first, then the brief: (1) the rules that never change during a feature (this guide's rules, the conventions and commands from `context.md`, the rules of boxbox-tdd), (2) the brief. Never put a timestamp, a counter or anything else that changes per call into the fixed part: the API caches a prompt's unchanged beginning, and a cache read costs far less than fresh input.
+
+**Who builds from it.** In Claude Code, `boxbox:boxbox-builder` receives only the fixed part and the brief. In Codex, the main agent builds from the brief itself.
+
+**Where it shows.** Add `"brief": "<feature>/<unit>/tasks/<task id>.md"` to the task in `board-data.js`; the board and the pit wall link it. The report quotes each task's goal from its brief (see the report template).
+
 ## Model routing (Claude Code only)
 
 Boxbox ships four subagents in the plugin's `agents/` folder: `boxbox:boxbox-builder` builds one task from its brief, `boxbox:boxbox-scout` reads and searches and never edits, `boxbox:boxbox-runner` runs checks and fixes only mechanical failures, and `boxbox:boxbox-writer` fills page templates from facts it is handed. `models:` in `config.md` sets their models:
@@ -182,7 +202,7 @@ Boxbox ships four subagents in the plugin's `agents/` folder: `boxbox:boxbox-bui
 
 **Never routed down:** discover, decisions, plan, design, writing task briefs, inspect (code review), the page fact-check, and every approval stay on the session model.
 
-**Escalation** (not under `auto`). Retry a builder task once on the session model when the builder failed it twice, or earlier when its diff is more than 3 times the expected size (S 50, M 150, L 400 changed lines, or the brief's estimate), it edited a file outside the task's files, or it edited the same file 5 times without the test going green. Before the retry, run `sh .boxbox/pitwall/say escalated "<one-line reason>" --unit <task id>`. If it fails on the session model too, stop and tell the developer. If the builder already ran on the session model (`best`, a risky or `L` task, an epic override naming it), there is nothing to escalate to: stop and tell the developer at once. Never escalate the same task twice.
+**Escalation** (not under `auto`). Retry a builder task once on the session model when the builder failed it twice, or earlier when its diff is more than 3 times the expected size (S 50, M 150, L 400 changed lines, or the brief's estimate), it edited a file outside the brief's `files`, or it edited the same file 5 times without the test going green. Before the retry, run `sh .boxbox/pitwall/say escalated "<one-line reason>" --unit <task id>`. If it fails on the session model too, stop and tell the developer. If the builder already ran on the session model (`best`, a risky or `L` task, an epic override naming it), there is nothing to escalate to: stop and tell the developer at once. Never escalate the same task twice.
 
 Codex has no subagent models: under Codex, `models:` and `parallel:` are ignored and the main agent builds every task itself.
 

@@ -47,7 +47,7 @@ tasks:
 - [x] E1.5 boxbox-build routes tasks to the agents with `model` and the task id, applies escalation, and `say escalated` logs it | test: `say escalated writes an escalated event with unit and reason` | done: test green; build skill text reviewed against the spec table | deps: E1.2, E1.4
 - [x] E1.6 Hand template work to boxbox-writer in report, lessons and setup refresh; keep inspect, fact-check and decisions on the session model | no cheap test, verify: skill text names boxbox-writer only for template filling and never for judgement steps | deps: E1.1
 
-## E2 Task briefs  [todo]
+## E2 Task briefs  [done]
 outcome: Before each task, the main model writes `.boxbox/<feature>/<epic>/tasks/<id>.md` from the current code; builders (Claude Code) or the main agent (Codex) build from it; it is linked from the board and the pit wall and quoted in the report.
 branch: model-routing-e2-briefs
 depends: E1
@@ -60,13 +60,13 @@ accept:
 - The board's task has a `brief` link; the pit wall shows it; the report template has a per-task brief quote the checker validates
 - Under Codex the main agent builds from the brief itself
 fails:
-- A brief quotes code that has since moved: excerpts carry data-quote-style path:line so the checker flags drift in the report (E2.3)
+- A brief quotes code that has since moved: not checked; the brief records `base`, the commit its excerpts describe, and is written just before its task, so the window for drift is one task (changed during review of E2)
 - The fixed part changes mid-feature and cache reads fall: built only from files that do not change during a feature (E2.2)
 tasks:
-- [ ] E2.1 Brief format in GUIDE and the folder map; brief parser for expected diff size and files | test: `brief: parser reads files and expected diff size from a brief` | done: test green | deps: none
-- [ ] E2.2 boxbox-build writes the brief before each task and hands builders fixed part then brief | no cheap test, verify: skill text has the order and the "no timestamps in the fixed part" rule; builder agent prompt expects a brief | deps: E2.1
-- [ ] E2.3 Report template gets a per-task brief quote and the checker validates it | test: `check-page: a report brief quote must match the brief file` | done: test green, templates regenerated | deps: E2.1
-- [ ] E2.4 Board and pit wall link each task's brief | test: `server: board task brief link is served under /b/` | done: test green | deps: E2.1
+- [x] E2.1 Brief format in GUIDE and the folder map; brief parser for expected diff size and files | test: `brief: parser reads files and expected diff size from a brief` | done: test green | deps: none
+- [x] E2.2 boxbox-build writes the brief before each task and hands builders fixed part then brief | no cheap test, verify: skill text has the order and the "no timestamps in the fixed part" rule; builder agent prompt expects a brief | deps: E2.1
+- [x] E2.3 Report template gets a per-task brief quote and the checker validates it | test: `check-page: a report brief quote must match the brief file` | done: test green, templates regenerated | deps: E2.1
+- [x] E2.4 Board and pit wall link each task's brief | test: `server: board task brief link is served under /b/` | done: test green | deps: E2.1
 
 ## E3 Routing gate and escalation enforcement  [todo]
 outcome: A subagent call that breaks the routing rules is denied with a reason naming the right agent and model, and the agent retries; under `models: auto` or the FORCE override the gate stands aside and the pit wall says why.

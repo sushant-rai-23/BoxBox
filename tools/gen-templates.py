@@ -416,7 +416,7 @@ REPORT_SECTIONS = [
         TESTS + """
       <p>{{One sentence on what the tests do not prove.}}</p>
       <ol class="tasks">
-        <li><b>{{E1.1}}</b>{{task title}} <span class="status" data-st="verified" data-source="pitwall:task" data-task="{{E1.1}}">{{verified / claimed, as the pit wall says}}</span></li>
+        <li><b>{{E1.1}}</b>{{task title}} <span class="status" data-st="verified" data-source="pitwall:task" data-task="{{E1.1}}">{{verified / claimed, as the pit wall says}}</span><p>Brief: <q data-brief="{{feature}}/{{unit}}/tasks/{{E1.1}}.md">{{the Goal line of the task's brief, copied exactly}}</q> <a href="tasks/{{E1.1}}.md">read the brief</a></p></li>
       </ol>""", short="Tests"),
     sec("decisions", "Decisions made while building", "yes", 40,
         "Choices not on the decisions page: what was chosen, the alternative, and the trade-off. Say 'None' if none, and why.",
