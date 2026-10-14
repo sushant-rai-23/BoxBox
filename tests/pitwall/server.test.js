@@ -214,3 +214,41 @@ test("server: priceFor matches claude-opus-5-5[1m] and sonnet cache read costs 0
   // Claude Code's own cost for the Step 0 Sonnet subagent: 2 in, 4 out, 3821 cache read, 639 cache write (5 min)
   assert.equal(Number(s.costOf({ input: 2, output: 4, cacheRead: 3821, cacheWrite5m: 639, cacheWrite1h: 0 }, s.priceFor("claude-sonnet-5-5", kit)).toFixed(7)), 0.0020236);
 });
+
+// A .boxbox whose live folder points at the Step 0 fixture: one Opus main session and three subagents.
+function fixtureBox({ withSubs = true, subUnits = {} } = {}) {
+  const os = require("os");
+  const fx = path.join(__dirname, "fixtures", "routing-session");
+  const box = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "bbcost-")), ".boxbox");
+  fs.mkdirSync(path.join(box, "live"), { recursive: true });
+  const sess = [{ session: "s", agent: "claude-code", transcript: path.join(fx, "main.jsonl"), started: "2026-10-14T03:08:00Z" }];
+  if (withSubs) for (const f of fs.readdirSync(path.join(fx, "subagents")).filter(f => f.endsWith(".jsonl")))
+    sess.push({ session: "s", agent: "claude-code", transcript: path.join(fx, "subagents", f), sub: f.slice(6, -6), started: "2026-10-14T03:08:00Z" });
+  fs.writeFileSync(path.join(box, "live", "sessions.jsonl"), sess.map(x => JSON.stringify(x)).join("\n") + "\n");
+  const ev = [{ ts: "2026-10-13T21:30:00Z", type: "stage", kind: "stage", target: "build", unit: "E2.9" }];
+  for (const [sub, unit] of Object.entries(subUnits)) ev.push({ ts: "2026-10-13T21:38:13Z", type: "crew", kind: "crew", result: "started", sub, unit, target: "boxbox:boxbox-builder" });
+  fs.writeFileSync(path.join(box, "live", "events.jsonl"), ev.map(x => JSON.stringify(x)).join("\n") + "\n");
+  return box;
+}
+
+test("server: a running subagent's tokens count under its task before SubagentStop", () => {
+  // Only SubagentStart has happened: the crew event names the task, the transcript is registered.
+  const box = fixtureBox({ subUnits: { a4bdf961c0c93ede3: "E2.1" } });
+  const t = new s.Live(box).state().tokens;
+  const e21 = t.byTask.find(r => r.id === "E2.1");
+  assert.ok(e21, "the subagent's task has its own row");
+  assert.equal(e21.tokens, 2 + 4 + 4462, "the Sonnet subagent's tokens, not the stage's");
+  const e29 = t.byTask.find(r => r.id === "E2.9");
+  assert.ok(e29.tokens > e21.tokens, "everything else stays with the stage's unit");
+  assert.equal(t.total.tokens, e21.tokens + e29.tokens);
+});
+
+test("hook: SubagentStart registers the subagent's transcript at once", () => {
+  const os = require("os"), { spawnSync } = require("child_process");
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "bbsubreg-"));
+  fs.mkdirSync(path.join(root, ".boxbox", "live"), { recursive: true });
+  const payload = { session_id: "s1", transcript_path: "/p/proj/s1.jsonl", hook_event_name: "SubagentStart", agent_id: "a7", agent_type: "boxbox:boxbox-scout" };
+  spawnSync("node", [path.join(__dirname, "../../hooks/boxbox-event.js"), "SubagentStart"], { input: JSON.stringify(payload), env: { ...process.env, BOXBOX_ROOT: root } });
+  const reg = fs.readFileSync(path.join(root, ".boxbox", "live", "sessions.jsonl"), "utf8").trim().split("\n").map(JSON.parse);
+  assert.deepEqual(reg.map(r => [r.transcript, r.sub]), [["/p/proj/s1/subagents/agent-a7.jsonl", "a7"]]);
+});

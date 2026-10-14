@@ -202,14 +202,23 @@ function activeMilestone(board) {
   return ms.find(m => m.status === "in_progress" || m.status === "review" || m.status === "changes") || ms[ms.length - 1] || null;
 }
 
-function aggregate(entries, timeline, prices, board, now) {
+// Which task each subagent worked on: the hook tags its crew events with the task of the Agent call
+// that started it. A subagent's tokens go to that task, even while another unit's stage is current.
+function subagentUnits(events) {
+  const out = new Map();
+  for (const e of events || []) if (e && e.kind === "crew" && e.sub && /^E\d+\.\d+$/.test(e.unit || "")) out.set(e.sub, e.unit);
+  return out;
+}
+
+function aggregate(entries, timeline, prices, board, now, subUnits = new Map()) {
   const ms = activeMilestone(board);
   const epicTitle = id => { const e = ms && (ms.epics || []).find(x => x.id === id); return e ? e.title : GROUP_NAME[id] || id; };
   const taskTitle = id => { for (const e of (ms && ms.epics) || []) for (const t of e.tasks || []) if (t.id === id) return t.title; return ""; };
   const byEpic = new Map(), byTask = new Map(), sessions = new Map(), unpriced = new Set();
   const all = blank("all", "All");
   for (const e of entries) {
-    const b = bucketOf(stageAt(Date.parse(e.ts), timeline));
+    const own = e.sub && subUnits.get(e.sub);
+    const b = own ? bucketOf({ unit: own }) : bucketOf(stageAt(Date.parse(e.ts), timeline));
     if (!byEpic.has(b.epic)) byEpic.set(b.epic, blank(b.epic, epicTitle(b.epic)));
     add(byEpic.get(b.epic), e, prices, unpriced);
     if (b.task) {
@@ -493,7 +502,7 @@ class Live {
       paused: { requested: fs.existsSync(path.join(this.live, "PAUSE")), held: fs.existsSync(path.join(this.live, "held")) },
       events: this.events.slice(-200),
       timeline: timeline.slice(-60).map(s => ({ ts: new Date(s.t).toISOString(), stage: s.stage, unit: s.unit, why: s.why })),
-      tokens: aggregate(this.entries(), timeline, readPrices(), board, now),
+      tokens: aggregate(this.entries(), timeline, readPrices(), board, now, subagentUnits(this.events)),
       drift: drift(board, this.events, unit, now),
       verification: verification(board, this.events),
       garage: this.garage.docs,
@@ -666,7 +675,7 @@ function summary(unit) {
   console.log(outside.length ? "Edited outside scope: " + outside.map(o => o.path).join(", ") : "Edited outside scope: none.");
 }
 
-module.exports = { parseBoard, parseState, briefHref, globToRegExp, matchAny, ingestClaudeLines, ingestCodexLines, priceFor, costOf, totals, stageTimeline, aggregate, drift, verification, currentStage, Live };
+module.exports = { parseBoard, parseState, briefHref, globToRegExp, matchAny, ingestClaudeLines, ingestCodexLines, priceFor, costOf, totals, stageTimeline, subagentUnits, aggregate, drift, verification, currentStage, Live };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
